@@ -23,6 +23,10 @@ serde = { version = "1.0.228", features = ["derive", "alloc"] }
 serde_json = { version = "1.0.150", default-features = false, features = ["alloc"] }
 serde_yaml = "0.9.34"
 
+[[bin]]
+name = "microloop-benchmark"
+path = "src/bin/benchmark.rs"
+
 [build-dependencies]
 cbindgen = "0.29.4"
 

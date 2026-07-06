@@ -454,7 +454,7 @@ impl SmartCrusher {
         let (ccr_hash, dropped_summary) = if dropped_count > 0 && self.config.enable_ccr_marker {
             let canonical = canonical_array_json(items);
             let h = hash_canonical(&canonical);
-            let marker = format!("<<ccr:{h} {dropped_count}_rows_offloaded>>");
+            let marker = format!("[{} more items. Use microloop_expand('{}', index) to view specific rows]", dropped_count, h);
             if let Some(store) = &self.ccr_store {
                 store.put(&h, &canonical);
             }

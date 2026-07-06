@@ -2,10 +2,10 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "snake_case")]
-pub enum Strictness {
-    Lenient,
-    Balanced,
-    Strict,
+pub enum Sensitivity {
+    Low,
+    Default,
+    High,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -53,9 +53,19 @@ pub struct ErrorDetectionCfg {
     pub regex: Option<String>,
 }
 
+#[derive(Deserialize, Debug, Clone, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum CostTier {
+    Low,
+    Medium,
+    High,
+}
+
 #[derive(Deserialize, Debug, Clone)]
 pub struct ToolTrajectoryGate {
     pub max_repeats: Option<usize>,
+    pub cost_tier: Option<CostTier>,
+    pub cost_weight: Option<f32>,
     pub count_mode: Option<CountMode>,
     #[serde(default)]
     pub volatile_fields: Vec<String>,
@@ -70,8 +80,8 @@ pub struct ToolConfig {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct MicroloopConfig {
-    #[serde(default = "default_strictness")]
-    pub strictness: Strictness,
+    #[serde(default = "default_sensitivity")]
+    pub sensitivity: Sensitivity,
     #[serde(default = "default_max_repeats")]
     pub max_repeats: usize,
     #[serde(default)]
@@ -92,8 +102,8 @@ impl MicroloopConfig {
     }
 }
 
-fn default_strictness() -> Strictness {
-    Strictness::Balanced
+fn default_sensitivity() -> Sensitivity {
+    Sensitivity::Default
 }
 
 fn default_max_repeats() -> usize {
