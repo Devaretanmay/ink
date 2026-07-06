@@ -6,7 +6,6 @@ use std::env;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-mod blocklist;
 mod proxy;
 mod ccr;
 
@@ -28,22 +27,6 @@ async fn main() {
     });
     println!("Microloop core initialized.");
 
-    let redis_url = env::var("REDIS_URL").unwrap_or_default();
-    let semantic_blocklist: Arc<dyn crate::blocklist::BlocklistStore> = if redis_url.is_empty() {
-        Arc::new(crate::blocklist::InMemoryBlocklist::new())
-    } else {
-        match crate::blocklist::RedisBlocklist::new(&redis_url) {
-            Ok(redis_blocklist) => Arc::new(redis_blocklist),
-            Err(e) => {
-                eprintln!("Warning: Failed to connect to Redis ({}), falling back to in-memory blocklist", e);
-                Arc::new(crate::blocklist::InMemoryBlocklist::new())
-            }
-        }
-    };
-
-    let sidecar_url = env::var("SIDECAR_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:8081".to_string());
-
     let ccr_db_path = env::var("CCR_DB_PATH").unwrap_or_else(|_| "microloop_ccr.db".to_string());
     let ccr_store = match crate::ccr::CcrStore::new(&ccr_db_path) {
         Ok(store) => Arc::new(store),
@@ -55,15 +38,12 @@ async fn main() {
 
     let state = proxy::AppState {
         microloop_state: Arc::new(Mutex::new(microloop_state)),
-        semantic_blocklist,
         target_base_url: env::var("TARGET_API_URL")
             .unwrap_or_else(|_| "https://api.openai.com".to_string()),
         api_key: env::var("OPENAI_API_KEY").unwrap_or_else(|_| {
             eprintln!("Warning: OPENAI_API_KEY not set, upstream requests will likely 401");
             String::new()
         }),
-        sidecar_url,
-        http_client: reqwest::Client::new(),
         ccr_store,
         trajectory_summary: Arc::new(Mutex::new(proxy::RollingSummary::new(5))),
     };

@@ -7,9 +7,11 @@ pub mod canonical;
 pub mod config;
 pub mod engine;
 pub mod history;
+pub mod tool_schemas;
 
 use std::ffi::c_char;
 pub use state::MicroloopState;
+pub use history::LoopVerdict;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn microloop_init(yaml_str: *const u8, yaml_len: usize) -> *mut MicroloopState {
@@ -65,16 +67,20 @@ pub fn verify(state: &mut MicroloopState, tool_slice: &[u8], args_slice: &[u8]) 
     let args_str = std::str::from_utf8(args_slice).unwrap_or("").to_string();
 
     let max_repeats = state.get_effective_threshold(&tool_str);
-    
-    if let Err(msg) = state.history.check_loop(
+
+    match state.history.check_loop(
         &tool_str,
         &args_str,
         state.ignore_args,
         max_repeats,
         state.history_window,
     ) {
-        state.set_error(&msg);
-        return state.block_result();
+        history::LoopVerdict::Allow => {}
+        history::LoopVerdict::WarnOscillation(msg) => state.set_warning(&msg),
+        history::LoopVerdict::BlockExactMatch(msg) | history::LoopVerdict::BlockOscillation(msg) => {
+            state.set_error(&msg);
+            return state.block_result();
+        }
     }
 
     if let Err(msg) = state.engine.validate(&args_str) {
@@ -83,6 +89,18 @@ pub fn verify(state: &mut MicroloopState, tool_slice: &[u8], args_slice: &[u8]) 
     }
 
     0
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn microloop_get_last_warning(state_ptr: *mut MicroloopState) -> *const c_char {
+    if state_ptr.is_null() {
+        return std::ptr::null();
+    }
+    let state = unsafe { &*state_ptr };
+    if state.warning_buffer.is_empty() {
+        return std::ptr::null();
+    }
+    state.warning_buffer.as_ptr() as *const c_char
 }
 
 #[unsafe(no_mangle)]

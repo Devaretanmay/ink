@@ -381,6 +381,28 @@ impl SmartCrusher {
             };
         }
 
+        if self.config.preview_count > 0 && items.len() > self.config.preview_count {
+            let preview: Vec<Value> = items.iter().take(self.config.preview_count).cloned().collect();
+            let dropped_count = items.len() - self.config.preview_count;
+            let canonical = canonical_array_json(items);
+            let h = hash_canonical(&canonical);
+            let marker = format!(
+                "[{} more items. Use microloop_expand('{}', index) to view specific rows]",
+                dropped_count, h
+            );
+            if let Some(store) = &self.ccr_store {
+                store.put_with_version(&h, &canonical, 1);
+            }
+            return CrushArrayResult {
+                items: preview,
+                strategy_info: format!("preview:{}->{}", items.len(), self.config.preview_count),
+                ccr_hash: Some(h),
+                dropped_summary: marker,
+                compacted: None,
+                compaction_kind: None,
+            };
+        }
+
         if let Some(stage) = &self.compaction {
             let (c, rendered) = stage.run_with_store(items, self.ccr_store.as_ref());
             if c.was_compacted() {

@@ -23,11 +23,12 @@ impl SqliteCcrStore {
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS ccr_entries (
-                 hash         TEXT PRIMARY KEY,
-                 original     BLOB NOT NULL,
-                 created_at   INTEGER NOT NULL,
-                 ttl_seconds  INTEGER NOT NULL
-             )",
+                  hash            TEXT PRIMARY KEY,
+                  original        BLOB NOT NULL,
+                  schema_version  INTEGER NOT NULL DEFAULT 0,
+                  created_at      INTEGER NOT NULL,
+                  ttl_seconds     INTEGER NOT NULL
+              )",
             [],
         )?;
 
@@ -63,19 +64,21 @@ impl SqliteCcrStore {
 }
 
 impl CcrStore for SqliteCcrStore {
-    fn put(&self, hash: &str, payload: &str) {
+    fn put_with_version(&self, hash: &str, payload: &str, schema_version: u8) {
         let now = Self::now_unix_seconds();
         let conn = self.conn.lock().expect("ccr sqlite mutex poisoned");
         let res = conn.execute(
-            "INSERT INTO ccr_entries (hash, original, created_at, ttl_seconds)
-             VALUES (?1, ?2, ?3, ?4)
+            "INSERT INTO ccr_entries (hash, original, schema_version, created_at, ttl_seconds)
+             VALUES (?1, ?2, ?3, ?4, ?5)
              ON CONFLICT(hash) DO UPDATE SET
-                 original    = excluded.original,
-                 created_at  = excluded.created_at,
-                 ttl_seconds = excluded.ttl_seconds",
+                 original        = excluded.original,
+                 schema_version  = excluded.schema_version,
+                 created_at      = excluded.created_at,
+                 ttl_seconds     = excluded.ttl_seconds",
             params![
                 hash,
                 payload.as_bytes(),
+                schema_version as i64,
                 now as i64,
                 self.default_ttl_seconds as i64,
             ],
@@ -90,7 +93,7 @@ impl CcrStore for SqliteCcrStore {
         }
     }
 
-    fn get(&self, hash: &str) -> Option<String> {
+    fn get_with_version(&self, hash: &str) -> Option<(String, u8)> {
         let now = Self::now_unix_seconds();
         let conn = self.conn.lock().expect("ccr sqlite mutex poisoned");
 
@@ -102,12 +105,12 @@ impl CcrStore for SqliteCcrStore {
             );
         }
 
-        let row: Option<Vec<u8>> = conn
+        let row: Option<(Vec<u8>, i64)> = conn
             .query_row(
-                "SELECT original FROM ccr_entries
+                "SELECT original, schema_version FROM ccr_entries
                  WHERE hash = ?1 AND created_at + ttl_seconds > ?2",
                 params![hash, now as i64],
-                |r| r.get::<_, Vec<u8>>(0),
+                |r| Ok((r.get::<_, Vec<u8>>(0)?, r.get::<_, i64>(1)?)),
             )
             .optional()
             .unwrap_or_else(|err| {
@@ -120,7 +123,11 @@ impl CcrStore for SqliteCcrStore {
                 None
             });
 
-        row.and_then(|bytes| String::from_utf8(bytes).ok())
+        row.and_then(|(bytes, ver)| {
+            String::from_utf8(bytes)
+                .ok()
+                .map(|s| (s, ver.clamp(0, 255) as u8))
+        })
     }
 
     fn len(&self) -> usize {

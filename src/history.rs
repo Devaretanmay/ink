@@ -110,12 +110,7 @@ pub fn pair_tool_calls(messages: &[Value]) -> Vec<(ToolCallInfo, ToolResult)> {
 }
 
 fn get_json_path_value<'a>(val: &'a Value, path: &str) -> Option<&'a Value> {
-        let pointer_path = if let Some(stripped) = path.strip_prefix("$.") {
-        format!("/{}", stripped.replace('.', "/"))
-    } else {
-        path.to_string()
-    };
-    val.pointer(&pointer_path)
+    val.pointer(&path.replace("$.", "/").replace('.', "/"))
 }
 
 pub fn is_error_response(result: &str, cfg: Option<&ErrorDetectionCfg>) -> bool {
@@ -148,11 +143,25 @@ pub fn is_error_response(result: &str, cfg: Option<&ErrorDetectionCfg>) -> bool 
     false
 }
 
+#[derive(Debug, PartialEq)]
+pub enum LoopVerdict {
+    Allow,
+    WarnOscillation(String),
+    BlockExactMatch(String),
+    BlockOscillation(String),
+}
+
 const MAX_TOOLS: usize = 256;
 const SEQ_LEN: usize = 16;
 
 pub struct ToolArena {
     names: Vec<String>,
+}
+
+impl Default for ToolArena {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ToolArena {
@@ -224,7 +233,7 @@ impl HistoryTracker {
         ignore_args: bool,
         max_repeats: usize,
         history_window: Option<usize>,
-    ) -> Result<(), String> {
+    ) -> LoopVerdict {
         let mut repeat_count = 1;
         let window_size = history_window
             .unwrap_or(max_repeats * 2)
@@ -237,7 +246,10 @@ impl HistoryTracker {
         }
 
         if repeat_count >= max_repeats {
-            return Err(format!("Agent appears to be looping on tool {}", tool));
+            return LoopVerdict::BlockExactMatch(format!(
+                "Agent appears to be looping on tool {}",
+                tool
+            ));
         }
 
         let tool_id = self.tool_arena.get_or_insert(tool);
@@ -249,16 +261,24 @@ impl HistoryTracker {
             self.oscillation_cycles += 1;
             let changing = self.check_argument_variance(period);
             if !changing {
-                return Err("Agent is stuck in an oscillation loop with identical arguments.".into());
+                return LoopVerdict::BlockOscillation(
+                    "Agent is stuck in an oscillation loop with identical arguments.".into(),
+                );
             }
             if self.oscillation_cycles >= max_repeats {
-                return Err(format!("Agent oscillated {} times without progress. Pivot required.", self.oscillation_cycles));
+                return LoopVerdict::BlockOscillation(format!(
+                    "Agent oscillated {} times without progress. Pivot required.",
+                    self.oscillation_cycles
+                ));
             }
-        } else {
-            self.oscillation_cycles = 0;
+            return LoopVerdict::WarnOscillation(format!(
+                "Agent appears to be oscillating between tools (cycle {}). Are arguments converging?",
+                self.oscillation_cycles
+            ));
         }
 
-        Ok(())
+        self.oscillation_cycles = 0;
+        LoopVerdict::Allow
     }
 
     fn detect_oscillation(&self) -> Option<usize> {

@@ -1,6 +1,6 @@
 
 
-use crate::config::{MicroloopConfig, MicroloopDefaults, Sensitivity, ToolConfig, CostTier};
+use crate::config::{MicroloopConfig, MicroloopDefaults, Sensitivity, ToolConfig};
 use crate::engine::RuleEngine;
 use crate::history::HistoryTracker;
 
@@ -15,6 +15,7 @@ pub struct MicroloopState {
     pub engine: RuleEngine,
     pub history: HistoryTracker,
     pub error_buffer: Vec<u8>,
+    pub warning_buffer: Vec<u8>,
 
     pub defaults: Option<MicroloopDefaults>,
     pub tools: Vec<ToolConfig>,
@@ -35,6 +36,7 @@ impl MicroloopState {
             engine,
             history,
             error_buffer: Vec::with_capacity(ERROR_BUF_SIZE),
+            warning_buffer: Vec::with_capacity(ERROR_BUF_SIZE),
             defaults: config.defaults,
             tools: config.tools,
         })
@@ -48,28 +50,12 @@ impl MicroloopState {
         }
     }
 
-    pub fn get_effective_threshold(&self, tool_name: &str) -> usize {
-        let base = match self.sensitivity {
+    pub fn get_effective_threshold(&self, _tool_name: &str) -> usize {
+        match self.sensitivity {
             Sensitivity::Low => (self.max_repeats as f32 * 1.5) as usize,
             Sensitivity::Default => self.max_repeats,
             Sensitivity::High => (self.max_repeats as f32 * 0.6) as usize,
-        };
-
-        if let Some(tool_cfg) = self.tools.iter().find(|t| t.name == tool_name) {
-            let gate = &tool_cfg.trajectory_gate;
-            if let Some(weight) = gate.cost_weight {
-                    return (base as f32 / weight).max(1.0) as usize;
-                }
-                if let Some(ref tier) = gate.cost_tier {
-                    return match tier {
-                        CostTier::Low => base + 2,
-                        CostTier::Medium => base,
-                        CostTier::High => base.saturating_sub(1).max(1),
-                    };
-                }
-            }
-        
-        base
+        }
     }
 
     pub fn set_error(&mut self, msg: &str) {
@@ -79,5 +65,18 @@ impl MicroloopState {
         self.error_buffer
             .extend_from_slice(&msg.as_bytes()[..max_len]);
         self.error_buffer.push(0);
+    }
+
+    pub fn set_warning(&mut self, msg: &str) {
+        self.warning_buffer.clear();
+
+        let max_len = (ERROR_BUF_SIZE - 1).min(msg.len());
+        self.warning_buffer
+            .extend_from_slice(&msg.as_bytes()[..max_len]);
+        self.warning_buffer.push(0);
+    }
+
+    pub fn has_warning(&self) -> bool {
+        !self.warning_buffer.is_empty()
     }
 }

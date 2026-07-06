@@ -43,7 +43,7 @@ impl RedisCcrStore {
 }
 
 impl CcrStore for RedisCcrStore {
-    fn put(&self, hash: &str, payload: &str) {
+    fn put_with_version(&self, hash: &str, payload: &str, schema_version: u8) {
         let key = self.key_for(hash);
         let mut conn = match self.client.get_connection() {
             Ok(c) => c,
@@ -57,8 +57,9 @@ impl CcrStore for RedisCcrStore {
                 return;
             }
         };
+        let data = serde_json::json!({"v": schema_version, "d": payload}).to_string();
         let res: redis::RedisResult<()> =
-            conn.set_ex(&key, payload.as_bytes(), self.default_ttl_seconds);
+            conn.set_ex(&key, data.as_bytes(), self.default_ttl_seconds);
         if let Err(err) = res {
             tracing::warn!(
                 target = "ccr.redis",
@@ -69,7 +70,7 @@ impl CcrStore for RedisCcrStore {
         }
     }
 
-    fn get(&self, hash: &str) -> Option<String> {
+    fn get_with_version(&self, hash: &str) -> Option<(String, u8)> {
         let key = self.key_for(hash);
         let mut conn = match self.client.get_connection() {
             Ok(c) => c,
@@ -85,7 +86,18 @@ impl CcrStore for RedisCcrStore {
         };
         let bytes: redis::RedisResult<Option<Vec<u8>>> = conn.get(&key);
         match bytes {
-            Ok(Some(bytes)) => String::from_utf8(bytes).ok(),
+            Ok(Some(bytes)) => {
+                let raw = String::from_utf8(bytes).ok()?;
+                if let Ok(wrapped) = serde_json::from_str::<serde_json::Value>(&raw) {
+                    if let (Some(v), Some(d)) = (
+                        wrapped.get("v").and_then(|v| v.as_u64()),
+                        wrapped.get("d").and_then(|d| d.as_str()),
+                    ) {
+                        return Some((d.to_string(), v.min(255) as u8));
+                    }
+                }
+                Some((raw, 0))
+            }
             Ok(None) => None,
             Err(err) => {
                 tracing::warn!(

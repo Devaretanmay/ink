@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 pub mod auth_mode;
 pub mod cache_control;
 pub mod ccr;

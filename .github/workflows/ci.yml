@@ -39,4 +39,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo run --release --bin microloop-bench
+      - run: cargo run --release --bin microloop-benchmark

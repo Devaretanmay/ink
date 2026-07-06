@@ -6,9 +6,17 @@ use std::time::Duration;
 pub use backends::{from_config, CcrBackendConfig, CcrBackendInitError, InMemoryCcrStore};
 
 pub trait CcrStore: Send + Sync {
-    fn put(&self, hash: &str, payload: &str);
+    fn put(&self, hash: &str, payload: &str) {
+        self.put_with_version(hash, payload, 0);
+    }
 
-    fn get(&self, hash: &str) -> Option<String>;
+    fn put_with_version(&self, hash: &str, payload: &str, schema_version: u8);
+
+    fn get(&self, hash: &str) -> Option<String> {
+        self.get_with_version(hash).map(|(s, _)| s)
+    }
+
+    fn get_with_version(&self, hash: &str) -> Option<(String, u8)>;
 
     fn len(&self) -> usize;
 

@@ -25,6 +25,7 @@ pub struct SmartCrusherConfig {
     pub compaction_max_flatten_inner_keys: usize,
     pub compaction_min_buckets: usize,
     pub compaction_max_buckets: usize,
+    pub preview_count: usize,
 }
 
 impl SmartCrusherConfig {
@@ -60,6 +61,7 @@ impl Default for SmartCrusherConfig {
             compaction_max_flatten_inner_keys: 6,
             compaction_min_buckets: 2,
             compaction_max_buckets: 8,
+            preview_count: 3,
         }
     }
 }
@@ -95,5 +97,6 @@ mod tests {
         assert_eq!(c.compaction_max_flatten_inner_keys, 6);
         assert_eq!(c.compaction_min_buckets, 2);
         assert_eq!(c.compaction_max_buckets, 8);
+        assert_eq!(c.preview_count, 3);
     }
 }

@@ -144,18 +144,11 @@ class MicroloopLiteLLMGuardrail(CustomGuardrail):
         if not messages:
             return None
         last = messages[-1]
-        # OpenAI-style tool_calls
+        # LiteLLM normalizes all provider formats to OpenAI-style tool_calls
         for call in last.get("tool_calls") or []:
             fn = call.get("function") or {}
             if fn.get("name"):
                 return fn
-        # Anthropic-style content blocks
-        for block in last.get("content") or []:
-            if isinstance(block, dict) and block.get("type") == "tool_use":
-                return {
-                    "name": block.get("name", ""),
-                    "arguments": json.dumps(block.get("input") or {}),
-                }
         return None
 
     @staticmethod

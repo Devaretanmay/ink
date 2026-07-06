@@ -8,12 +8,14 @@ use axum::{
     },
 };
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
 use sha2::{Digest, Sha256};
+
+const MAX_INNER_ROUNDS: usize = 3;
+const MICROLOOP_EXPAND_TOOL: &str = "microloop_expand";
 
 pub struct RollingSummary {
     pub max_size: usize,
@@ -43,26 +45,11 @@ impl RollingSummary {
     }
 }
 
-#[derive(Serialize)]
-pub struct AnalyzePayload {
-    pub session_id: String,
-    pub tool_call: String,
-    pub llm_error_response: String,
-}
-
-#[derive(Deserialize)]
-struct SidecarResponse {
-    loop_detected: bool,
-}
-
 #[derive(Clone)]
 pub struct AppState {
     pub microloop_state: Arc<Mutex<microloop::state::MicroloopState>>,
-    pub semantic_blocklist: std::sync::Arc<dyn crate::blocklist::BlocklistStore>,
     pub target_base_url: String,
     pub api_key: String,
-    pub sidecar_url: String,
-    pub http_client: Client,
     pub ccr_store: Arc<crate::ccr::CcrStore>,
     pub trajectory_summary: Arc<Mutex<RollingSummary>>,
 }
@@ -91,12 +78,6 @@ pub async fn intercept_tool_calls(
             ts.push(session_id, sig);
         }
     }
-
-    let llm_error_response = response
-        .pointer("/choices/0/message/content")
-        .and_then(|c| c.as_str())
-        .unwrap_or("")
-        .to_string();
 
     let mut parsed_tool_calls = Vec::new();
     let mut is_anthropic = false;
@@ -148,34 +129,6 @@ pub async fn intercept_tool_calls(
     }
 
     for (name, arguments_str, arguments_val) in parsed_tool_calls {
-        
-        if app_state.semantic_blocklist.is_blocked(session_id, &name).await.unwrap_or(false) {
-            eprintln!("Semantic Loop Blocked: tool {}", name);
-            block_response(response, is_anthropic, format!("Semantic loop detected on tool '{}'", name));
-            return;
-        }
-        
-        let analyze_payload = AnalyzePayload {
-            session_id: session_id.to_string(),
-            tool_call: format!("{}({})", name, arguments_str),
-            llm_error_response: llm_error_response.clone(),
-        };
-
-        if !app_state.sidecar_url.is_empty() {
-            let url = format!("{}/analyze", app_state.sidecar_url);
-            let loop_detected = async {
-                let resp = app_state.http_client.post(&url).json(&analyze_payload).send().await.ok()?;
-                let result = resp.json::<SidecarResponse>().await.ok()?;
-                Some(result.loop_detected)
-            }.await.unwrap_or(false);
-
-            if loop_detected {
-                eprintln!("Semantic Loop Blocked (sync): tool {}", name);
-                block_response(response, is_anthropic, format!("Semantic loop detected on tool '{}'", name));
-                return;
-            }
-        }
-
         let mut state = app_state.microloop_state.lock().unwrap();
 
         let empty_volatile = Vec::new();
@@ -366,6 +319,234 @@ fn block_response(response: &mut Value, is_anthropic: bool, err_str: String) {
     }
 }
 
+fn inject_microloop_tool(body: &mut Value) {
+    let is_anthropic = path_is_anthropic(body);
+    let tool_def = if is_anthropic {
+        microloop::tool_schemas::microloop_expand_tool_anthropic()
+    } else {
+        microloop::tool_schemas::microloop_expand_tool_openai()
+    };
+
+    if let Some(map) = body.as_object_mut() {
+        if let Some(Value::Array(tools)) = map.get_mut("tools") {
+            let already_present = tools.iter().any(|t| {
+                let name = if is_anthropic {
+                    t.get("name").and_then(|n| n.as_str())
+                } else {
+                    t.pointer("/function/name").and_then(|n| n.as_str())
+                };
+                name == Some(MICROLOOP_EXPAND_TOOL)
+            });
+            if !already_present {
+                tools.push(tool_def);
+            }
+        } else {
+            map.insert("tools".to_string(), json!([tool_def]));
+        }
+    }
+}
+
+fn path_is_anthropic(body: &Value) -> bool {
+    body.get("anthropic_version").is_some()
+        || body.get("max_tokens").is_some()
+}
+
+fn collect_microloop_expand_calls(response: &Value) -> Vec<(String, String, usize)> {
+    let mut calls = Vec::new();
+
+    if let Some(choices) = response.get("choices").and_then(|c| c.as_array()) {
+        if let Some(first) = choices.first() {
+            if let Some(msg) = first.get("message") {
+                if let Some(tool_calls) = msg.get("tool_calls").and_then(|tc| tc.as_array()) {
+                    for tc in tool_calls {
+                        if let Some(func) = tc.get("function") {
+                            let name = func.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                            if name == MICROLOOP_EXPAND_TOOL {
+                                let id = tc.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string();
+                                let args_str = func.get("arguments").and_then(|a| a.as_str()).unwrap_or("{}");
+                                if let Ok(args) = serde_json::from_str::<Value>(args_str) {
+                                    let hash = args.get("hash").and_then(|h| h.as_str()).unwrap_or("").to_string();
+                                    let index = args.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+                                    calls.push((id, hash, index));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if response.get("type").and_then(|t| t.as_str()) == Some("message") {
+        if let Some(content) = response.get("content").and_then(|c| c.as_array()) {
+            for block in content {
+                if block.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
+                    let name = block.get("name").and_then(|n| n.as_str()).unwrap_or("");
+                    if name == MICROLOOP_EXPAND_TOOL {
+                        let id = block.get("id").and_then(|i| i.as_str()).unwrap_or("").to_string();
+                        let input = block.get("input").and_then(|i| i.as_object());
+                        if let Some(input_map) = input {
+                            let hash = input_map.get("hash").and_then(|h| h.as_str()).unwrap_or("").to_string();
+                            let index = input_map.get("index").and_then(|i| i.as_u64()).unwrap_or(0) as usize;
+                            calls.push((id, hash, index));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    calls
+}
+
+fn build_assistant_message(response: &Value) -> Option<Value> {
+    if let Some(choices) = response.get("choices").and_then(|c| c.as_array()) {
+        if let Some(first) = choices.first() {
+            if let Some(msg) = first.get("message").cloned() {
+                return Some(msg);
+            }
+        }
+    }
+    if response.get("type").and_then(|t| t.as_str()) == Some("message") {
+        let mut msg = json!({"role": "assistant"});
+        if let Some(content) = response.get("content").cloned() {
+            msg.as_object_mut().unwrap().insert("content".to_string(), content);
+        }
+        return Some(msg);
+    }
+    None
+}
+
+fn build_tool_result_openai(call_id: &str, item_json: &str, _hash: &str) -> Value {
+    json!({
+        "role": "tool",
+        "tool_call_id": call_id,
+        "content": item_json
+    })
+}
+
+fn build_tool_result_anthropic(call_id: &str, item_json: &str, _hash: &str) -> Value {
+    json!({
+        "role": "user",
+        "content": [{
+            "type": "tool_result",
+            "tool_use_id": call_id,
+            "content": item_json
+        }]
+    })
+}
+
+fn filter_microloop_from_response(response: &mut Value) {
+    if let Some(choices) = response.get_mut("choices").and_then(|c| c.as_array_mut()) {
+        if let Some(first) = choices.first_mut() {
+            if let Some(msg) = first.get_mut("message") {
+                if let Some(tool_calls) = msg.get_mut("tool_calls").and_then(|tc| tc.as_array_mut()) {
+                    tool_calls.retain(|tc| {
+                        tc.pointer("/function/name")
+                            .and_then(|n| n.as_str()) != Some(MICROLOOP_EXPAND_TOOL)
+                    });
+                    if tool_calls.is_empty() {
+                        msg.as_object_mut().unwrap().remove("tool_calls");
+                    }
+                }
+            }
+        }
+    }
+    if response.get("type").and_then(|t| t.as_str()) == Some("message") {
+        if let Some(content) = response.get_mut("content").and_then(|c| c.as_array_mut()) {
+            content.retain(|block| {
+                if block.get("type").and_then(|t| t.as_str()) == Some("tool_use") {
+                    block.get("name").and_then(|n| n.as_str()) != Some(MICROLOOP_EXPAND_TOOL)
+                } else {
+                    true
+                }
+            });
+            if content.is_empty() {
+                if let Value::Object(map) = response {
+                    let fallback = json!([{"type": "text", "text": "The expanded data has been retrieved and processed."}]);
+                    map.insert("content".to_string(), fallback);
+                }
+            }
+        }
+    }
+}
+
+async fn execute_inner_loop(
+    response: &mut Value,
+    body: &Value,
+    ccr_store: &crate::ccr::CcrStore,
+    url: &str,
+    headers: &reqwest::header::HeaderMap,
+    client: &Client,
+) {
+    for _round in 0..MAX_INNER_ROUNDS {
+        let expand_calls = collect_microloop_expand_calls(response);
+
+        if expand_calls.is_empty() {
+            break;
+        }
+
+        let is_anthropic = path_is_anthropic(body);
+        let mut tool_results: Vec<Value> = Vec::new();
+
+        for (call_id, hash, index) in &expand_calls {
+            let item = match ccr_store.get(hash) {
+                Some(content) => {
+                    match serde_json::from_str::<Value>(&content) {
+                        Ok(Value::Array(items)) => {
+                            if *index < items.len() {
+                                serde_json::to_string(&items[*index]).unwrap_or_else(|_| "null".to_string())
+                            } else {
+                                format!("Error: index {} out of bounds (array length {})", index, items.len())
+                            }
+                        }
+                        Ok(_) => "Error: stored data is not a JSON array".to_string(),
+                        Err(_) => "Error: stored data is not valid JSON".to_string(),
+                    }
+                }
+                None => format!("Error: hash {} not found in CCR store", hash),
+            };
+
+            let result = if is_anthropic {
+                build_tool_result_anthropic(call_id, &item, hash)
+            } else {
+                build_tool_result_openai(call_id, &item, hash)
+            };
+            tool_results.push(result);
+        }
+
+        if let Some(assistant_msg) = build_assistant_message(response) {
+            let mut new_body = body.clone();
+            if let Some(Value::Array(messages)) = new_body.get_mut("messages") {
+                messages.push(assistant_msg);
+                messages.extend(tool_results);
+            }
+
+            let follow_up = client
+                .post(url)
+                .headers(headers.clone())
+                .json(&new_body)
+                .send()
+                .await;
+
+            match follow_up {
+                Ok(resp) if resp.status().is_success() => {
+                    if let Ok(json) = resp.json::<Value>().await {
+                        *response = json;
+                    } else {
+                        break;
+                    }
+                }
+                _ => break,
+            }
+        } else {
+            break;
+        }
+    }
+
+    filter_microloop_from_response(response);
+}
+
 pub async fn handle_proxy_request(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -394,9 +575,9 @@ pub async fn handle_proxy_request(
         .and_then(|s| s.as_bool())
         .unwrap_or(false);
 
-    if let Value::Object(ref mut map) = body {
+        if let Value::Object(ref mut map) = body {
             map.insert("stream".to_string(), json!(false));
-            
+
             if let Some(Value::Array(messages)) = map.get_mut("messages") {
                 for msg in messages.iter_mut() {
                     if let Some(msg_map) = msg.as_object_mut() {
@@ -404,15 +585,15 @@ pub async fn handle_proxy_request(
                             if let Some(content_val) = msg_map.get_mut("content") {
                                 if let Some(content_str) = content_val.as_str() {
                                     let compressed = microloop_compress::route_and_compress(content_str);
-                                    
+
                                     let mut hasher = Sha256::new();
                                     hasher.update(content_str.as_bytes());
                                     let original_hash = format!("{:x}", hasher.finalize());
-                                    
+
                                     if let Err(e) = state.ccr_store.insert(&original_hash, content_str) {
                                         eprintln!("CCR Insert Error: {}", e);
                                     }
-                                    
+
                                     *content_val = json!(format!(
                                         "{}\n[Original data truncated. Call microloop_retrieve with hash: {}]",
                                         compressed, original_hash
@@ -423,6 +604,8 @@ pub async fn handle_proxy_request(
                     }
                 }
             }
+
+            inject_microloop_tool(&mut body);
         }
 
     let mut upstream_headers = reqwest::header::HeaderMap::new();
@@ -445,7 +628,7 @@ pub async fn handle_proxy_request(
 
     let resp = match client
         .post(&url)
-        .headers(upstream_headers)
+        .headers(upstream_headers.clone())
         .json(&body)
         .send()
         .await
@@ -480,6 +663,16 @@ pub async fn handle_proxy_request(
 
     intercept_tool_calls(&session_id, &body, &mut response_json, &state).await;
 
+    execute_inner_loop(
+        &mut response_json,
+        &body,
+        state.ccr_store.as_ref(),
+        &url,
+        &upstream_headers,
+        &client,
+    )
+    .await;
+
     if stream_requested {
         let sse_stream = stream! {
             let mut chunk1 = response_json.clone();
@@ -502,18 +695,13 @@ pub async fn handle_proxy_request(
 mod tests {
     use super::*;
     use std::sync::{Arc, Mutex};
-    use crate::blocklist::InMemoryBlocklist;
-
     #[tokio::test]
     async fn test_volatile_auto_inference() {
         let state = microloop::state::MicroloopState::new("max_repeats: 3\n").unwrap();
         let app_state = AppState {
             microloop_state: Arc::new(Mutex::new(state)),
-            semantic_blocklist: Arc::new(InMemoryBlocklist::new()),
             target_base_url: "".to_string(),
             api_key: "".to_string(),
-            sidecar_url: "".to_string(),
-            http_client: reqwest::Client::new(),
             ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
             trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
@@ -559,11 +747,8 @@ mod tests {
         let state = microloop::state::MicroloopState::new("max_repeats: 3\n").unwrap();
         let app_state = AppState {
             microloop_state: Arc::new(Mutex::new(state)),
-            semantic_blocklist: Arc::new(InMemoryBlocklist::new()),
             target_base_url: "".to_string(),
             api_key: "".to_string(),
-            sidecar_url: "".to_string(),
-            http_client: reqwest::Client::new(),
             ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
             trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
@@ -605,30 +790,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_blocklist_trait_in_memory() {
-        use crate::blocklist::BlocklistStore;
-        let blocklist = InMemoryBlocklist::new();
-        
-        assert!(!blocklist.is_blocked("session_1", "tool_a").await.unwrap());
-        
-        blocklist.add_block("session_1", "tool_a").await.unwrap();
-        assert!(blocklist.is_blocked("session_1", "tool_a").await.unwrap());
-        
-        assert!(!blocklist.is_blocked("session_2", "tool_a").await.unwrap());
-        
-        assert!(!blocklist.is_blocked("session_1", "tool_b").await.unwrap());
-    }
-
-    #[tokio::test]
     async fn test_auto_inference_requires_multiple_diffs() {
         let state = microloop::state::MicroloopState::new("max_repeats: 3\n").unwrap();
         let app_state = AppState {
             microloop_state: Arc::new(Mutex::new(state)),
-            semantic_blocklist: Arc::new(InMemoryBlocklist::new()),
             target_base_url: "".to_string(),
             api_key: "".to_string(),
-            sidecar_url: "".to_string(),
-            http_client: reqwest::Client::new(),
             ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
             trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
@@ -674,11 +841,8 @@ mod tests {
         let state = microloop::state::MicroloopState::new("max_repeats: 3\n").unwrap();
         let app_state = AppState {
             microloop_state: Arc::new(Mutex::new(state)),
-            semantic_blocklist: Arc::new(InMemoryBlocklist::new()),
             target_base_url: "".to_string(),
             api_key: "".to_string(),
-            sidecar_url: "".to_string(),
-            http_client: reqwest::Client::new(),
             ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
             trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
@@ -725,11 +889,8 @@ mod tests {
         ).unwrap();
         let app_state = AppState {
             microloop_state: Arc::new(Mutex::new(state)),
-            semantic_blocklist: Arc::new(InMemoryBlocklist::new()),
             target_base_url: "".to_string(),
             api_key: "".to_string(),
-            sidecar_url: "".to_string(),
-            http_client: reqwest::Client::new(),
             ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
             trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };

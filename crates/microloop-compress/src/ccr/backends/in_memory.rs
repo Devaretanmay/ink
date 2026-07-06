@@ -17,6 +17,7 @@ pub struct InMemoryCcrStore {
 #[derive(Clone)]
 struct Entry {
     payload: String,
+    version: u8,
     inserted: Instant,
 }
 
@@ -52,9 +53,10 @@ impl Default for InMemoryCcrStore {
 }
 
 impl CcrStore for InMemoryCcrStore {
-    fn put(&self, hash: &str, payload: &str) {
+    fn put_with_version(&self, hash: &str, payload: &str, schema_version: u8) {
         if let Some(mut existing) = self.map.get_mut(hash) {
             existing.payload = payload.to_string();
+            existing.version = schema_version;
             existing.inserted = Instant::now();
             return;
         }
@@ -64,6 +66,7 @@ impl CcrStore for InMemoryCcrStore {
         }
         let entry = Entry {
             payload: payload.to_string(),
+            version: schema_version,
             inserted: Instant::now(),
         };
         let prev = self.map.insert(hash.to_string(), entry);
@@ -75,10 +78,10 @@ impl CcrStore for InMemoryCcrStore {
         }
     }
 
-    fn get(&self, hash: &str) -> Option<String> {
+    fn get_with_version(&self, hash: &str) -> Option<(String, u8)> {
         if let Some(entry) = self.map.get(hash) {
             if entry.inserted.elapsed() <= self.ttl {
-                return Some(entry.payload.clone());
+                return Some((entry.payload.clone(), entry.version));
             }
         } else {
             return None;
@@ -90,7 +93,7 @@ impl CcrStore for InMemoryCcrStore {
         if was_removed {
             None
         } else {
-            self.map.get(hash).map(|e| e.payload.clone())
+            self.map.get(hash).map(|e| (e.payload.clone(), e.version))
         }
     }
 
