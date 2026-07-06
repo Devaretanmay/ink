@@ -89,17 +89,13 @@ mod tests {
     async fn test_in_memory_blocklist_basic_operations() {
         let blocklist = InMemoryBlocklist::new();
         
-        // Test initial state
         assert!(!blocklist.is_blocked("session_1", "tool_a").await.unwrap());
         
-        // Test adding a block
         blocklist.add_block("session_1", "tool_a").await.unwrap();
         assert!(blocklist.is_blocked("session_1", "tool_a").await.unwrap());
         
-        // Test session isolation
         assert!(!blocklist.is_blocked("session_2", "tool_a").await.unwrap());
         
-        // Test tool isolation
         assert!(!blocklist.is_blocked("session_1", "tool_b").await.unwrap());
     }
 
@@ -107,7 +103,6 @@ mod tests {
     async fn test_in_memory_blocklist_multiple_blocks() {
         let blocklist = InMemoryBlocklist::new();
         
-        // Add multiple blocks for same session
         blocklist.add_block("session_1", "tool_a").await.unwrap();
         blocklist.add_block("session_1", "tool_b").await.unwrap();
         blocklist.add_block("session_1", "tool_c").await.unwrap();
@@ -122,7 +117,6 @@ mod tests {
     async fn test_in_memory_blocklist_overwrite() {
         let blocklist = InMemoryBlocklist::new();
         
-        // Adding same block twice should be idempotent
         blocklist.add_block("session_1", "tool_a").await.unwrap();
         blocklist.add_block("session_1", "tool_a").await.unwrap();
         
@@ -134,7 +128,6 @@ mod tests {
         let blocklist = Arc::new(InMemoryBlocklist::new());
         let mut handles = vec![];
         
-        // Simulate concurrent access from multiple proxy handlers
         for i in 0..100 {
             let bl = blocklist.clone();
             handles.push(tokio::spawn(async move {
@@ -151,15 +144,13 @@ mod tests {
             .map(|r| r.unwrap())
             .collect();
         
-        // All operations should succeed
         assert_eq!(results.len(), 100);
         assert!(results.iter().all(|&r| r));
     }
 
     #[tokio::test]
-    #[ignore] // Requires Redis running locally
+    #[ignore]
     async fn test_redis_blocklist_integration() {
-        // This test only runs if REDIS_URL is set
         let redis_url = std::env::var("REDIS_URL").unwrap_or_default();
         if redis_url.is_empty() {
             eprintln!("Skipping Redis test - REDIS_URL not set");
@@ -169,12 +160,10 @@ mod tests {
         let blocklist = RedisBlocklist::new(&redis_url).expect("Failed to connect to Redis");
         let test_session = format!("test_session_{}", uuid::Uuid::new_v4());
         
-        // Test basic operations
         assert!(!blocklist.is_blocked(&test_session, "tool_a").await.unwrap());
         blocklist.add_block(&test_session, "tool_a").await.unwrap();
         assert!(blocklist.is_blocked(&test_session, "tool_a").await.unwrap());
         
-        // Cleanup
         let mut con = blocklist.client.get_multiplexed_async_connection().await.unwrap();
         let _: () = con.del(format!("microloop:blocklist:{}", test_session)).await.unwrap();
     }

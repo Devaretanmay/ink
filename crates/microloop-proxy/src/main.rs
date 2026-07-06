@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 
 mod blocklist;
 mod proxy;
+mod ccr;
 
 #[tokio::main]
 async fn main() {
@@ -43,6 +44,15 @@ async fn main() {
     let sidecar_url = env::var("SIDECAR_URL")
         .unwrap_or_else(|_| "http://127.0.0.1:8081".to_string());
 
+    let ccr_db_path = env::var("CCR_DB_PATH").unwrap_or_else(|_| "microloop_ccr.db".to_string());
+    let ccr_store = match crate::ccr::CcrStore::new(&ccr_db_path) {
+        Ok(store) => Arc::new(store),
+        Err(e) => {
+            eprintln!("Failed to initialize CCR store at {}: {}", ccr_db_path, e);
+            std::process::exit(1);
+        }
+    };
+
     let state = proxy::AppState {
         microloop_state: Arc::new(Mutex::new(microloop_state)),
         semantic_blocklist,
@@ -54,6 +64,8 @@ async fn main() {
         }),
         sidecar_url,
         http_client: reqwest::Client::new(),
+        ccr_store,
+        trajectory_summary: Arc::new(Mutex::new(proxy::RollingSummary::new(5))),
     };
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 8080));

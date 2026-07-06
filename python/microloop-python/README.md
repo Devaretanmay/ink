@@ -12,7 +12,7 @@
 
 ---
 
-## 🛑 The $500 "Loop of Death"
+##  The $500 "Loop of Death"
 
 Every AI agent developer knows this pain:
 You build an autonomous agent, run it overnight, and wake up to a **$500 OpenAI bill**. 
@@ -36,7 +36,7 @@ Traditional frameworks rely on step counters (`max_iterations = 10` or `max_toke
 
 ---
 
-## 🧠 Core Pillars
+##  Core Pillars
 
 ### 1. Zero-Latency Fast Path
 Microloop runs locally in-process. It hashes tool calls and checks for repetitive trajectories in **460 nanoseconds** using our native Rust core module under the hood.

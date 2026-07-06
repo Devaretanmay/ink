@@ -13,6 +13,35 @@ use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
+use sha2::{Digest, Sha256};
+
+pub struct RollingSummary {
+    pub max_size: usize,
+    pub buffers: HashMap<String, Vec<String>>,
+}
+
+impl RollingSummary {
+    pub fn new(max_size: usize) -> Self {
+        Self { max_size, buffers: HashMap::new() }
+    }
+
+    pub fn push(&mut self, session_id: &str, signature: String) {
+        let buf = self.buffers.entry(session_id.to_string()).or_default();
+        if buf.len() >= self.max_size {
+            buf.remove(0);
+        }
+        buf.push(signature);
+    }
+
+    pub fn get_recent_text(&self, session_id: &str, limit: usize) -> String {
+        if let Some(buf) = self.buffers.get(session_id) {
+            let start = buf.len().saturating_sub(limit);
+            buf[start..].join("\n")
+        } else {
+            String::new()
+        }
+    }
+}
 
 #[derive(Serialize)]
 pub struct AnalyzePayload {
@@ -34,6 +63,8 @@ pub struct AppState {
     pub api_key: String,
     pub sidecar_url: String,
     pub http_client: Client,
+    pub ccr_store: Arc<crate::ccr::CcrStore>,
+    pub trajectory_summary: Arc<Mutex<RollingSummary>>,
 }
 
 
@@ -49,8 +80,18 @@ pub async fn intercept_tool_calls(
         .and_then(|m| m.as_array())
         .unwrap_or(&empty_vec);
     let prior_outcomes = microloop::history::pair_tool_calls(messages);
+    
+    if !prior_outcomes.is_empty() {
+        let mut ts = app_state.trajectory_summary.lock().unwrap();
+        ts.buffers.insert(session_id.to_string(), Vec::new());
+        for (call, res) in prior_outcomes.iter().rev().take(ts.max_size).rev() {
+            let mut tr = res.content.clone();
+            if tr.len() > 100 { tr.truncate(100); tr.push_str("..."); }
+            let sig = format!("{}({}) -> {}", call.name, call.arguments, tr);
+            ts.push(session_id, sig);
+        }
+    }
 
-    // Build LLM error response string for sidecar
     let llm_error_response = response
         .pointer("/choices/0/message/content")
         .and_then(|c| c.as_str())
@@ -108,7 +149,6 @@ pub async fn intercept_tool_calls(
 
     for (name, arguments_str, arguments_val) in parsed_tool_calls {
         
-        // 1. Check Semantic Blocklist first
         if app_state.semantic_blocklist.is_blocked(session_id, &name).await.unwrap_or(false) {
             eprintln!("Semantic Loop Blocked: tool {}", name);
             block_response(response, is_anthropic, format!("Semantic loop detected on tool '{}'", name));
@@ -121,7 +161,6 @@ pub async fn intercept_tool_calls(
             llm_error_response: llm_error_response.clone(),
         };
 
-        // Synchronous sidecar check — block inline if semantic loop detected
         if !app_state.sidecar_url.is_empty() {
             let url = format!("{}/analyze", app_state.sidecar_url);
             let loop_detected = async {
@@ -192,7 +231,6 @@ pub async fn intercept_tool_calls(
                     for (k, _) in p_map {
                         if !c_map.contains_key(k) && !diffs.contains(k) { diffs.push(k.clone()); }
                     }
-                    // Track which fields differ to validate auto-inference
                     for diff in &diffs {
                         *field_diff_counts.entry(diff.clone()).or_insert(0) += 1;
                     }
@@ -203,10 +241,8 @@ pub async fn intercept_tool_calls(
             }
         }
 
-        // Validation: Only auto-infer if the field appears volatile in MULTIPLE prior calls
-        // This prevents false positives from single-off comparisons
         if !auto_inferred_volatile.is_empty() {
-            let min_occurrences = 2; // Field must differ in at least 2 prior calls
+            let min_occurrences = 2;
             auto_inferred_volatile.retain(|field| {
                 let count = field_diff_counts.get(field).copied().unwrap_or(0);
                 count >= min_occurrences
@@ -242,9 +278,7 @@ pub async fn intercept_tool_calls(
             microloop::config::CountMode::ErrorsOnly => error_count,
         };
 
-        // Adaptive Thresholding
         if error_count > 0 {
-            // Fail fast if the loop involves errors
             max_repeats = max_repeats.saturating_sub(1).max(2);
         }
 
@@ -279,7 +313,7 @@ pub async fn intercept_tool_calls(
         );
 
         if res != 0 {
-            let err_str = if count + 1 >= max_repeats {
+            let mut err_str = if count + 1 >= max_repeats {
                 format!(
                     "Trajectory blocked by stateless history. Seen {} times, {} errors. Limit: {}",
                     match_count, error_count, max_repeats
@@ -290,6 +324,12 @@ pub async fn intercept_tool_calls(
                     .trim_end_matches('\0')
                     .to_string()
             };
+
+            let ts = app_state.trajectory_summary.lock().unwrap();
+            let summary = ts.get_recent_text(session_id, 3);
+            if !summary.is_empty() {
+                err_str = format!("CRITICAL: You are in a loop. Pivot your strategy immediately.\nSummary of your recent failed trajectory:\n{}\n\nOriginal Reason: {}", summary, err_str);
+            }
 
             block_response(response, is_anthropic, err_str);
             return;
@@ -355,8 +395,35 @@ pub async fn handle_proxy_request(
         .unwrap_or(false);
 
     if let Value::Object(ref mut map) = body {
-        map.insert("stream".to_string(), json!(false));
-    }
+            map.insert("stream".to_string(), json!(false));
+            
+            if let Some(Value::Array(messages)) = map.get_mut("messages") {
+                for msg in messages.iter_mut() {
+                    if let Some(msg_map) = msg.as_object_mut() {
+                        if msg_map.get("role").and_then(|r| r.as_str()) == Some("tool") {
+                            if let Some(content_val) = msg_map.get_mut("content") {
+                                if let Some(content_str) = content_val.as_str() {
+                                    let compressed = microloop_compress::route_and_compress(content_str);
+                                    
+                                    let mut hasher = Sha256::new();
+                                    hasher.update(content_str.as_bytes());
+                                    let original_hash = format!("{:x}", hasher.finalize());
+                                    
+                                    if let Err(e) = state.ccr_store.insert(&original_hash, content_str) {
+                                        eprintln!("CCR Insert Error: {}", e);
+                                    }
+                                    
+                                    *content_val = json!(format!(
+                                        "{}\n[Original data truncated. Call microloop_retrieve with hash: {}]",
+                                        compressed, original_hash
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
     let mut upstream_headers = reqwest::header::HeaderMap::new();
     upstream_headers.insert("Content-Type", "application/json".parse().unwrap());
@@ -445,8 +512,10 @@ mod tests {
             semantic_blocklist: Arc::new(InMemoryBlocklist::new()),
             target_base_url: "".to_string(),
             api_key: "".to_string(),
-            sidecar_url: "".to_string(), // Empty = no sidecar check
+            sidecar_url: "".to_string(),
             http_client: reqwest::Client::new(),
+            ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
+            trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
 
         let request_body = json!({
@@ -478,10 +547,6 @@ mod tests {
             }]
         });
 
-        // 3rd call is made. The first 2 calls are in the request history.
-        // req_id changes every time (1, 2, 3).
-        // Without auto-inference, this is NOT a loop (arguments differ).
-        // With auto-inference, it strips req_id, sees "query": "hello" repeated 3 times, and blocks it!
         
         intercept_tool_calls("session_1", &request_body, &mut response, &app_state).await;
 
@@ -499,9 +564,10 @@ mod tests {
             api_key: "".to_string(),
             sidecar_url: "".to_string(),
             http_client: reqwest::Client::new(),
+            ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
+            trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
 
-        // Agent changes the query AND req_id - should NOT auto-infer volatile
         let request_body = json!({
             "messages": [
                 {
@@ -531,7 +597,6 @@ mod tests {
             }]
         });
 
-        // 3rd call has different query - should be ALLOWED
         intercept_tool_calls("session_1", &request_body, &mut response, &app_state).await;
 
         let tool_calls = response["choices"][0]["message"]["tool_calls"].as_array();
@@ -544,17 +609,13 @@ mod tests {
         use crate::blocklist::BlocklistStore;
         let blocklist = InMemoryBlocklist::new();
         
-        // Initially nothing is blocked
         assert!(!blocklist.is_blocked("session_1", "tool_a").await.unwrap());
         
-        // Add a block
         blocklist.add_block("session_1", "tool_a").await.unwrap();
         assert!(blocklist.is_blocked("session_1", "tool_a").await.unwrap());
         
-        // Different session should not be blocked
         assert!(!blocklist.is_blocked("session_2", "tool_a").await.unwrap());
         
-        // Different tool in same session should not be blocked
         assert!(!blocklist.is_blocked("session_1", "tool_b").await.unwrap());
     }
 
@@ -568,6 +629,8 @@ mod tests {
             api_key: "".to_string(),
             sidecar_url: "".to_string(),
             http_client: reqwest::Client::new(),
+            ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
+            trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
 
         let request_body = json!({
@@ -599,7 +662,6 @@ mod tests {
             }]
         });
 
-        // Call 3 has different query, so no auto-inference should occur
         intercept_tool_calls("session_1", &request_body, &mut response, &app_state).await;
 
         let tool_calls = response["choices"][0]["message"]["tool_calls"].as_array();
@@ -617,6 +679,8 @@ mod tests {
             api_key: "".to_string(),
             sidecar_url: "".to_string(),
             http_client: reqwest::Client::new(),
+            ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
+            trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
 
         let request_body = json!({
@@ -648,7 +712,6 @@ mod tests {
             }]
         });
 
-        // Call 3 should be blocked - req_id differed in 2 prior calls (meets min_occurrences=2)
         intercept_tool_calls("session_1", &request_body, &mut response, &app_state).await;
 
         let content = response["choices"][0]["message"]["content"].as_str().unwrap_or("");
@@ -667,6 +730,8 @@ mod tests {
             api_key: "".to_string(),
             sidecar_url: "".to_string(),
             http_client: reqwest::Client::new(),
+            ccr_store: Arc::new(crate::ccr::CcrStore::new(":memory:").unwrap()),
+            trajectory_summary: Arc::new(Mutex::new(RollingSummary::new(5))),
         };
 
         let request_body = json!({
@@ -698,8 +763,6 @@ mod tests {
             }]
         });
 
-        // With 2 errors → effective max_repeats=2 (not 3)
-        // 2 prior calls + current = triggers at count+1 >= 2
         intercept_tool_calls("session_1", &request_body, &mut response, &app_state).await;
 
         let content = response["choices"][0]["message"]["content"].as_str().unwrap_or("");

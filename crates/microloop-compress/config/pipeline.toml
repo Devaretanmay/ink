@@ -1,0 +1,34 @@
+[pipeline]
+reformat_target_ratio = 0.5
+bloat_threshold = 0.5
+offload_fallback_ratio = 0.85
+
+[bloat.log]
+min_lines = 50
+sample_size = 100
+high_priority_threshold = 0.4
+uniqueness_weight = 0.5
+priority_dilution_weight = 0.5
+
+[bloat.diff]
+min_lines = 50
+normal_context_ratio = 0.6
+
+[bloat.search]
+min_matches = 10
+cluster_threshold = 10.0
+
+[reformat.log_template]
+min_lines = 20
+min_run = 3
+similarity_threshold = 0.4
+min_constant_tokens = 2
+
+[offload.json]
+min_array_rows = 5
+saturation_rows = 50
+
+[offload.diff_noise]
+min_lines = 20
+lockfile_suffixes = ["Cargo.lock", "yarn.lock", "package-lock.json", "pnpm-lock.yaml", "poetry.lock", "Gemfile.lock", "go.sum"]
+drop_whitespace_only_hunks = true
