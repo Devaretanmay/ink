@@ -383,13 +383,17 @@ impl SmartCrusher {
 
         if self.config.preview_count > 0 && items.len() > self.config.preview_count {
             let preview: Vec<Value> = items.iter().take(self.config.preview_count).cloned().collect();
-            let dropped_count = items.len() - self.config.preview_count;
+            let _dropped_count = items.len() - self.config.preview_count;
             let canonical = canonical_array_json(items);
             let h = hash_canonical(&canonical);
-            let marker = format!(
-                "[{} more items. Use microloop_expand('{}', index) to view specific rows]",
-                dropped_count, h
-            );
+            let marker = serde_json::to_string(&serde_json::json!({
+                "_microloop_pager": {
+                    "hash": h,
+                    "total_items": items.len(),
+                    "valid_indices": format!("{}..{}", self.config.preview_count, items.len().saturating_sub(1)),
+                    "instruction": format!("Call microloop_expand('{}', index) to retrieve specific rows", h)
+                }
+            })).unwrap_or_default();
             if let Some(store) = &self.ccr_store {
                 store.put_with_version(&h, &canonical, 1);
             }
@@ -476,7 +480,14 @@ impl SmartCrusher {
         let (ccr_hash, dropped_summary) = if dropped_count > 0 && self.config.enable_ccr_marker {
             let canonical = canonical_array_json(items);
             let h = hash_canonical(&canonical);
-            let marker = format!("[{} more items. Use microloop_expand('{}', index) to view specific rows]", dropped_count, h);
+            let marker = serde_json::to_string(&serde_json::json!({
+                "_microloop_pager": {
+                    "hash": h,
+                    "total_items": items.len(),
+                    "valid_indices": format!("{}..{}", result.len(), items.len().saturating_sub(1)),
+                    "instruction": format!("Call microloop_expand('{}', index) to retrieve specific rows", h)
+                }
+            })).unwrap_or_default();
             if let Some(store) = &self.ccr_store {
                 store.put(&h, &canonical);
             }

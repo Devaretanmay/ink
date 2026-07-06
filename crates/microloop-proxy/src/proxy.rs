@@ -479,11 +479,19 @@ async fn execute_inner_loop(
     headers: &reqwest::header::HeaderMap,
     client: &Client,
 ) {
+    let mut total_prompt_tokens = 0u64;
+    let mut total_completion_tokens = 0u64;
+
     for _round in 0..MAX_INNER_ROUNDS {
         let expand_calls = collect_microloop_expand_calls(response);
 
         if expand_calls.is_empty() {
             break;
+        }
+
+        if let Some(usage) = response.get("usage") {
+            total_prompt_tokens += usage.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+            total_completion_tokens += usage.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
         }
 
         let is_anthropic = path_is_anthropic(body);
@@ -532,6 +540,10 @@ async fn execute_inner_loop(
             match follow_up {
                 Ok(resp) if resp.status().is_success() => {
                     if let Ok(json) = resp.json::<Value>().await {
+                        if let Some(usage) = json.get("usage") {
+                            total_prompt_tokens += usage.get("prompt_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                            total_completion_tokens += usage.get("completion_tokens").and_then(|v| v.as_u64()).unwrap_or(0);
+                        }
                         *response = json;
                     } else {
                         break;
@@ -541,6 +553,14 @@ async fn execute_inner_loop(
             }
         } else {
             break;
+        }
+    }
+
+    if let Some(usage) = response.as_object_mut().and_then(|m| m.get_mut("usage")) {
+        if let Some(obj) = usage.as_object_mut() {
+            obj.insert("prompt_tokens".into(), json!(total_prompt_tokens));
+            obj.insert("completion_tokens".into(), json!(total_completion_tokens));
+            obj.insert("total_tokens".into(), json!(total_prompt_tokens + total_completion_tokens));
         }
     }
 
@@ -594,10 +614,31 @@ pub async fn handle_proxy_request(
                                         eprintln!("CCR Insert Error: {}", e);
                                     }
 
-                                    *content_val = json!(format!(
-                                        "{}\n[Original data truncated. Call microloop_retrieve with hash: {}]",
-                                        compressed, original_hash
-                                    ));
+                                    let pager_hash = {
+                                        let parsed: Option<Value> = serde_json::from_str(&compressed).ok();
+                                        parsed.as_ref()
+                                            .and_then(|v| v.as_array())
+                                            .and_then(|a| a.last())
+                                            .and_then(|last| last.get("_ccr_dropped"))
+                                            .and_then(|v| v.as_str())
+                                            .and_then(|s| {
+                                                let inner: Value = serde_json::from_str(s).ok()?;
+                                                inner.get("_microloop_pager")?
+                                                    .get("hash")?
+                                                    .as_str()
+                                                    .map(|h| h.to_string())
+                                            })
+                                    };
+
+                                    if let Some(ref p_hash) = pager_hash {
+                                        let _ = state.ccr_store.insert(p_hash, content_str);
+                                        *content_val = json!(compressed);
+                                    } else {
+                                        *content_val = json!(format!(
+                                            "{}\n[Original data truncated. Call microloop_retrieve with hash: {}]",
+                                            compressed, original_hash
+                                        ));
+                                    }
                                 }
                             }
                         }
