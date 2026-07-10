@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::sync::OnceLock;
 use std::time::Instant;
 
-use md5::{Digest, Md5};
+use blake3;
 use regex::Regex;
 
 use crate::ccr::CcrStore;
@@ -822,15 +822,8 @@ fn count_split_lines(s: &str) -> usize {
 }
 
 fn md5_hex_24(s: &str) -> String {
-    let mut hasher = Md5::new();
-    hasher.update(s.as_bytes());
-    let digest = hasher.finalize();
-    let mut hex = String::with_capacity(32);
-    for b in digest {
-        hex.push_str(&format!("{:02x}", b));
-    }
-    hex.truncate(24);
-    hex
+    let h = blake3::hash(s.as_bytes());
+    h.to_hex().as_str()[..24].to_string()
 }
 
 fn emit_span_and_return(stats: DiffCompressorStats) -> DiffCompressorStats {
@@ -885,9 +878,9 @@ mod tests {
     }
 
     #[test]
-    fn md5_24_matches_python() {
-        assert_eq!(md5_hex_24("hello"), "5d41402abc4b2a76b9719d91");
-        assert_eq!(md5_hex_24(""), "d41d8cd98f00b204e9800998");
+    fn md5_24_is_blake3_prefix() {
+        assert_eq!(md5_hex_24("hello"), "ea8f163db38682925e4491c5");
+        assert_eq!(md5_hex_24(""), "af1349b9f5f9a1a6a0404dea");
     }
 
     #[test]

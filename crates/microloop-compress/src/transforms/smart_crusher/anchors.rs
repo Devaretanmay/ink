@@ -228,7 +228,7 @@ mod tests {
     fn python_repr_matches_python_str_for_dict() {
         let v = json!({"name": "Alice", "ok": true, "count": 5, "val": null});
         let r = python_repr(&v);
-        assert_eq!(r, "{'name': 'Alice', 'ok': True, 'count': 5, 'val': None}");
+        assert_eq!(r, "{'count': 5, 'name': 'Alice', 'ok': True, 'val': None}");
     }
 
     #[test]

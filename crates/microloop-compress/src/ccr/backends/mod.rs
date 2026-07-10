@@ -1,23 +1,27 @@
 
 pub mod in_memory;
+#[cfg(feature = "rusqlite")]
+pub mod sqlite;
 #[cfg(feature = "redis")]
 pub mod redis;
-pub mod sqlite;
 
+#[cfg(feature = "rusqlite")]
 use std::path::PathBuf;
 
 use thiserror::Error;
 
 use crate::ccr::CcrStore;
 
+#[cfg(feature = "rusqlite")]
+pub use sqlite::SqliteCcrStore;
 #[cfg(feature = "redis")]
 pub use self::redis::RedisCcrStore;
 pub use in_memory::InMemoryCcrStore;
-pub use sqlite::SqliteCcrStore;
 
 #[derive(Debug, Clone)]
 pub enum CcrBackendConfig {
     InMemory { capacity: usize, ttl_seconds: u64 },
+    #[cfg(feature = "rusqlite")]
     Sqlite { path: PathBuf, ttl_seconds: u64 },
     Redis {
         url: String,
@@ -27,6 +31,7 @@ pub enum CcrBackendConfig {
 }
 
 impl CcrBackendConfig {
+    #[cfg(feature = "rusqlite")]
     pub fn sqlite_default(path: PathBuf) -> Self {
         Self::Sqlite {
             path,
@@ -44,6 +49,7 @@ impl CcrBackendConfig {
 
 #[derive(Debug, Error)]
 pub enum CcrBackendInitError {
+    #[cfg(feature = "rusqlite")]
     #[error("ccr sqlite backend init failed: {0}")]
     Sqlite(#[from] rusqlite::Error),
     #[cfg(feature = "redis")]
@@ -85,6 +91,7 @@ pub fn from_config(config: &CcrBackendConfig) -> Result<Box<dyn CcrStore>, CcrBa
             );
             Ok(Box::new(store))
         }
+        #[cfg(feature = "rusqlite")]
         CcrBackendConfig::Sqlite { path, ttl_seconds } => {
             let store = SqliteCcrStore::open(path, *ttl_seconds)?;
             tracing::info!(

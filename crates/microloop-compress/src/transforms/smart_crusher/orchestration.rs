@@ -1,5 +1,5 @@
 
-use md5::{Digest, Md5};
+
 use serde_json::Value;
 use std::collections::{BTreeSet, HashSet};
 
@@ -209,8 +209,7 @@ fn item_content_hash(item: &Value, idx: usize) -> String {
             Value::Null => "None".to_string(),
             _ => format!("__idx_{}__", idx),
         };
-        let digest = Md5::digest(content.as_bytes());
-        format!("{:x}", digest)[..16].to_string()
+        blake3::hash(content.as_bytes()).to_hex()[..16].to_string()
     }
 }
 

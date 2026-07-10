@@ -10,6 +10,12 @@
 
 **Rust · Python · WebAssembly · C/C++ · Go · Zero-Config Proxy**
 
+<p align="center">
+  <img src="assets/demo.gif" alt="Microloop Demo — The $500 Loop of Death" width="720" style="max-width: 100%">
+  <br>
+  <em>See the full demo: <code>python3 scripts/demo_loop.py</code></em>
+</p>
+
 ---
 
 ## The $500 Loop of Death
@@ -20,7 +26,7 @@ The agent tried to write a file or run a terminal command. The tool returned an 
 
 Worse, the tool outputs 50,000 tokens of raw JSON. The LLM gets buried in the noise, loses its reasoning thread, and loops harder.
 
-Microloop stops the bleeding. It intercepts agent tool calls and LLM context. It blocks repetitive loops in 460 nanoseconds and compresses bloated tool outputs by up to 95% before they ever reach the model.
+Microloop stops the bleeding. It intercepts agent tool calls and LLM context. It blocks repetitive loops in under 200 nanoseconds and compresses bloated tool outputs by up to 95% before they ever reach the model.
 
 ---
 
@@ -41,7 +47,7 @@ Counters measure quantity. Microloop measures redundancy and information density
 ## Core Architecture
 
 ### 1. Sub-Microsecond Fast Path
-Microloop runs locally in-process. The pure Rust core hashes tool calls and checks the ring buffer for repetitive trajectories in 460 nanoseconds. It introduces zero measurable overhead to your agent's execution.
+Microloop runs locally in-process. The pure Rust core hashes tool calls and checks the ring buffer for repetitive trajectories in under 200 nanoseconds. It introduces zero measurable overhead to your agent's execution.
 
 ### 2. Context Compression & CCR
 Microloop intercepts `role: tool` outputs and routes them through specialized compression engines (JSON arrays, AST-based code, build logs, and prose). It reduces token count by 60-95%. 
@@ -56,10 +62,7 @@ Naive loop detectors fail when agents include timestamps, request IDs, or random
 ### 5. Adaptive Thresholding
 If a tool call returns an error, the agent is already in a high-risk state. Microloop automatically tightens its repetition thresholds on failure, forcing the agent to pivot immediately rather than hammering a broken endpoint.
 
-### 6. Local Semantic Detection
-If the agent switches from `delete_line(5)` to `remove_line(5)`, deterministic hashing misses it. Microloop's optional sidecar runs a local, ultra-fast BERT transformer model to evaluate semantic similarity, blocking loops even when tool names and syntax change.
-
-### 7. Horizontal Redis Sync
+### 6. Horizontal Redis Sync
 Running a cluster of agent workers? Plug in a Redis backend to share blocklists and loop states across your entire deployment in real-time.
 
 ---
@@ -76,7 +79,6 @@ graph TB
     Core[Core Engine <br/><i>Stateless Hashing</i>]
     Compressor[Compression Engine <br/><i>JSON / Code / Logs</i>]
     CCR[(Local SQLite CCR)]
-    Semantic[Semantic Sidecar <br/><i>Local BERT</i>]
     Redis[(Redis Cluster)]
     LLM[Upstream LLM Provider]
 
@@ -89,18 +91,17 @@ graph TB
     class Proxy,Core,Compressor main;
     class Agent agent;
     class LLM cloud;
-    class CCR,Redis,Semantic store;
+    class CCR,Redis store;
 
     %% Flows
     Agent -->|1. HTTP Request| Proxy
-    Proxy -->|2. Fast Check 460ns| Core
+    Proxy -->|2. Fast Check ~200ns| Core
     Proxy -->|3. Compress Tool Outputs| Compressor
     Compressor -->|4. Cache Originals| CCR
-    Proxy -.->|5. Semantic Check| Semantic
-    Proxy -.->|6. Shared State| Redis
-    Proxy -->|7. Forward Compressed Context| LLM
-    LLM -->|8. Response| Proxy
-    Proxy -->|9. Result / Block Injection| Agent
+    Proxy -.->|5. Shared State| Redis
+    Proxy -->|6. Forward Compressed Context| LLM
+    LLM -->|7. Response| Proxy
+    Proxy -->|8. Result / Block Injection| Agent
 ```
 
 ---
@@ -165,16 +166,37 @@ Microloop has native integration wrappers for major AI libraries:
 
 ## Performance Benchmarks
 
-Microloop is engineered for zero overhead. 
+Microloop is engineered for zero overhead. All benchmarks run with `cargo run --release --bin microloop-benchmark` on a single thread.
 
 | Metric | Microloop | Prompt-Based Guardrails |
 | :--- | :--- | :--- |
-| **Check Latency** | **460 nanoseconds** | ~1.5 seconds (API call) |
+| **Check Latency** | **197 nanoseconds** | ~1.5 seconds (API call) |
 | **Context Reduction** | **60% - 95%** | 0% (Passes raw output) |
 | **Operational Cost** | **$0.00** (Local execution) | ~$0.01 per step (Token burn) |
 | **Execution Safety** | **100% Deterministic** | Probabilistic (Hallucinates/Misses) |
 | **Memory Footprint** | **< 10 MB** | N/A |
-| **Throughput** | **500,000+ checks/sec** | ~50 checks/sec |
+| **Throughput** | **5,000,000+ checks/sec** | ~50 checks/sec |
+
+### Detailed Benchmark Results
+
+| Benchmark | Iterations | Per Op | Ops/s |
+| :--- | ---: | ---: | ---: |
+| `verify_e2e` | 100,000 | **197 ns** | **5,071,573** |
+| `cold_start_verify` (init + first call) | 10,000 | **42,460 ns** | **23,551** |
+| `compress_short_fastpath` (<512 bytes) | 200,000 | **50 ns** | **19,905,780** |
+| `oscillation_detect` | 500,000 | 3,049 ns | 327,887 |
+| `state_init` | 10,000 | 43,176 ns | 23,160 |
+| `compress_git_diff` | 50,000 | 6,811 ns | 146,821 |
+| `compress_build_output` | 50,000 | 15,393 ns | 64,961 |
+| `compress_json_array` | 50,000 | 33,993 ns | 29,417 |
+| `compress_source_code` | 50,000 | 164,475 ns | 6,080 |
+| `compress_search_results` | 50,000 | 198,066 ns | 5,049 |
+| `mixed_workload` (verify + compress, 8 tools) | 10,000 | 1,094,099 ns | 914 |
+
+Run the benchmarks yourself:
+```bash
+cargo run --release --bin microloop-benchmark
+```
 
 ---
 
@@ -208,7 +230,6 @@ tools:
 Microloop is built for production environments. 
 *   No tool data, code, or context ever leaves your environment.
 *   Zero external API calls for loop detection or compression.
-*   The semantic sidecar runs entirely on local ONNX models.
 *   Apache 2.0 Licensed.
 
 For security concerns or to report a vulnerability, please refer to [SECURITY.md](SECURITY.md).

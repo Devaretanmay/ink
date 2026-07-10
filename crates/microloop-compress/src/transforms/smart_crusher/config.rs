@@ -61,7 +61,7 @@ impl Default for SmartCrusherConfig {
             compaction_max_flatten_inner_keys: 6,
             compaction_min_buckets: 2,
             compaction_max_buckets: 8,
-            preview_count: 3,
+            preview_count: 0,
         }
     }
 }
@@ -97,6 +97,6 @@ mod tests {
         assert_eq!(c.compaction_max_flatten_inner_keys, 6);
         assert_eq!(c.compaction_min_buckets, 2);
         assert_eq!(c.compaction_max_buckets, 8);
-        assert_eq!(c.preview_count, 3);
+        assert_eq!(c.preview_count, 0);
     }
 }

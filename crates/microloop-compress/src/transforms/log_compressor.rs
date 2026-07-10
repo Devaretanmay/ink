@@ -3,7 +3,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::OnceLock;
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
-use md5::{Digest, Md5};
+
 use regex::Regex;
 
 use crate::ccr::CcrStore;
@@ -879,15 +879,7 @@ fn path_regex() -> &'static Regex {
 }
 
 fn md5_hex_24(s: &str) -> String {
-    let mut hasher = Md5::new();
-    hasher.update(s.as_bytes());
-    let digest = hasher.finalize();
-    let mut hex = String::with_capacity(32);
-    for b in digest {
-        hex.push_str(&format!("{:02x}", b));
-    }
-    hex.truncate(24);
-    hex
+    blake3::hash(s.as_bytes()).to_hex()[..24].to_string()
 }
 
 #[cfg(test)]

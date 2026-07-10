@@ -9,7 +9,7 @@ use super::formatter::{CsvSchemaFormatter, Formatter};
 use super::ir::OpaqueKind;
 use crate::ccr::CcrStore;
 
-use sha2::{Digest, Sha256};
+use blake3;
 
 pub struct DocumentCompactor {
     pub config: CompactConfig,
@@ -108,14 +108,8 @@ pub fn emit_opaque_ccr_marker(
     kind: &OpaqueKind,
     store: Option<&Arc<dyn CcrStore>>,
 ) -> String {
-    let mut h = Sha256::new();
-    h.update(payload.as_bytes());
-    let hash: String = h
-        .finalize()
-        .iter()
-        .take(6)
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let h = blake3::hash(payload.as_bytes());
+    let hash = h.to_hex().as_str()[..12].to_string();
     if let Some(s) = store {
         s.put(&hash, payload);
     }

@@ -16,7 +16,7 @@ use super::planning::SmartCrusherPlanner;
 use super::traits::{Constraint, CrushEvent, Observer};
 use super::types::{CompressionPlan, CompressionStrategy, CrushResult};
 use crate::ccr::CcrStore;
-use crate::relevance::RelevanceScorer;
+use crate::transforms::bm25::RelevanceScorer;
 use crate::transforms::adaptive_sizer::compute_optimal_k;
 use crate::transforms::anchor_selector::AnchorSelector;
 
@@ -672,17 +672,9 @@ fn estimate_array_bytes(item_strings: &[String]) -> usize {
 
 fn canonical_array_json(items: &[Value]) -> String {
     serde_json::to_string(items).unwrap_or_default()
-}
-
-fn hash_canonical(canonical: &str) -> String {
-    use sha2::{Digest, Sha256};
-    let mut h = Sha256::new();
-    h.update(canonical.as_bytes());
-    h.finalize()
-        .iter()
-        .take(6)
-        .map(|b| format!("{b:02x}"))
-        .collect()
+}    fn hash_canonical(canonical: &str) -> String {
+    let h = blake3::hash(canonical.as_bytes());
+    h.to_hex().as_str()[..12].to_string()
 }
 
 
@@ -990,7 +982,7 @@ mod tests {
 
     #[test]
     fn crusher_with_custom_scorer() {
-        use crate::relevance::BM25Scorer;
+        use crate::transforms::bm25::BM25Scorer;
         let c = SmartCrusher::with_scorer(
             SmartCrusherConfig::default(),
             Box::new(BM25Scorer::default()),
@@ -1047,11 +1039,11 @@ mod tests {
         let h = result.ccr_hash.expect("ccr_hash populated on drop");
         assert_eq!(h.len(), 12);
         assert!(
-            result.dropped_summary.contains(&format!("<<ccr:{h}")),
+            result.dropped_summary.contains("_microloop_pager"),
             "got: {}",
             result.dropped_summary
         );
-        assert!(result.dropped_summary.contains("rows_offloaded"));
+        assert!(result.dropped_summary.contains(&format!("{h}")));
     }
 
     #[test]
@@ -1239,7 +1231,7 @@ mod tests {
         assert!(result.items.len() < items.len(), "lossy path didn't fire");
         assert!(result.ccr_hash.is_some(), "default should produce a hash");
         assert!(
-            result.dropped_summary.contains("<<ccr:"),
+            result.dropped_summary.contains("_microloop_pager"),
             "default should produce a marker: {:?}",
             result.dropped_summary
         );

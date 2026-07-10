@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use serde_json::Value;
-use sha2::{Digest, Sha256};
+use blake3;
 
 use super::classifier::{classify_cell, CellClass, ClassifyConfig};
 use super::ir::{Bucket, CellValue, Compaction, FieldSpec, Row, Schema};
@@ -342,11 +342,8 @@ fn type_tag_for(v: &Value) -> &'static str {
 }
 
 fn hash_opaque(bytes: &[u8]) -> String {
-    let mut h = Sha256::new();
-    h.update(bytes);
-    let digest = h.finalize();
-    let hex: String = digest.iter().take(6).map(|b| format!("{b:02x}")).collect();
-    hex
+    let h = blake3::hash(bytes);
+    h.to_hex().as_str()[..12].to_string()
 }
 
 
@@ -670,6 +667,7 @@ mod tests {
         assert_eq!(h1, h2);
         assert_ne!(h1, h3);
         assert_eq!(h1.len(), 12);
+        assert_eq!(h1, "d74981efa70a");
     }
 
     #[test]

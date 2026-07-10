@@ -1,7 +1,7 @@
 
-use md5::{Digest, Md5};
 use serde_json::Value;
 use std::collections::{BTreeMap, BTreeSet};
+use std::hash::{DefaultHasher, Hash, Hasher};
 
 use super::analyzer::SmartAnalyzer;
 use super::anchors::{extract_query_anchors, item_matches_anchors};
@@ -11,7 +11,7 @@ use super::hashing::hash_field_name;
 use super::orchestration::prioritize_indices;
 use super::traits::Constraint;
 use super::types::{ArrayAnalysis, CompressionPlan, CompressionStrategy, FieldStats};
-use crate::relevance::RelevanceScorer;
+use crate::transforms::bm25::RelevanceScorer;
 use crate::transforms::anchor_selector::{AnchorSelector, DataPattern};
 
 pub struct SmartCrusherPlanner<'a> {
@@ -128,15 +128,14 @@ impl<'a> SmartCrusherPlanner<'a> {
         item_strings: Option<&[String]>,
     ) -> CompressionPlan {
         let n = items.len();
-        let mut keep: BTreeSet<usize> = BTreeSet::new();
-
-        let anchor_pattern = map_to_anchor_pattern(CompressionStrategy::SmartSample);
+        let mut keep: BTreeSet<usize> = BTreeSet::new();            let anchor_pattern = map_to_anchor_pattern(CompressionStrategy::SmartSample);
         keep.extend(self.anchor_selector.select_anchors(
             items,
             max_items,
             anchor_pattern,
             query_or_none(query_context),
         ));
+
 
         self.apply_constraints(items, item_strings, &mut keep);
 
@@ -251,12 +250,12 @@ impl<'a> SmartCrusherPlanner<'a> {
                     owned_strings.iter().map(|s| s.as_str()).collect()
                 }
             };
-            let scores = self.scorer.score_batch(&strs, query_context);
+            let scores = self.scorer.score_batch(&strs, Some(query_context));
             let high_threshold = (self.config.relevance_threshold * 2.0).max(0.5);
             let max_relevance_adds = 3_usize;
             let mut added = 0;
             for (i, sc) in scores.iter().enumerate() {
-                if !keep.contains(&i) && sc.score >= high_threshold {
+                if !keep.contains(&i) && *sc >= high_threshold {
                     keep.insert(i);
                     added += 1;
                     if added >= max_relevance_adds {
@@ -319,8 +318,9 @@ impl<'a> SmartCrusherPlanner<'a> {
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 let truncated: String = msg.chars().take(50).collect();
-                let digest = Md5::digest(truncated.as_bytes());
-                let hash = format!("{:x}", digest)[..8].to_string();
+                let mut hasher = DefaultHasher::new();
+                truncated.hash(&mut hasher);
+                let hash = format!("{:x}", hasher.finish());
                 clusters.entry(hash).or_default().push(i);
             }
             for indices in clusters.values() {
@@ -419,12 +419,12 @@ impl<'a> SmartCrusherPlanner<'a> {
                 owned_strings.iter().map(|s| s.as_str()).collect()
             }
         };
-        let scores = self.scorer.score_batch(&strs, query_context);
+        let scores = self.scorer.score_batch(&strs, Some(query_context));
         for (i, sc) in scores.iter().enumerate() {
             if keep_existing_only && keep.contains(&i) {
                 continue;
             }
-            if sc.score >= self.config.relevance_threshold {
+            if *sc >= self.config.relevance_threshold {
                 keep.insert(i);
             }
         }
@@ -539,15 +539,15 @@ fn for_each_anomaly(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::relevance::HybridScorer;
     use crate::transforms::anchor_selector::AnchorConfig;
+    use crate::transforms::bm25::BM25Scorer;
     use crate::transforms::smart_crusher::constraints::default_oss_constraints;
     use serde_json::json;
 
     fn fixture<'a>(
         config: &'a SmartCrusherConfig,
         anchor_selector: &'a AnchorSelector,
-        scorer: &'a HybridScorer,
+        scorer: &'a BM25Scorer,
         analyzer: &'a SmartAnalyzer,
         constraints: &'a [Box<dyn Constraint>],
     ) -> SmartCrusherPlanner<'a> {
@@ -557,13 +557,13 @@ mod tests {
     fn make_planner_deps() -> (
         SmartCrusherConfig,
         AnchorSelector,
-        HybridScorer,
+        BM25Scorer,
         SmartAnalyzer,
         Vec<Box<dyn Constraint>>,
     ) {
         let cfg = SmartCrusherConfig::default();
         let asel = AnchorSelector::new(AnchorConfig::default());
-        let scorer = HybridScorer::default();
+        let scorer = BM25Scorer::default();
         let analyzer = SmartAnalyzer::new(cfg.clone());
         let constraints = default_oss_constraints();
         (cfg, asel, scorer, analyzer, constraints)

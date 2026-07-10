@@ -3,7 +3,7 @@ use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use super::config::TextCrusherConfig;
-use crate::relevance::{BM25Scorer, RelevanceScorer};
+use crate::transforms::bm25::{BM25Scorer, RelevanceScorer};
 
 const KEYWORDS: [&str; 10] = [
     "error",
@@ -78,14 +78,13 @@ impl TextCrusher {
         let target_chars = ((total_chars as f64 * ratio) as usize).max(1);
 
         let seg_refs: Vec<&str> = segments.iter().map(|s| s.as_str()).collect();
-        let relevance = self.scorer.score_batch(&seg_refs, context);
-
+        let relevance = self.scorer.score_batch(&seg_refs, Some(context));
         let seg_tokens: Vec<Vec<String>> = segments.iter().map(|s| tokens(s)).collect();
 
         let mut scores = vec![0.0f64; n];
         for i in 0..n {
             let recency = (i as f64 + 1.0) / n as f64;
-            let rel = relevance.get(i).map(|r| r.score).unwrap_or(0.0);
+            let rel = relevance.get(i).copied().unwrap_or(0.0);
             let words: Vec<&str> = segments[i].split_whitespace().collect();
             let salient = words.iter().filter(|w| is_salient(w)).count();
             let salience = salient as f64 / (words.len() as f64 + 1.0);

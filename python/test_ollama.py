@@ -90,7 +90,7 @@ def run_agent():
 
         # Check if proxy blocked it!
         if msg.get("content") and "SYSTEM INTERCEPT" in msg.get("content"):
-            print("\nSUCCESS! Semantic loop was successfully detected and blocked by the Proxy Fast-Path!")
+            print("\nSUCCESS! Loop was detected and blocked by the Proxy!")
             break
             
         if "tool_calls" in msg and msg["tool_calls"]:
@@ -113,9 +113,8 @@ def run_agent():
                 "content": error_msg
             })
             
-            # Wait 3 seconds to give the sidecar time to compute the embedding of this failure 
-            # and potentially push a block rule before the next step!
-            time.sleep(3)
+            # Small delay before next step
+            time.sleep(1)
         else:
             print("Agent stopped using tools.")
             break

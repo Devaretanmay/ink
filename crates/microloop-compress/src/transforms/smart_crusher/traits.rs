@@ -27,7 +27,7 @@ pub trait Observer: Send + Sync {
 }
 
 
-pub use crate::relevance::RelevanceScorer as Scorer;
+pub use crate::transforms::bm25::RelevanceScorer as Scorer;
 
 #[cfg(test)]
 mod tests {

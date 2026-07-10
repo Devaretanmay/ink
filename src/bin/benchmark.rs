@@ -184,7 +184,19 @@ fn main() {
     }));
 
     // -------------------------------------------------------
-    // 2. Compression pipeline — each content type
+    // 2. Cold start — first verify on a fresh state
+    // -------------------------------------------------------
+    results.push(bench("cold_start_verify", 10_000, || {
+        let mut state = MicroloopState::new(YAML_CONFIG).unwrap();
+        let _ = verify(
+            black_box(&mut state),
+            black_box(b"read_file"),
+            black_box(b"{\"path\": \"src/main.rs\"}"),
+        );
+    }));
+
+    // -------------------------------------------------------
+    // 3. Compression pipeline — each content type
     // -------------------------------------------------------
     results.push(bench("compress_json_array", 50_000, || {
         let _ = route_and_compress(black_box(JSON_ARRAY_PAYLOAD));
@@ -207,7 +219,7 @@ fn main() {
     }));
 
     // -------------------------------------------------------
-    // 3. Tool verification end-to-end
+    // 4. Tool verification end-to-end
     // -------------------------------------------------------
     {
         let mut state = MicroloopState::new(YAML_CONFIG).unwrap();
@@ -224,7 +236,7 @@ fn main() {
     }
 
     // -------------------------------------------------------
-    // 4. Oscillation detection throughput
+    // 5. Oscillation detection throughput
     // -------------------------------------------------------
     {
         let mut tracker = HistoryTracker::new();
@@ -245,7 +257,7 @@ fn main() {
     }
 
     // -------------------------------------------------------
-    // 5. Mixed workload — realistic LLM conversation
+    // 6. Mixed workload — realistic LLM conversation
     // -------------------------------------------------------
     {
         let mut state = MicroloopState::new(YAML_CONFIG).unwrap();
@@ -269,7 +281,7 @@ fn main() {
     }
 
     // -------------------------------------------------------
-    // 6. Short input bypass (sub-512 chars) — fast path
+    // 7. Short input bypass (sub-512 chars) — fast path
     // -------------------------------------------------------
     let short_payload = r#"{"id": 1, "name": "test"}"#;
     results.push(bench("compress_short_fastpath", 200_000, || {

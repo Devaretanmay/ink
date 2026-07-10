@@ -1,11 +1,182 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use md5::{Digest, Md5};
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use blake3;
 
 use crate::ccr::CcrStore;
-use crate::signals::{ImportanceContext, LineImportanceDetector};
 use crate::transforms::adaptive_sizer::compute_optimal_k;
+
+
+// --- Inlined from signals/mod.rs ---
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum ImportanceContext {
+    Text,
+    Search,
+    Diff,
+    Log,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) enum ImportanceCategory {
+    Error,
+    Warning,
+    Importance,
+    Security,
+    Markdown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct ImportanceSignal {
+    pub category: Option<ImportanceCategory>,
+    pub priority: f32,
+    pub confidence: f32,
+}
+
+#[allow(dead_code)]
+impl ImportanceSignal {
+    pub const fn neutral() -> Self {
+        Self { category: None, priority: 0.0, confidence: 0.0 }
+    }
+
+    pub const fn matched(category: ImportanceCategory, priority: f32, confidence: f32) -> Self {
+        Self { category: Some(category), priority, confidence }
+    }
+
+    pub fn is_match(&self) -> bool {
+        self.category.is_some()
+    }
+}
+
+const KEYWORD_CONFIDENCE: f32 = 0.7;
+const ERROR_PRIORITY: f32 = 0.95;
+const WARNING_PRIORITY: f32 = 0.75;
+const SECURITY_PRIORITY: f32 = 0.85;
+const IMPORTANCE_PRIORITY: f32 = 0.6;
+const MARKDOWN_PRIORITY: f32 = 0.45;
+
+struct CategoryAutomaton {
+    automaton: AhoCorasick,
+    categories: Vec<ImportanceCategory>,
+}
+
+impl CategoryAutomaton {
+    fn build(entries: &[(ImportanceCategory, &[&'static str])]) -> Self {
+        let mut patterns = Vec::new();
+        let mut categories = Vec::new();
+        for (cat, words) in entries {
+            for w in *words {
+                patterns.push(*w);
+                categories.push(*cat);
+            }
+        }
+        let automaton = AhoCorasickBuilder::new()
+            .ascii_case_insensitive(true)
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(&patterns)
+            .expect("keyword automaton must build (static input)");
+        Self { automaton, categories }
+    }
+
+    fn first_word_match(&self, line: &str) -> Option<ImportanceCategory> {
+        let bytes = line.as_bytes();
+        for m in self.automaton.find_iter(line) {
+            if is_word_boundary(bytes, m.start(), m.end()) {
+                return Some(self.categories[m.pattern().as_usize()]);
+            }
+        }
+        None
+    }
+}
+
+struct KeywordDetector {
+    universal: CategoryAutomaton,
+    warning: CategoryAutomaton,
+    security: CategoryAutomaton,
+    indicators: AhoCorasick,
+}
+
+#[allow(dead_code)]
+impl KeywordDetector {
+    fn new() -> Self {
+        let error_words: &[&str] = &["error", "exception", "fail", "failed", "failure", "fatal", "critical", "crash", "panic", "abort", "timeout", "denied", "rejected"];
+        let warning_words: &[&str] = &["warn", "warning"];
+        let importance_words: &[&str] = &["important", "note", "todo", "fixme", "hack", "xxx", "bug", "fix"];
+        let security_words: &[&str] = &["security", "auth", "password", "secret"];
+        let error_indicators: &[&str] = &["error", "fail", "exception", "traceback", "fatal", "panic", "crash"];
+
+        let universal = CategoryAutomaton::build(&[
+            (ImportanceCategory::Error, error_words),
+            (ImportanceCategory::Importance, importance_words),
+        ]);
+        let warning = CategoryAutomaton::build(&[(ImportanceCategory::Warning, warning_words)]);
+        let security = CategoryAutomaton::build(&[(ImportanceCategory::Security, security_words)]);
+        let indicators = AhoCorasickBuilder::new()
+            .ascii_case_insensitive(true)
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(error_indicators)
+            .expect("indicator automaton must build (static input)");
+        Self { universal, warning, security, indicators }
+    }
+
+    fn contains_error_indicator(&self, text: &str) -> bool {
+        self.indicators.is_match(text)
+    }
+
+    fn score(&self, line: &str, ctx: ImportanceContext) -> ImportanceSignal {
+        match self.match_in_context(line, ctx) {
+            Some((category, priority)) => {
+                ImportanceSignal::matched(category, priority, KEYWORD_CONFIDENCE)
+            }
+            None => ImportanceSignal::neutral(),
+        }
+    }
+
+    fn match_in_context(&self, line: &str, ctx: ImportanceContext) -> Option<(ImportanceCategory, f32)> {
+        if let Some(cat) = self.universal.first_word_match(line) {
+            let priority = priority_for(cat);
+            return Some((cat, priority));
+        }
+        match ctx {
+            ImportanceContext::Diff => {
+                if let Some(cat) = self.security.first_word_match(line) {
+                    return Some((cat, priority_for(cat)));
+                }
+            }
+            ImportanceContext::Text | ImportanceContext::Search | ImportanceContext::Log => {
+                if let Some(cat) = self.warning.first_word_match(line) {
+                    return Some((cat, priority_for(cat)));
+                }
+            }
+        }
+        None
+    }
+}
+
+const fn priority_for(category: ImportanceCategory) -> f32 {
+    match category {
+        ImportanceCategory::Error => ERROR_PRIORITY,
+        ImportanceCategory::Warning => WARNING_PRIORITY,
+        ImportanceCategory::Security => SECURITY_PRIORITY,
+        ImportanceCategory::Importance => IMPORTANCE_PRIORITY,
+        ImportanceCategory::Markdown => MARKDOWN_PRIORITY,
+    }
+}
+
+fn is_word_boundary(bytes: &[u8], start: usize, end: usize) -> bool {
+    let left_ok = start == 0 || !is_word_byte(bytes[start - 1]);
+    let right_ok = end == bytes.len() || !is_word_byte(bytes[end]);
+    left_ok && right_ok
+}
+
+fn is_word_byte(b: u8) -> bool {
+    matches!(b, b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'_')
+}
+
+// --- End inlined from signals/mod.rs ---
 
 
 #[derive(Debug, Clone, PartialEq)]
@@ -125,24 +296,14 @@ pub struct SearchCompressorStats {
 
 pub struct SearchCompressor {
     config: SearchCompressorConfig,
-    importance: Box<dyn LineImportanceDetector>,
+    importance: KeywordDetector,
 }
 
 impl SearchCompressor {
     pub fn new(config: SearchCompressorConfig) -> Self {
         Self {
             config,
-            importance: Box::new(crate::signals::KeywordDetector::new()),
-        }
-    }
-
-    pub fn with_detector<D: LineImportanceDetector + 'static>(
-        config: SearchCompressorConfig,
-        detector: D,
-    ) -> Self {
-        Self {
-            config,
-            importance: Box::new(detector),
+            importance: KeywordDetector::new(),
         }
     }
 
@@ -281,11 +442,11 @@ impl SearchCompressor {
                     let signal = self.importance.score(&m.content, ImportanceContext::Search);
                     if let Some(category) = signal.category {
                         let bump = match category {
-                            crate::signals::ImportanceCategory::Error => 0.5,
-                            crate::signals::ImportanceCategory::Warning => 0.4,
-                            crate::signals::ImportanceCategory::Importance => 0.3,
-                            crate::signals::ImportanceCategory::Security
-                            | crate::signals::ImportanceCategory::Markdown => 0.0,
+                            ImportanceCategory::Error => 0.5,
+                            ImportanceCategory::Warning => 0.4,
+                            ImportanceCategory::Importance => 0.3,
+                            ImportanceCategory::Security
+                            | ImportanceCategory::Markdown => 0.0,
                         };
                         score += bump;
                     }
@@ -502,15 +663,8 @@ fn hash_u64(s: &str) -> u64 {
 }
 
 fn md5_hex_24(s: &str) -> String {
-    let mut hasher = Md5::new();
-    hasher.update(s.as_bytes());
-    let digest = hasher.finalize();
-    let mut hex = String::with_capacity(32);
-    for b in digest {
-        hex.push_str(&format!("{:02x}", b));
-    }
-    hex.truncate(24);
-    hex
+    let h = blake3::hash(s.as_bytes());
+    h.to_hex().as_str()[..24].to_string()
 }
 
 #[cfg(test)]

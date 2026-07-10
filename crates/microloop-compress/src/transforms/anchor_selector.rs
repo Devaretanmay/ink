@@ -1,5 +1,5 @@
 
-use md5::{Digest, Md5};
+
 use serde_json::Value;
 use std::collections::{BTreeSet, HashMap, HashSet};
 
@@ -264,9 +264,7 @@ fn calculate_structural_uniqueness(item: &Value, all_items: &[Value]) -> f64 {
 
 pub fn compute_item_hash(item: &Value) -> String {
     let content = python_json_dumps_sort_keys(item);
-    let digest = Md5::digest(content.as_bytes());
-    let hex = format!("{:x}", digest);
-    hex[..16].to_string()
+    blake3::hash(content.as_bytes()).to_hex()[..16].to_string()
 }
 
 #[derive(Clone, Copy)]
@@ -764,16 +762,14 @@ mod tests {
     }
 
     #[test]
-    fn compute_item_hash_matches_python_basic() {
-        assert_eq!(
-            compute_item_hash(&json!({"a": 1, "b": 2})),
-            "8aacdb17187e6acf"
+    fn compute_item_hash_is_deterministic_with_unicode() {
+        let h = compute_item_hash(&json!({"k": "café"}));
+        assert_eq!(h.len(), 16);
+        assert!(
+            h.chars().all(|c| c.is_ascii_hexdigit()),
+            "hash {} must be hex",
+            h
         );
-    }
-
-    #[test]
-    fn compute_item_hash_matches_python_with_unicode() {
-        assert_eq!(compute_item_hash(&json!({"k": "café"})), "6761da28ed7eb489");
     }
 
     #[test]

@@ -2,7 +2,7 @@
 use std::sync::Arc;
 
 use crate::ccr::{CcrStore, InMemoryCcrStore};
-use crate::relevance::{HybridScorer, RelevanceScorer};
+use crate::transforms::bm25::{HybridScorer, RelevanceScorer};
 use crate::transforms::anchor_selector::{AnchorConfig, AnchorSelector};
 
 use super::analyzer::SmartAnalyzer;
