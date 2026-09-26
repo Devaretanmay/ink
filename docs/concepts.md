@@ -1,6 +1,6 @@
 # Concepts
 
-Microloop has five concepts. Everything else is implementation detail.
+Microloop has six concepts. Everything else is implementation detail.
 
 ## Trajectory
 

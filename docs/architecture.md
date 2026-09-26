@@ -2,7 +2,8 @@
 
 ```
 microloop-core (Rust)
-├── event.rs          canonical Event, ProgressState, Reason, MonitorConfig
+├── config.rs         MonitorConfig: detection bounds and their validation
+├── event.rs          canonical Event, ProgressState, Reason, Evidence
 ├── canonical.rs      volatile-token masking + error signatures
 ├── history.rs        bounded window of derived Record signals
 ├── detectors/        pure detector functions
@@ -50,7 +51,7 @@ The engine is a pure function of the observed events plus configuration: the
 same trajectory always produces the same decisions. `microloop replay` relies on
 this. There is no clock, randomness or network access in the core.
 
-## Bounds and safety
+## Bounds and invariants
 
 - Steps must strictly increase; duplicate or out-of-order steps are rejected
   without mutating history.
@@ -61,6 +62,7 @@ this. There is no clock, randomness or network access in the core.
 ## Bindings
 
 The PyO3 bindings expose `Monitor` and `Policy` as JSON-in/JSON-out classes. The
-Pythonic surface (`microloop/__init__.py`) adds `Event`, `Decision`,
-`InterventionAction` and `ProgressState` dataclasses and helpers such as
-`Decision.should_intervene` and `Decision.recovery_context`.
+Pythonic surface (`microloop/__init__.py`) adds the `Event` and `Decision`
+dataclasses, plus `InterventionAction` and `ProgressState` as plain classes
+holding string constants, and helpers such as `Decision.should_intervene` and
+`Decision.recovery_context`.

@@ -9,8 +9,10 @@ runner and the published summaries. Raw runs are not committed.
 ```
 benchmarks/
 ├── manifests/    frozen task manifests (dev, validation-pilot, validation-final)
-├── runner/       experiment runner, agent adapters, baselines, result schemas
-└── analysis/     reporting, statistics, detector + fault-injection evaluation
+├── runner/       experiment runner, agent adapters, baselines
+├── analysis/     reporting, statistics, detector + fault-injection evaluation
+├── schemas/      authoritative run-result and canonical-event schemas
+└── results/      derived/ + published/ summaries; raw/ is git-ignored
 ```
 
 Published summaries are committed under `benchmarks/results/published/`. Raw run
@@ -27,29 +29,17 @@ bundles are written to `benchmarks/results/raw/`, which is git-ignored.
 - **Reporting.** Task-level paired bootstrap confidence intervals on completion
   rate, plus tool-call and token spend on failed or stalled trajectories.
 
-## Headline result
-
-`validation-final-v1` (100 paired SWE-bench Verified tasks, frozen manifest,
-`gpt-6-astra`, mini-swe-agent v2.4.6):
-
-| Metric            | Vanilla | Microloop | Difference |
-|-------------------|---------|-----------|------------|
-| Tasks solved      | 51/100  | 63/100    | +12        |
-| ACR               | 51.0%   | 63.0%     | +12.0 pp   |
-| 95% paired CI     | n/a     | n/a       | [+5.0,+20.0] pp |
-| Median tool calls | 61      | 48        | −21.3%     |
-| Damaging interventions | n/a | 2/51    | 3.9%       |
-
-Full report and provenance: `benchmarks/results/published/validation-final-v1-report.md`.
-
 ## Evidence status
 
-**No result in this directory is currently verified.** The only published table,
-`results/published/validation-final-v1-report.md`, was generated from a run set
-that is git-ignored and predates the `run_mode` provenance field, so the report
-generator rejects it. It is retained as a historical record only.
+**No result in this directory is currently verified, and none is presented as a
+headline.** A previous 100-task SWE-bench Verified run is recorded in
+`results/published/validation-final-v1-report.md`, but its raw bundles are
+git-ignored and predate the `run_mode` provenance field, so the report generator
+rejects it. That file is kept as a labelled historical record only. Its numbers
+are not repeated here, because this directory cannot substantiate them.
 
-Regenerating it requires provider credentials, Docker and `mini-swe-agent`.
+Regenerating a real result requires provider credentials, Docker and
+`mini-swe-agent`. See [Reproducing](#reproducing).
 
 ## Provenance gate
 
