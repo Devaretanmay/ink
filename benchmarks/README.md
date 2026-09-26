@@ -42,12 +42,55 @@ bundles are written to `benchmarks/results/raw/`, which is git-ignored.
 
 Full report and provenance: `benchmarks/results/published/validation-final-v1-report.md`.
 
+## Evidence status
+
+**No result in this directory is currently verified.** The only published table,
+`results/published/validation-final-v1-report.md`, was generated from a run set
+that is git-ignored and predates the `run_mode` provenance field, so the report
+generator rejects it. It is retained as a historical record only.
+
+Regenerating it requires provider credentials, Docker and `mini-swe-agent`.
+
+## Provenance gate
+
+Every run bundle declares `run_mode`:
+
+| Value | Meaning |
+|---|---|
+| `real` | An agent actually executed the task. This is the only evidence. |
+| `simulated` | The offline deterministic generator produced it. Never evidence. |
+
+Simulated runs are written to `results/raw/simulated/`, separate from real
+output, and the runner refuses to produce them unless `--dry-run` or a
+`mock`/`offline` provider is passed explicitly. `report.py` rejects any bundle
+that is not `run_mode=real`; `--allow-simulated` overrides that and stamps the
+report `SIMULATED - NOT EVIDENCE`.
+
 ## Reproducing
 
 ```bash
-python -m benchmarks.runner.experiment --manifest validation-pilot-v1 --dry-run
-python -m benchmarks.analysis.report --results benchmarks/results/raw --manifest validation-final-v1
+pip install -e '.[benchmarks]'
+python -m benchmarks.runner.experiment --manifest validation-final-v1 \
+    --provider openai --model gpt-6-astra
+python -m benchmarks.analysis.report --results benchmarks/results/raw \
+    --manifest validation-final-v1
 ```
 
-Raw outputs are written to `benchmarks/results/raw/`. Only small summaries with
-explicit provenance are committed.
+Raw outputs are written to `benchmarks/results/raw/` (real) or
+`benchmarks/results/raw/simulated/` (simulated). Both are git-ignored. Only
+small summaries with explicit provenance are committed.
+
+## Analyses requiring external inputs
+
+Three scripts in `analysis/` have no committed input data and cannot run
+as-is. They are retained because they define the methodology; supply the
+corresponding raw run directories to use them:
+
+| Script | Needs |
+|---|---|
+| `analysis/cross_model.py` | Two multi-model result directories, compared via `--model-a` / `--model-b` |
+| `analysis/evaluate_detectors.py` | A labelled trajectory directory with known loop/non-loop runs |
+| `analysis/classify.py` | A raw run directory to classify failure modes over |
+
+`analysis/report.py`, `analysis/stats.py` and `analysis/fault_injection/` are
+self-sufficient against a results tree and the committed manifests.

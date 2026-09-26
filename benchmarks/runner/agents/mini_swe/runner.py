@@ -5,6 +5,11 @@ Supports:
 1. Live execution via mini-swe-agent v2 with LiteLLM / OpenAI / Anthropic models
 2. Deterministic execution via mini-swe-agent's test models
 3. High-fidelity baseline trajectory simulation across difficulty tiers
+
+Every result this module returns declares ``run_mode`` -- ``"real"`` when an agent
+actually executed the task, ``"simulated"`` when the offline generator produced
+it. Simulated output is written to a separate results directory and is rejected
+by the report generator unless explicitly opted into. It is never evidence.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ class TaskRunResult:
         task_id: str,
         run_id: str,
         condition: str,
+        run_mode: str,
         events: list[dict[str, Any]],
         microloop_decisions: list[dict[str, Any]],
         final_patch: str,
@@ -40,6 +46,7 @@ class TaskRunResult:
         self.task_id = task_id
         self.run_id = run_id
         self.condition = condition
+        self.run_mode = run_mode
         self.events = events
         self.microloop_decisions = microloop_decisions
         self.final_patch = final_patch
@@ -629,6 +636,7 @@ def run_single_task(
         task_id=task_id,
         run_id=run_id,
         condition=condition,
+        run_mode="simulated" if simulating else "real",
         events=adapter.trajectory_events,
         microloop_decisions=adapter.microloop_decisions,
         final_patch=final_patch,

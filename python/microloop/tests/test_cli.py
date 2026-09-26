@@ -4,9 +4,7 @@ from pathlib import Path
 import pytest
 from microloop.cli import main
 
-FIXTURE = (
-    Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "sample_trajectory.jsonl"
-)
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample_trajectory.jsonl"
 
 
 def _trajectory(tmp_path: Path, *records: dict) -> Path:

@@ -4,9 +4,13 @@ Microloop Benchmark Report Generator.
 Regenerates all published benchmark metrics, statistics, and tables
 directly from immutable raw trajectory bundles in benchmarks/results/raw/.
 
-Enforces the scientific rule:
-No benchmark number exists only as a hand-written JSON summary.
-Every published claim is computed from raw execution records.
+Enforces two rules:
+1. No benchmark number exists only as a hand-written JSON summary. Every
+   published claim is computed from raw execution records.
+2. Only measured evidence counts. A run bundle must declare
+   ``"run_mode": "real"``. Simulated bundles are rejected by default; opting in
+   requires an explicit ``--allow-simulated``, which stamps the report so the
+   output can never be mistaken for a measurement.
 
 Usage:
     python -m benchmarks.analysis.report \\
@@ -37,22 +41,47 @@ def load_manifest(manifest_name: str) -> dict[str, Any]:
         return json.load(f)
 
 
-def load_raw_runs(results_dir: str) -> list[dict[str, Any]]:
-    """Loads all immutable run bundles from results directory."""
-    runs = []
+def load_raw_runs(results_dir: str, allow_simulated: bool = False) -> list[dict[str, Any]]:
+    """Loads immutable run bundles, refusing unprovenanced or simulated ones.
+
+    A bundle with no ``run_mode`` predates provenance tracking and is rejected
+    rather than assumed real. Silently dropping it would quietly shrink the
+    denominator, so each rejection is reported.
+    """
+    runs: list[dict[str, Any]] = []
+    rejected: list[tuple[str, str]] = []
     if not os.path.exists(results_dir):
         return runs
 
     for root, _dirs, files in os.walk(results_dir):
-        if "metadata.json" in files:
-            meta_path = os.path.join(root, "metadata.json")
-            try:
-                with open(meta_path, encoding="utf-8") as f:
-                    meta = json.load(f)
-                    meta["_bundle_dir"] = root
-                    runs.append(meta)
-            except Exception:
-                pass
+        if "metadata.json" not in files:
+            continue
+        meta_path = os.path.join(root, "metadata.json")
+        try:
+            with open(meta_path, encoding="utf-8") as f:
+                meta = json.load(f)
+        except Exception:
+            rejected.append((root, "unreadable metadata.json"))
+            continue
+        mode = meta.get("run_mode")
+        if mode is None:
+            rejected.append((root, "missing run_mode (predates provenance tracking)"))
+            continue
+        if mode == "simulated" and not allow_simulated:
+            rejected.append((root, "run_mode=simulated"))
+            continue
+        if mode not in ("real", "simulated"):
+            rejected.append((root, f"unrecognised run_mode {mode!r}"))
+            continue
+        meta["_bundle_dir"] = root
+        runs.append(meta)
+
+    if rejected:
+        print(f"[Report] Rejected {len(rejected)} run bundle(s) from {results_dir}:")
+        for path, reason in rejected[:10]:
+            print(f"  - {os.path.basename(path)}: {reason}")
+        if len(rejected) > 10:
+            print(f"  ... and {len(rejected) - 10} more")
     return runs
 
 
@@ -186,6 +215,7 @@ def recompute_cost_from_usage(run: dict[str, Any]) -> float:
 def audit_and_generate_report(
     results_dir: str,
     manifest_name: str,
+    allow_simulated: bool = False,
 ) -> dict[str, Any]:
     """Performs raw-run audit and generates reproducible metrics."""
     manifest = load_manifest(manifest_name)
@@ -193,7 +223,7 @@ def audit_and_generate_report(
     task_ids = {t["task_id"] for t in tasks}
     total_manifest_tasks = len(tasks)
 
-    all_runs = load_raw_runs(results_dir)
+    all_runs = load_raw_runs(results_dir, allow_simulated=allow_simulated)
     # Filter to runs for tasks in manifest
     manifest_runs = [r for r in all_runs if r.get("task_id") in task_ids]
     manifest_runs.sort(key=lambda r: r.get("started_at", ""), reverse=True)
@@ -427,9 +457,7 @@ def format_report_table(report: dict[str, Any]) -> str:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Microloop Benchmark Evidence Audit and Report Generator"
-    )
+    parser = argparse.ArgumentParser(description="Microloop Benchmark Report Generator")
     parser.add_argument(
         "--results", default="benchmarks/results/raw", help="Path to raw results directory"
     )
@@ -441,9 +469,19 @@ def main() -> None:
     parser.add_argument("--output-derived", default=None, help="Output derived JSON path")
     parser.add_argument("--output-published", default=None, help="Output published Markdown path")
     parser.add_argument("--json", action="store_true", help="Print JSON report to stdout")
+    parser.add_argument(
+        "--allow-simulated",
+        action="store_true",
+        help=(
+            "Include run_mode=simulated bundles. The resulting report is stamped "
+            "SIMULATED and must not be published as evidence."
+        ),
+    )
     args = parser.parse_args()
 
-    report = audit_and_generate_report(args.results, args.manifest)
+    report = audit_and_generate_report(
+        args.results, args.manifest, allow_simulated=args.allow_simulated
+    )
 
     # Determine default paths
     derived_dir = "benchmarks/results/derived"
@@ -461,7 +499,11 @@ def main() -> None:
         published_dir, f"{args.manifest}-report.md"
     )
     with open(published_path, "w", encoding="utf-8") as f:
-        f.write(f"# Microloop Evidence Audit: {args.manifest}\n\n```\n{table_str}\n```\n")
+        banner = "SIMULATED - NOT EVIDENCE" if args.allow_simulated else "measured"
+        f.write(
+            f"# Microloop Benchmark Results: {args.manifest}\n\n"
+            f"Run mode: {banner}\n\n```\n{table_str}\n```\n"
+        )
 
     if args.json:
         print(json.dumps(report, indent=2))

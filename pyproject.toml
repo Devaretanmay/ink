@@ -23,7 +23,6 @@ dev = [
 # library plus `microloop`; everything below is required to execute *real* agent
 # runs rather than the deterministic simulation.
 benchmarks = [
-    "jsonschema>=4.20",
     "litellm>=1.60",
     "mini-swe-agent>=2.4,<3.0",
     "swebench>=5.0",

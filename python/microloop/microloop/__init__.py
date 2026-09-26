@@ -8,6 +8,11 @@ or operating on stale state, and reports a configured intervention.
 The public API is intentionally small: ``Monitor``, ``Policy``, ``Event``,
 ``Decision`` and ``InterventionAction``. The host owns the agent loop; Microloop
 only observes it and returns instructions.
+
+``SCHEMA_VERSION`` is the trajectory schema the ``microloop`` CLI reads. It is
+not enforced here: the runtime ``Event`` has no version field and ignores unknown
+keys, so ``Monitor.observe`` accepts any payload. Version checking happens at the
+file boundary in :mod:`microloop.cli`.
 """
 from __future__ import annotations
 

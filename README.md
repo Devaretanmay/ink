@@ -3,6 +3,7 @@
 ### Keep agents making progress.
 
 [![CI](https://github.com/Devaretanmay/microloop/actions/workflows/ci.yml/badge.svg)](https://github.com/Devaretanmay/microloop/actions)
+[![PyPI](https://img.shields.io/pypi/v/microloop.svg)](https://pypi.org/project/microloop/)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 Microloop is a local reliability runtime for autonomous agents. It watches an
@@ -14,15 +15,29 @@ Workflow engines keep agents *running*. Observability tools show *what agents
 did*. Guardrails decide *what agents may do*. Microloop decides *whether the
 agent is still making useful progress*.
 
-The runtime is **low-overhead and in-process with no required network calls**.
-It sits under any harness. It is not an agent framework.
+The runtime is **in-process and makes no network calls**. It sits under any
+harness. It is not an agent framework.
 
 ---
 
 ## Installation
 
-Not yet on PyPI — the `microloop` name is held by an unrelated project, so the
-distribution name is unresolved. Until it ships, build from source:
+Python 3.10–3.13:
+
+```bash
+pip install microloop
+```
+
+Rust — not yet on crates.io. The publish job is wired up and disabled in the
+release workflow, so it becomes available once that registry is set up:
+
+```toml
+# Cargo.toml
+[dependencies]
+microloop-core = "0.3"
+```
+
+Building from source instead:
 
 ```bash
 git clone https://github.com/Devaretanmay/microloop
@@ -31,16 +46,10 @@ pip install -e '.[dev]'
 maturin develop --manifest-path python/microloop/Cargo.toml
 ```
 
-Rust — not yet on crates.io. The publish job is wired up in the release
-workflow, so this becomes available on the next tag:
-
-```toml
-# Cargo.toml
-[dependencies]
-microloop-core = "0.3"
-```
-
 ## Quick start
+
+Pseudocode — `agent` below stands for your own loop. For a complete runnable
+version see [`examples/coding-agent`](examples/coding-agent).
 
 ```python
 from microloop import Monitor
@@ -136,7 +145,7 @@ microloop doctor
 ```
 
 ```
-$ microloop inspect tests/fixtures/sample_trajectory.jsonl
+$ microloop inspect python/microloop/tests/fixtures/sample_trajectory.jsonl
 Microloop trajectory analysis (schema 0.3.0)
 Steps          10
 Status         stalled
@@ -181,19 +190,30 @@ recovery example.
 
 ## Benchmarks
 
-On a held-out SWE-bench Verified evaluation (`validation-final-v1`, 100 paired
-tasks, frozen manifest, `gpt-6-astra`, mini-swe-agent v2.4.6), adding Microloop
-to the same agent improved completion from 51/100 to 63/100 while reducing
-median tool calls by 21.3%:
+The evaluation harness in `benchmarks/` is committed and reproducible, but **no
+benchmark result is currently published as verified evidence.** A previous
+100-task SWE-bench Verified run is recorded in
+[`benchmarks/results/published/`](benchmarks/results/published/), however its raw
+run bundles are git-ignored and predate the provenance field, so the report
+generator now rejects them. The figures in that file are a historical record,
+not a claim this repository can currently substantiate.
 
-| Metric            | Vanilla | Microloop | Difference   |
-|-------------------|---------|-----------|--------------|
-| Tasks solved      | 51/100  | 63/100    | +12          |
-| 95% paired CI     | —       | —         | [+5.0,+20.0] pp |
-| Median tool calls | 61      | 48        | −21.3%       |
+We would rather say that than publish a number nobody can regenerate.
 
-`benchmarks/` contains the reproducible methodology and runner. Published
-summaries live under `benchmarks/results/published/`.
+To reproduce a result, run the harness yourself — it requires provider
+credentials, Docker and `mini-swe-agent`:
+
+```bash
+pip install -e '.[benchmarks]'
+python -m benchmarks.runner.experiment --manifest validation-final-v1 \
+    --provider openai --model gpt-6-astra
+python -m benchmarks.analysis.report --results benchmarks/results/raw \
+    --manifest validation-final-v1
+```
+
+Every run bundle declares `run_mode` (`real` or `simulated`). Simulated runs are
+written to a separate directory and the report generator rejects them unless you
+pass `--allow-simulated`, which stamps the output `SIMULATED - NOT EVIDENCE`.
 [Methodology →](benchmarks/README.md)
 
 ## Architecture

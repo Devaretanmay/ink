@@ -54,6 +54,24 @@ def compute_exact_cost(
     return round(cost, 6)
 
 
+#: Real agent runs are written here. Simulated runs are forced into
+#: `simulated/` beneath it so the two can never share a results tree.
+REAL_OUTPUT_DIR = "benchmarks/results/raw"
+SIMULATED_OUTPUT_SUBDIR = "simulated"
+
+
+def resolve_output_dir(output_dir: str, run_mode: str) -> str:
+    """Confine simulated runs to their own directory tree.
+
+    A simulation that landed in the real results tree would be indistinguishable
+    from measured evidence to the report generator, so it is redirected rather
+    than trusted.
+    """
+    if run_mode == "real":
+        return output_dir
+    return os.path.join(output_dir, SIMULATED_OUTPUT_SUBDIR)
+
+
 def run_experiment(
     manifest_name: str = "validation-pilot-v1",
     conditions: list[str] | None = None,
@@ -74,7 +92,15 @@ def run_experiment(
     if task_limit is not None and task_limit > 0:
         tasks = tasks[:task_limit]
 
+    run_mode = "simulated" if dry_run or provider in ("mock", "offline") else "real"
+    output_dir = resolve_output_dir(output_dir, run_mode)
     writer = ResultWriter(output_dir)
+    if run_mode == "simulated":
+        print(
+            f"[Experiment] SIMULATED runs -> {output_dir}/\n"
+            "[Experiment] This output is not evidence and is rejected by the "
+            "report generator."
+        )
     config = MiniSWEConfig(model=model, provider=provider)
     completed_runs: list[dict[str, Any]] = []
 
@@ -138,6 +164,7 @@ def run_experiment(
         )
 
         metadata = create_run_metadata(
+            run_mode=task_result.run_mode,
             experiment=manifest_name,
             run_id=run_id,
             task_id=task_id,
@@ -185,7 +212,8 @@ def run_experiment(
         completed_runs.append(metadata)
 
     print(
-        f"\n[Experiment] Completed {len(completed_runs)} runs. Raw bundles written to {output_dir}/"
+        f"\n[Experiment] Completed {len(completed_runs)} {run_mode} runs. "
+        f"Bundles written to {output_dir}/"
     )
     return completed_runs
 
@@ -198,7 +226,7 @@ def main() -> None:
     parser.add_argument("--task-limit", type=int, default=None)
     parser.add_argument("--task", type=str, default=None, help="Execute specific task ID only")
     parser.add_argument("--dry-run", action="store_true", help="Execute deterministic simulation")
-    parser.add_argument("--output-dir", type=str, default="benchmarks/results/raw")
+    parser.add_argument("--output-dir", type=str, default=REAL_OUTPUT_DIR)
     parser.add_argument("--model", type=str, default="gpt-6-astra", help="Pinned model name")
     parser.add_argument("--provider", type=str, default="openai", help="Provider name")
     args = parser.parse_args()
@@ -206,7 +234,12 @@ def main() -> None:
     if args.task:
         tasks = [{"task_id": args.task}]
         config = MiniSWEConfig(model=args.model, provider=args.provider)
-        writer = ResultWriter(args.output_dir)
+        run_mode = (
+            "simulated"
+            if args.dry_run or args.provider in ("mock", "offline")
+            else "real"
+        )
+        writer = ResultWriter(resolve_output_dir(args.output_dir, run_mode))
         for cond in args.conditions:
             run_id = generate_run_id(args.task, cond, 1)
             started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -218,6 +251,7 @@ def main() -> None:
             t_write = int(t_prompt * 0.15)
             cost = compute_exact_cost(config.model, t_prompt, t_comp, t_read, t_write)
             metadata = create_run_metadata(
+                run_mode=res.run_mode,
                 experiment=args.manifest,
                 run_id=run_id,
                 task_id=args.task,

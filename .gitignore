@@ -17,8 +17,12 @@ benchmarks/data/
 .idea/
 .vscode/
 .freebuff/
+.pytest_cache/
+.ruff_cache/
+.wheeltest/
 
 benchmarks/results/raw/
+benchmarks/results/raw/simulated/
 *.whl
 /build/
 /dist/

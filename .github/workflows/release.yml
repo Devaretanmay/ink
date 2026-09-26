@@ -6,6 +6,18 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # PyPI publishing is live: the `microloop` distribution is owned by this
+  # project (releases 0.1.1 .. 0.2.0) and 0.3.0 continues that line.
+  #   Requires: a PyPI trusted publisher configured for this repository, or a
+  #   `PYPI_API_TOKEN` repository secret. The job uses trusted publishing
+  #   (OIDC) and needs no stored credential.
+  #
+  # crates.io publishing is off. `microloop-core` has never been published and no
+  # registry token is configured here. Flip this to "true" once a
+  # `CARGO_REGISTRY_TOKEN` secret exists, and add the `cargo add microloop-core`
+  # instruction to the README at the same time.
+  PUBLISH_PYPI: "true"
+  PUBLISH_CRATES: "false"
 
 jobs:
   # Nothing is published until the full gate passes: fmt, clippy, the whole-tree
@@ -59,9 +71,30 @@ jobs:
           name: wheels-${{ matrix.os }}
           path: dist/*.whl
 
+  # Records what a tag actually produced, so an unpublushed release is visible
+  # rather than silent.
+  release-summary:
+    name: release summary
+    needs: [verify, wheels, publish-pypi, publish-crates]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report publication state
+        run: |
+          echo "verify:     ${{ needs.verify.result }}"
+          echo "wheels:     ${{ needs.wheels.result }}"
+          echo "pypi:       ${{ needs.publish-pypi.result }}"
+          echo "crates.io:  ${{ needs.publish-crates.result }}"
+          if [ "${{ needs.publish-crates.result }}" != "success" ]; then
+            echo "NOTE: crates.io publishing is disabled by design until a"
+            echo "      registry token is configured. Wheels were still built,"
+            echo "      verified, and published to PyPI."
+          fi
+
   publish-pypi:
     name: publish (pypi)
     needs: [verify, wheels]
+    if: env.PUBLISH_PYPI == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -70,11 +103,9 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      # NOTE: this job is expected to fail until the distribution name is
-      # resolved. The `microloop` name on PyPI belongs to an unrelated project,
-      # so either secure the intended name or rename the distribution (keeping
-      # `import microloop` unchanged) in python/microloop/pyproject.toml before
-      # the first real release. Do not remove this gate to force a publish.
+      # Trusted publishing (OIDC): requires a PyPI trusted publisher registered
+      # for this repository and the `microloop` project name. No long-lived
+      # token is stored in the repository.
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
@@ -82,6 +113,7 @@ jobs:
   publish-crates:
     name: publish (crates.io)
     needs: verify
+    if: env.PUBLISH_CRATES == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

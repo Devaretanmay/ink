@@ -1,9 +1,9 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MicroloopCanonicalEvent",
+  "title": "MicroloopBenchmarkCanonicalEvent",
   "type": "object",
   "required": [
-    "schema_version",
+    "benchmark_schema_version",
     "run_id",
     "task_id",
     "step",
@@ -14,9 +14,10 @@
     "metrics"
   ],
   "properties": {
-    "schema_version": {
+    "benchmark_schema_version": {
       "type": "string",
-      "const": "0.1"
+      "const": "benchmark-0.1",
+      "description": "Version of the BENCHMARK telemetry event format emitted by the harness. This is distinct from the runtime's trajectory `schema_version` (currently 0.3.0) used by the `microloop` CLI; the two formats are mapped in benchmarks/runner/bridge.py."
     },
     "run_id": {
       "type": "string",
@@ -35,23 +36,40 @@
     },
     "action": {
       "type": "object",
-      "required": ["type", "command"],
+      "required": [
+        "type",
+        "command"
+      ],
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["shell", "read_file", "write_file", "search_files", "submit"]
+          "enum": [
+            "shell",
+            "read_file",
+            "write_file",
+            "search_files",
+            "submit"
+          ]
         },
         "command": {
           "type": "string"
         },
         "path": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
     "observation": {
       "type": "object",
-      "required": ["exit_code", "duration_ms", "stdout", "stderr"],
+      "required": [
+        "exit_code",
+        "duration_ms",
+        "stdout",
+        "stderr"
+      ],
       "properties": {
         "exit_code": {
           "type": "integer"
@@ -67,13 +85,21 @@
           "type": "string"
         },
         "error_class": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     },
     "workspace": {
       "type": "object",
-      "required": ["git_head", "dirty", "changed_files", "diff_hash"],
+      "required": [
+        "git_head",
+        "dirty",
+        "changed_files",
+        "diff_hash"
+      ],
       "properties": {
         "git_head": {
           "type": "string"
@@ -92,16 +118,28 @@
     },
     "metrics": {
       "type": "object",
-      "required": ["tests_passed", "tests_failed"],
+      "required": [
+        "tests_passed",
+        "tests_failed"
+      ],
       "properties": {
         "tests_passed": {
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "tests_failed": {
-          "type": ["integer", "null"]
+          "type": [
+            "integer",
+            "null"
+          ]
         },
         "verification_scope": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         }
       }
     }

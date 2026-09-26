@@ -161,3 +161,13 @@ and no tools run.
 A trajectory whose `schema_version` major version differs from the runtime's is
 rejected with a compatibility error rather than analyzed on a guess. Re-record
 the trajectory, or upgrade Microloop.
+
+Scope: this check happens in the CLI, when a file is read. `schema_version` is
+not a field of the runtime `Event` and is not validated by `Monitor.observe()`,
+so a trajectory you build yourself is your responsibility to keep compatible.
+The runtime is version-agnostic by design and will happily consume a payload
+whose fields have changed meaning; the guard exists to catch that at the file
+boundary, not inside the library.
+
+`Event` also ignores unknown keys rather than rejecting them, so extra fields in
+a trajectory record are dropped silently.

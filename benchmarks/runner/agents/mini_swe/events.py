@@ -109,7 +109,7 @@ def build_canonical_event(
     diff_hash = hash_text(diff_content) if diff_content else "empty"
 
     return {
-        "schema_version": "0.1",
+        "benchmark_schema_version": "benchmark-0.1",
         "run_id": run_id,
         "task_id": task_id,
         "step": step,

@@ -29,7 +29,6 @@ than silently emitting simulated trajectories. Use `--dry-run`, or the `mock` /
 ```
 crates/microloop-core   Rust runtime (detection + policy)
 python/microloop        PyO3 bindings, Python SDK and CLI
-tests/fixtures          trajectory fixtures
 benchmarks              reproducible evaluation methodology and runner
 benchmarks/schemas      authoritative result and event schemas
 docs                    concepts, integration, architecture

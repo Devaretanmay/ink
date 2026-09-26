@@ -26,11 +26,18 @@ def get_git_commit(repo_path: str = ".") -> str:
     return "645db8d052a6582531e21b22e11a3b83640232eb"
 
 
+#: How a run bundle was produced. `real` means an actual agent executed the task;
+#: `simulated` means the deterministic offline generator produced it. Every run
+#: bundle must declare one. Report generation rejects `simulated` by default.
+RUN_MODES = ("real", "simulated")
+
+
 def create_run_metadata(
     experiment: str,
     run_id: str,
     task_id: str,
     condition: str,
+    run_mode: str,
     provider: str,
     model: str,
     temperature: float,
@@ -65,6 +72,8 @@ def create_run_metadata(
     Constructs an immutable run metadata dictionary complying with
     benchmarks/schemas/run-result.schema.json.
     """
+    if run_mode not in RUN_MODES:
+        raise ValueError(f"run_mode must be one of {RUN_MODES}, got {run_mode!r}")
     commit = get_git_commit()
     # Normalize exact model ID to official provider API strings
     if exact_model_id is None:
@@ -76,6 +85,7 @@ def create_run_metadata(
             exact_model_id = model
 
     return {
+        "run_mode": run_mode,
         "experiment": experiment,
         "run_id": run_id,
         "task_id": task_id,

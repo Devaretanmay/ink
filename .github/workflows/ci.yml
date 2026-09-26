@@ -39,15 +39,18 @@ jobs:
       - run: cargo test --workspace
 
   # The package ships a native PyO3 extension, so an install of the built wheel
-  # is verified on macOS and Windows, not just Linux. This catches ABI and
-  # loader problems that `cargo test` cannot see.
+  # is verified on all three platforms, not just the one cargo test runs on.
+  # This catches ABI and loader problems that `cargo test` cannot see.
   wheel:
     name: wheel install (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -63,8 +66,19 @@ jobs:
           .wheeltest/bin/python -m pip install --upgrade pip
           .wheeltest/bin/python -m pip install dist/*.whl
           .wheeltest/bin/python -m pip install pytest
-      - name: Native extension loads and the CLI works
-        run: .wheeltest/bin/python -m microloop.cli doctor
+      # Exercise the installed console script, not just `python -m`, so a broken
+      # entry point in packaging metadata is caught here rather than by a user.
+      - name: Installed console script runs
+        run: |
+          .wheeltest/bin/microloop --version
+          .wheeltest/bin/microloop doctor
+      - name: Public API imports from the installed package
+        run: |
+          .wheeltest/bin/python -c "import microloop; print(microloop.__version__, microloop.__all__)"
+      - name: CLI subcommands run against the installed wheel
+        run: |
+          .wheeltest/bin/microloop inspect python/microloop/tests/fixtures/sample_trajectory.jsonl
+          .wheeltest/bin/microloop replay python/microloop/tests/fixtures/sample_trajectory.jsonl --json
       - name: Test suite passes against the installed wheel
         run: |
           .wheeltest/bin/python -m pytest python/microloop/tests/

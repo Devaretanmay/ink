@@ -100,7 +100,7 @@ impl ProgressEngine {
         self.history.push(record);
 
         if !verified_progress {
-            let records = self.history.as_slice();
+            let records = self.history.window();
             let current = records.last().expect("just pushed");
 
             if let Some(found) = repetition::exact(current, records, self.config.repetitions) {

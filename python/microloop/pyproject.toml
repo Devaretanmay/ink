@@ -7,7 +7,8 @@ name = "microloop"
 version = "0.3.0"
 description = "Local reliability runtime for autonomous agents"
 authors = [{ name = "Microloop Team" }]
-license = { text = "MIT OR Apache-2.0" }
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
 readme = "README.md"
 requires-python = ">=3.10, <3.14"
 keywords = ["agent", "llm", "trajectory", "progress", "loop-detection"]
