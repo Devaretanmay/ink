@@ -4,32 +4,36 @@ use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::sync::LazyLock;
 
+static ANSI_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\x1b\[[0-9;]*[a-zA-Z]").unwrap());
 static UUID_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b").unwrap()
+    Regex::new(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+        .unwrap()
 });
-static HEX_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b0x[0-9a-fA-F]{4,16}\b").unwrap()
-});
+static HASH_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b[0-9a-fA-F]{40,64}\b").unwrap());
+static HEX_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b0x[0-9a-fA-F]{4,16}\b").unwrap());
 static TIMESTAMP_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b").unwrap()
+    Regex::new(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b")
+        .unwrap()
 });
 static TMP_PATH_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+)/[^\s\x22':;]+").unwrap()
+    Regex::new(r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+|private/var/folders/[^\s/]+/[^\s/]+/[^\s/]+|root/\.cache/[^\s/]+)/[^\s\x22':;]+").unwrap()
 });
-static PID_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b(?:pid|PID|process|PROCESS)\s*[=:]\s*\d+\b").unwrap()
-});
-static WS_RE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"[ \t]+").unwrap()
-});
+static PID_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b(?:pid|PID|process|PROCESS)\s*[=:]\s*\d+\b").unwrap());
+static PORT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r":\b[3-6][0-9]{4}\b").unwrap());
+static WS_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[ \t]+").unwrap());
 
-/// Masks volatile tokens (UUIDs, hex addresses, timestamps, temp paths, PIDs) to enable normalized repetition detection.
+/// Masks volatile tokens (ANSI escapes, UUIDs, git/docker hashes, hex addresses, timestamps, temp paths, PIDs, ephemeral ports)
+/// to enable robust normalized repetition detection in 2026 agent execution traces.
 pub fn mask_volatile_noise(input: &str) -> String {
-    let s = UUID_RE.replace_all(input, "<UUID>");
+    let s = ANSI_RE.replace_all(input, "");
+    let s = UUID_RE.replace_all(&s, "<UUID>");
+    let s = HASH_RE.replace_all(&s, "<HASH>");
     let s = HEX_RE.replace_all(&s, "<HEX>");
     let s = TIMESTAMP_RE.replace_all(&s, "<TIMESTAMP>");
     let s = TMP_PATH_RE.replace_all(&s, "<TMP_PATH>");
     let s = PID_RE.replace_all(&s, "pid=<PID>");
+    let s = PORT_RE.replace_all(&s, ":<PORT>");
     let mut s = WS_RE.replace_all(&s, " ").trim().to_string();
     if s.len() > 256 {
         s.truncate(256);
@@ -178,7 +182,8 @@ impl Monitor {
         self.validate(&event)?;
         if self.config.normalize_actions {
             if event.action.normalized_fingerprint.is_none() {
-                event.action.normalized_fingerprint = Some(mask_volatile_noise(&event.action.fingerprint));
+                event.action.normalized_fingerprint =
+                    Some(mask_volatile_noise(&event.action.fingerprint));
             }
             if event.observation.normalized_fingerprint.is_none()
                 && let Some(fp) = &event.observation.fingerprint

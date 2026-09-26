@@ -57,6 +57,24 @@ def mcnemar_exact_test(b: int, c: int) -> float:
     return round(p_val, 6)
 
 
+def holm_bonferroni_correction(p_values: Dict[str, float], alpha: float = 0.05) -> Dict[str, Any]:
+    """
+    Applies Holm-Bonferroni step-down procedure to control Family-Wise Error Rate (FWER)
+    across multiple hypotheses in 2026 benchmark evaluations.
+    """
+    sorted_tests = sorted(p_values.items(), key=lambda x: x[1])
+    m = len(sorted_tests)
+    adjusted_results = {}
+    for rank, (test_name, p_val) in enumerate(sorted_tests, start=1):
+        threshold = alpha / (m - rank + 1)
+        adjusted_results[test_name] = {
+            "unadjusted_p": p_val,
+            "threshold": round(threshold, 6),
+            "statistically_significant": p_val < threshold,
+        }
+    return adjusted_results
+
+
 def paired_bootstrap_delta(
     task_pairs: List[Tuple[bool, bool]],
     iterations: int = 10000,
@@ -175,6 +193,16 @@ def analyze_benchmark_results(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         mean_steps = data["total_steps"] / n if n > 0 else 0.0
         mean_tokens = (data["tokens_prompt"] + data["tokens_completion"]) / n if n > 0 else 0.0
 
+        # 2026 Prompt-Cache Economics (85% prompt cache hit rate)
+        # Pricing: Uncached Prompt $2.50/M, Cached Prompt $0.30/M, Completion $10.00/M
+        tot_prompt = data["tokens_prompt"]
+        tot_comp = data["tokens_completion"]
+        uncached_cost = (tot_prompt * 0.15 / 1_000_000.0) * 2.50
+        cached_cost = (tot_prompt * 0.85 / 1_000_000.0) * 0.30
+        comp_cost = (tot_comp / 1_000_000.0) * 10.00
+        total_cost_usd = uncached_cost + cached_cost + comp_cost
+        cost_per_resolved = (total_cost_usd / k) if k > 0 else 0.0
+
         summary_per_condition[cond] = {
             "trials": n,
             "successes": k,
@@ -182,7 +210,12 @@ def analyze_benchmark_results(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
             "wilson_ci_95_pct": [round(ci_low * 100, 2), round(ci_high * 100, 2)],
             "mean_steps_per_task": round(mean_steps, 2),
             "mean_tokens_per_task": int(mean_tokens),
-            "total_tokens_spent": data["tokens_prompt"] + data["tokens_completion"],
+            "total_tokens_spent": tot_prompt + tot_comp,
+            "tokens_prompt_uncached": int(tot_prompt * 0.15),
+            "tokens_prompt_cached": int(tot_prompt * 0.85),
+            "tokens_completion": tot_comp,
+            "estimated_cost_usd": round(total_cost_usd, 4),
+            "cost_per_resolved_task_usd": round(cost_per_resolved, 4),
         }
 
     # Paired comparisons against Control (Vanilla)
@@ -245,10 +278,21 @@ def analyze_benchmark_results(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
             "wasted_tokens_reduction_on_failures_pct": round(token_reduction_pct, 2),
         }
 
+    # Multiple testing correction (Holm-Bonferroni FWER)
+    p_values_for_correction = {
+        name: data["mcnemar_test"]["p_value"]
+        for name, data in paired_analyses.items()
+    }
+    fwer_results = holm_bonferroni_correction(p_values_for_correction, alpha=0.05)
+    for name, fwer_info in fwer_results.items():
+        if name in paired_analyses:
+            paired_analyses[name]["fwer_correction"] = fwer_info
+
     return {
         "conditions": summary_per_condition,
         "primary_analysis": paired_analyses.get("microloop_vs_vanilla", {}),
         "secondary_analyses": paired_analyses,
+        "fwer_multiple_testing": fwer_results,
     }
 
 
@@ -276,37 +320,46 @@ def main() -> None:
         return
 
     # Print formatted statistical report
-    print("\n" + "=" * 76)
-    print("      MICROLOOP VALIDATION BENCHMARK (EXPERIMENT 001): STATISTICAL REPORT")
-    print("=" * 76)
+    print("\n" + "=" * 80)
+    print("      MICROLOOP VALIDATION BENCHMARK (EXPERIMENT 001): 2026 STATISTICAL REPORT")
+    print("=" * 80)
     print(f"Total Trajectory Runs Analyzed: {len(runs)}")
-    print("-" * 76)
-    print(f"{'Condition':15s} | {'Trials':6s} | {'Success':7s} | {'ACR':7s} | {'95% Wilson CI':16s} | {'Mean Steps':10s}")
-    print("-" * 76)
+    print("-" * 80)
+    print(f"{'Condition':12s} | {'Trials':6s} | {'Success':7s} | {'ACR':7s} | {'95% Wilson CI':15s} | {'Steps':6s} | {'$/Resolve':9s}")
+    print("-" * 80)
 
     for cond, dat in analysis.get("conditions", {}).items():
         ci = dat["wilson_ci_95_pct"]
+        cost_str = f"${dat['cost_per_resolved_task_usd']:.3f}" if dat["cost_per_resolved_task_usd"] > 0 else "N/A"
         print(
-            f"{cond:15s} | {dat['trials']:6d} | {dat['successes']:7d} | "
-            f"{dat['completion_rate_pct']:6.2f}% | [{ci[0]:5.1f}%, {ci[1]:5.1f}%] | {dat['mean_steps_per_task']:10.1f}"
+            f"{cond:12s} | {dat['trials']:6d} | {dat['successes']:7d} | "
+            f"{dat['completion_rate_pct']:6.2f}% | [{ci[0]:5.1f}%, {ci[1]:5.1f}%] | {dat['mean_steps_per_task']:6.1f} | {cost_str:>9s}"
         )
-    print("-" * 76)
+    print("-" * 80)
 
     primary = analysis.get("primary_analysis", {})
     if primary:
         boot = primary.get("paired_bootstrap", {})
         mcnemar = primary.get("mcnemar_test", {})
+        fwer = primary.get("fwer_correction", {})
         print("PRIMARY HYPOTHESIS H1: Microloop vs. Vanilla Baseline")
         print(f"  • Paired Tasks Evaluated       : {primary.get('paired_tasks_count')}")
         print(f"  • Delta ACR (Treatment Lift)   : +{boot.get('observed_delta_pp', 0.0):.2f} percentage points")
         print(f"  • 95% Bootstrap CI (B=10,000)  : [{boot.get('ci_lower_pp', 0.0):+.2f} pp, {boot.get('ci_upper_pp', 0.0):+.2f} pp]")
         print(f"  • Bootstrap p-value            : p = {boot.get('p_value'):.5f}")
         print(f"  • McNemar Paired Test          : b={mcnemar.get('b_control_success_treatment_fail')}, c={mcnemar.get('c_control_fail_treatment_success')} (p = {mcnemar.get('p_value'):.5f})")
-        print(f"  • Statistically Significant    : {'YES (p < 0.05)' if mcnemar.get('statistically_significant') else 'NO'}")
+        print(f"  • Holm-Bonferroni FWER         : alpha_adj = {fwer.get('threshold', 0.05)}, sig = {fwer.get('statistically_significant', False)}")
         print(f"  • Damaging Intervention Rate   : {primary.get('damaging_intervention_rate_pct', 0.0):.2f}% (Target: < 5.0%)")
         print(f"  • Wasted Steps Reduction       : {primary.get('wasted_steps_reduction_on_failures_pct', 0.0):.2f}% (Target: >= 15.0%)")
         print(f"  • Wasted Tokens Reduction      : {primary.get('wasted_tokens_reduction_on_failures_pct', 0.0):.2f}%")
-    print("=" * 76)
+
+    fwer_all = analysis.get("fwer_multiple_testing", {})
+    if fwer_all:
+        print("\nHOLM-BONFERRONI FAMILY-WISE ERROR RATE (FWER) CORRECTION (alpha = 0.05):")
+        for test_name, res in fwer_all.items():
+            sig_mark = "PASS (Significant)" if res.get("statistically_significant") else "FAIL (Not Significant)"
+            print(f"  • {test_name:24s}: unadj_p = {res.get('unadjusted_p'):.6f} vs threshold {res.get('threshold'):.6f} -> {sig_mark}")
+    print("=" * 80)
     if args.output:
         print(f"Full report saved to: {args.output}\n")
 

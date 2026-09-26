@@ -1,30 +1,30 @@
 {
   "taxonomy_version": "1.0",
-  "total_runs_analyzed": 34,
+  "total_runs_analyzed": 120,
   "outcome_distribution": {
-    "successful-efficient": 16,
-    "successful-wasteful": 6,
-    "failed-recoverable": 9,
-    "failed-irrecoverable": 3
+    "successful-efficient": 18,
+    "successful-wasteful": 37,
+    "failed-recoverable": 41,
+    "failed-irrecoverable": 24
   },
   "failure_modes": {
-    "exact_repetition": 6,
-    "normalized_repetition": 15,
-    "error_recurrence": 15,
-    "state_stagnation": 15,
+    "exact_repetition": 34,
+    "normalized_repetition": 78,
+    "error_recurrence": 78,
+    "state_stagnation": 78,
     "strategy_oscillation": 0,
     "tool_thrashing": 0,
     "tool_error_cascade": 0,
     "budget_exhaustion": 0,
-    "irrecoverable_reasoning_error": 3
+    "irrecoverable_reasoning_error": 24
   },
   "per_run_analysis": [
     {
-      "run_id": "run_20260926_165052_pydata_xarray-4094_vanilla_s1_a33caf",
-      "task_id": "pydata__xarray-4094",
-      "resolved": false,
-      "total_steps": 12,
-      "outcome": "failed-recoverable",
+      "run_id": "run_20260926_172943_astropy_astropy-1418_microloop_s1_56502d",
+      "task_id": "astropy__astropy-14182",
+      "resolved": true,
+      "total_steps": 7,
+      "outcome": "successful-wasteful",
       "failure_modes": [
         "error_recurrence",
         "normalized_repetition",
@@ -32,32 +32,47 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_matplotlib_matplotli_vanilla_s1_1354b3",
-      "task_id": "matplotlib__matplotlib-23913",
+      "run_id": "run_20260926_172943_matplotlib_matplotli_supervisor_s1_811f89",
+      "task_id": "matplotlib__matplotlib-24149",
       "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
     },
     {
-      "run_id": "run_20260926_165051_scikit-learn_scikit-_vanilla_s1_034fbb",
+      "run_id": "run_20260926_172944_scikit-learn_scikit-_retry_s1_8daace",
+      "task_id": "scikit-learn__scikit-learn-14894",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_retry_s1_9157b9",
       "task_id": "scikit-learn__scikit-learn-13439",
-      "resolved": true,
+      "resolved": false,
       "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
     },
     {
-      "run_id": "run_20260926_165051_django_django-11099_vanilla_s1_23d239",
-      "task_id": "django__django-11099",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165051_matplotlib_matplotli_vanilla_s1_f1432f",
-      "task_id": "matplotlib__matplotlib-26011",
+      "run_id": "run_20260926_172944_django_django-10914_vanilla_s1_01b411",
+      "task_id": "django__django-10914",
       "resolved": false,
       "total_steps": 3,
       "outcome": "failed-irrecoverable",
@@ -66,39 +81,24 @@
       ]
     },
     {
-      "run_id": "run_20260926_152249_django_django-11099_vanilla_s1_3e14ae",
-      "task_id": "django__django-11099",
+      "run_id": "run_20260926_172943_matplotlib_matplotli_retry_s1_9fe091",
+      "task_id": "matplotlib__matplotlib-24149",
       "resolved": true,
-      "total_steps": 4,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_151543_astropy_astropy-1290_vanilla_s1_f2bb25",
-      "task_id": "astropy__astropy-12907",
-      "resolved": true,
-      "total_steps": 3,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165051_sympy_sympy-13480_vanilla_s1_acf2eb",
-      "task_id": "sympy__sympy-13480",
-      "resolved": false,
-      "total_steps": 12,
-      "outcome": "failed-recoverable",
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
       "failure_modes": [
         "error_recurrence",
+        "exact_repetition",
         "normalized_repetition",
         "state_stagnation"
       ]
     },
     {
-      "run_id": "run_20260926_165051_django_django-11999_vanilla_s1_4b012a",
+      "run_id": "run_20260926_172944_django_django-11999_retry_s1_4592eb",
       "task_id": "django__django-11999",
-      "resolved": true,
-      "total_steps": 14,
-      "outcome": "successful-wasteful",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
       "failure_modes": [
         "error_recurrence",
         "exact_repetition",
@@ -107,24 +107,8 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_astropy_astropy-1418_vanilla_s1_c375e6",
-      "task_id": "astropy__astropy-14182",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165051_django_django-13710_vanilla_s1_8cdee1",
+      "run_id": "run_20260926_172944_django_django-13710_vanilla_s1_8a5a52",
       "task_id": "django__django-13710",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165052_sphinx-doc_sphinx-82_vanilla_s1_93d777",
-      "task_id": "sphinx-doc__sphinx-8273",
       "resolved": false,
       "total_steps": 12,
       "outcome": "failed-recoverable",
@@ -135,33 +119,7 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_sphinx-doc_sphinx-87_vanilla_s1_bd0d2a",
-      "task_id": "sphinx-doc__sphinx-8721",
-      "resolved": true,
-      "total_steps": 14,
-      "outcome": "successful-wasteful",
-      "failure_modes": [
-        "error_recurrence",
-        "exact_repetition",
-        "normalized_repetition",
-        "state_stagnation"
-      ]
-    },
-    {
-      "run_id": "run_20260926_165052_pytest-dev_pytest-71_vanilla_s1_fa94a9",
-      "task_id": "pytest-dev__pytest-7168",
-      "resolved": true,
-      "total_steps": 14,
-      "outcome": "successful-wasteful",
-      "failure_modes": [
-        "error_recurrence",
-        "exact_repetition",
-        "normalized_repetition",
-        "state_stagnation"
-      ]
-    },
-    {
-      "run_id": "run_20260926_165051_scikit-learn_scikit-_vanilla_s1_6d5544",
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_vanilla_s1_c9de4a",
       "task_id": "scikit-learn__scikit-learn-14092",
       "resolved": false,
       "total_steps": 12,
@@ -173,8 +131,8 @@
       ]
     },
     {
-      "run_id": "run_20260926_165052_scikit-learn_scikit-_vanilla_s1_62b4aa",
-      "task_id": "scikit-learn__scikit-learn-14894",
+      "run_id": "run_20260926_172944_pydata_xarray-4094_vanilla_s1_731970",
+      "task_id": "pydata__xarray-4094",
       "resolved": false,
       "total_steps": 12,
       "outcome": "failed-recoverable",
@@ -185,61 +143,7 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_django_django-10914_vanilla_s1_b52740",
-      "task_id": "django__django-10914",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165051_django_django-11815_vanilla_s1_f31fff",
-      "task_id": "django__django-11815",
-      "resolved": false,
-      "total_steps": 12,
-      "outcome": "failed-recoverable",
-      "failure_modes": [
-        "error_recurrence",
-        "normalized_repetition",
-        "state_stagnation"
-      ]
-    },
-    {
-      "run_id": "run_20260926_165049_astropy_astropy-1290_vanilla_s1_2edbad",
-      "task_id": "astropy__astropy-12907",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165051_pytest-dev_pytest-52_vanilla_s1_daf521",
-      "task_id": "pytest-dev__pytest-5221",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165052_sympy_sympy-18057_vanilla_s1_109bc0",
-      "task_id": "sympy__sympy-18057",
-      "resolved": false,
-      "total_steps": 3,
-      "outcome": "failed-irrecoverable",
-      "failure_modes": [
-        "irrecoverable_reasoning_error"
-      ]
-    },
-    {
-      "run_id": "run_20260926_165051_django_django-11039_vanilla_s1_022227",
-      "task_id": "django__django-11039",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
-    },
-    {
-      "run_id": "run_20260926_165052_sympy_sympy-14396_vanilla_s1_3134ec",
+      "run_id": "run_20260926_172944_sympy_sympy-14396_vanilla_s1_2be502",
       "task_id": "sympy__sympy-14396",
       "resolved": false,
       "total_steps": 12,
@@ -251,10 +155,20 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_psf_requests-2674_vanilla_s1_943083",
+      "run_id": "run_20260926_172943_django_django-11583_vanilla_s1_a48ab6",
+      "task_id": "django__django-11583",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_psf_requests-2674_vanilla_s1_2ae7db",
       "task_id": "psf__requests-2674",
       "resolved": true,
-      "total_steps": 14,
+      "total_steps": 13,
       "outcome": "successful-wasteful",
       "failure_modes": [
         "error_recurrence",
@@ -264,27 +178,87 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_django_django-11583_vanilla_s1_968e86",
-      "task_id": "django__django-11583",
+      "run_id": "run_20260926_172943_pytest-dev_pytest-54_microloop_s1_c100b0",
+      "task_id": "pytest-dev__pytest-5495",
+      "resolved": false,
+      "total_steps": 6,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-12497_vanilla_s1_d817e7",
+      "task_id": "django__django-12497",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11099_microloop_s1_072abc",
+      "task_id": "django__django-11099",
       "resolved": true,
       "total_steps": 5,
       "outcome": "successful-efficient",
       "failure_modes": []
     },
     {
-      "run_id": "run_20260926_151543_django_django-11039_vanilla_s1_604853",
+      "run_id": "run_20260926_172943_astropy_astropy-1418_vanilla_s1_527ea8",
+      "task_id": "astropy__astropy-14182",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_supervisor_s1_73e995",
+      "task_id": "scikit-learn__scikit-learn-10508",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_pytest-dev_pytest-71_vanilla_s1_9d1608",
+      "task_id": "pytest-dev__pytest-7168",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11039_microloop_s1_de4abc",
       "task_id": "django__django-11039",
       "resolved": true,
-      "total_steps": 3,
+      "total_steps": 5,
       "outcome": "successful-efficient",
       "failure_modes": []
     },
     {
-      "run_id": "run_20260926_165051_pytest-dev_pytest-54_vanilla_s1_f25215",
-      "task_id": "pytest-dev__pytest-5495",
-      "resolved": true,
-      "total_steps": 14,
-      "outcome": "successful-wasteful",
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_retry_s1_9563fe",
+      "task_id": "scikit-learn__scikit-learn-10508",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
       "failure_modes": [
         "error_recurrence",
         "exact_repetition",
@@ -293,21 +267,93 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_django_django-12497_vanilla_s1_ab6e76",
-      "task_id": "django__django-12497",
-      "resolved": true,
-      "total_steps": 14,
-      "outcome": "successful-wasteful",
+      "run_id": "run_20260926_172944_django_django-11999_microloop_s1_c0b73e",
+      "task_id": "django__django-11999",
+      "resolved": false,
+      "total_steps": 6,
+      "outcome": "failed-recoverable",
       "failure_modes": [
         "error_recurrence",
-        "exact_repetition",
         "normalized_repetition",
         "state_stagnation"
       ]
     },
     {
-      "run_id": "run_20260926_165051_django_django-13230_vanilla_s1_b8246b",
+      "run_id": "run_20260926_172943_mwaskom_seaborn-3190_supervisor_s1_3eb130",
+      "task_id": "mwaskom__seaborn-3190",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-13230_microloop_s1_960e72",
       "task_id": "django__django-13230",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_matplotlib_matplotli_retry_s1_91c3be",
+      "task_id": "matplotlib__matplotlib-26011",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-13230_retry_s1_ae41f8",
+      "task_id": "django__django-13230",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_pytest-dev_pytest-54_retry_s1_02da2d",
+      "task_id": "pytest-dev__pytest-5495",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11583_retry_s1_079e0d",
+      "task_id": "django__django-11583",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11815_microloop_s1_d0360e",
+      "task_id": "django__django-11815",
+      "resolved": true,
+      "total_steps": 7,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-11999_vanilla_s1_59f9f8",
+      "task_id": "django__django-11999",
       "resolved": false,
       "total_steps": 12,
       "outcome": "failed-recoverable",
@@ -318,15 +364,926 @@
       ]
     },
     {
-      "run_id": "run_20260926_151543_astropy_astropy-1418_vanilla_s1_7866b1",
-      "task_id": "astropy__astropy-14182",
+      "run_id": "run_20260926_172943_pytest-dev_pytest-52_supervisor_s1_dea971",
+      "task_id": "pytest-dev__pytest-5221",
       "resolved": true,
-      "total_steps": 3,
+      "total_steps": 5,
       "outcome": "successful-efficient",
       "failure_modes": []
     },
     {
-      "run_id": "run_20260926_165051_scikit-learn_scikit-_vanilla_s1_5eb731",
+      "run_id": "run_20260926_172943_django_django-13230_vanilla_s1_55c6c9",
+      "task_id": "django__django-13230",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_psf_requests-2674_supervisor_s1_375135",
+      "task_id": "psf__requests-2674",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11099_supervisor_s1_a62049",
+      "task_id": "django__django-11099",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-18057_microloop_s1_2d15d8",
+      "task_id": "sympy__sympy-18057",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11815_vanilla_s1_7c6e93",
+      "task_id": "django__django-11815",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sphinx-doc_sphinx-82_retry_s1_4c36ef",
+      "task_id": "sphinx-doc__sphinx-8273",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sphinx-doc_sphinx-87_microloop_s1_9b1482",
+      "task_id": "sphinx-doc__sphinx-8721",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_sphinx-doc_sphinx-87_vanilla_s1_81802e",
+      "task_id": "sphinx-doc__sphinx-8721",
+      "resolved": false,
+      "total_steps": 12,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-14396_microloop_s1_41157e",
+      "task_id": "sympy__sympy-14396",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-13043_retry_s1_e02c83",
+      "task_id": "sympy__sympy-13043",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_matplotlib_matplotli_vanilla_s1_6d2ed1",
+      "task_id": "matplotlib__matplotlib-24149",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_matplotlib_matplotli_vanilla_s1_bfac6e",
+      "task_id": "matplotlib__matplotlib-26011",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sphinx-doc_sphinx-87_supervisor_s1_a2d261",
+      "task_id": "sphinx-doc__sphinx-8721",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-18057_retry_s1_281a2b",
+      "task_id": "sympy__sympy-18057",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11099_retry_s1_054b05",
+      "task_id": "django__django-11099",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172944_sphinx-doc_sphinx-82_vanilla_s1_522cd8",
+      "task_id": "sphinx-doc__sphinx-8273",
+      "resolved": false,
+      "total_steps": 12,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-13480_microloop_s1_b901d8",
+      "task_id": "sympy__sympy-13480",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_pydata_xarray-4094_microloop_s1_c9e52d",
+      "task_id": "pydata__xarray-4094",
+      "resolved": false,
+      "total_steps": 6,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-13480_retry_s1_7c2e07",
+      "task_id": "sympy__sympy-13480",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-13710_supervisor_s1_e239f2",
+      "task_id": "django__django-13710",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_supervisor_s1_bc1fb8",
+      "task_id": "scikit-learn__scikit-learn-14092",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_matplotlib_matplotli_vanilla_s1_58fe2d",
+      "task_id": "matplotlib__matplotlib-23913",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_vanilla_s1_4f4d89",
+      "task_id": "scikit-learn__scikit-learn-13439",
+      "resolved": false,
+      "total_steps": 12,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11039_vanilla_s1_96bdaf",
+      "task_id": "django__django-11039",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_astropy_astropy-1290_vanilla_s1_fd833e",
+      "task_id": "astropy__astropy-12907",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_pytest-dev_pytest-71_microloop_s1_69de03",
+      "task_id": "pytest-dev__pytest-7168",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_mwaskom_seaborn-3190_retry_s1_838a35",
+      "task_id": "mwaskom__seaborn-3190",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-13043_vanilla_s1_bacc56",
+      "task_id": "sympy__sympy-13043",
+      "resolved": false,
+      "total_steps": 12,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_pytest-dev_pytest-54_supervisor_s1_c02e04",
+      "task_id": "pytest-dev__pytest-5495",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_astropy_astropy-1418_retry_s1_c1aff1",
+      "task_id": "astropy__astropy-14182",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_scikit-learn_scikit-_vanilla_s1_ebc800",
+      "task_id": "scikit-learn__scikit-learn-14894",
+      "resolved": false,
+      "total_steps": 12,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-18057_supervisor_s1_ab1ea2",
+      "task_id": "sympy__sympy-18057",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_scikit-learn_scikit-_supervisor_s1_d6a5d2",
+      "task_id": "scikit-learn__scikit-learn-14894",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_microloop_s1_4b70a9",
+      "task_id": "scikit-learn__scikit-learn-13439",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-12497_retry_s1_e05022",
+      "task_id": "django__django-12497",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_supervisor_s1_2e3dfc",
+      "task_id": "scikit-learn__scikit-learn-13439",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_microloop_s1_4f0a55",
+      "task_id": "scikit-learn__scikit-learn-14092",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_pydata_xarray-4094_retry_s1_6f5aa8",
+      "task_id": "pydata__xarray-4094",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-13710_retry_s1_7fe00c",
+      "task_id": "django__django-13710",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_pytest-dev_pytest-54_vanilla_s1_3e55da",
+      "task_id": "pytest-dev__pytest-5495",
+      "resolved": false,
+      "total_steps": 12,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-18057_vanilla_s1_5685dc",
+      "task_id": "sympy__sympy-18057",
+      "resolved": false,
+      "total_steps": 12,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_psf_requests-2674_retry_s1_87fd81",
+      "task_id": "psf__requests-2674",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_pytest-dev_pytest-71_supervisor_s1_021859",
+      "task_id": "pytest-dev__pytest-7168",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_matplotlib_matplotli_supervisor_s1_497905",
+      "task_id": "matplotlib__matplotlib-26011",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_matplotlib_matplotli_retry_s1_8c575e",
+      "task_id": "matplotlib__matplotlib-23913",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_pytest-dev_pytest-52_microloop_s1_0944f3",
+      "task_id": "pytest-dev__pytest-5221",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-12497_supervisor_s1_6db8ee",
+      "task_id": "django__django-12497",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11039_supervisor_s1_3b377a",
+      "task_id": "django__django-11039",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_matplotlib_matplotli_supervisor_s1_e16336",
+      "task_id": "matplotlib__matplotlib-23913",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-12497_microloop_s1_c1e7ba",
+      "task_id": "django__django-12497",
+      "resolved": true,
+      "total_steps": 7,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11583_microloop_s1_f0d6b5",
+      "task_id": "django__django-11583",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_psf_requests-2674_microloop_s1_3f8d33",
+      "task_id": "psf__requests-2674",
+      "resolved": true,
+      "total_steps": 7,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-13710_microloop_s1_188f10",
+      "task_id": "django__django-13710",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-10914_supervisor_s1_d3f570",
+      "task_id": "django__django-10914",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-11999_supervisor_s1_18a397",
+      "task_id": "django__django-11999",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_pytest-dev_pytest-52_retry_s1_f81dcd",
+      "task_id": "pytest-dev__pytest-5221",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-14396_supervisor_s1_50aa7d",
+      "task_id": "sympy__sympy-14396",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_retry_s1_9e7462",
+      "task_id": "scikit-learn__scikit-learn-14092",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-13043_supervisor_s1_957f06",
+      "task_id": "sympy__sympy-13043",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172944_scikit-learn_scikit-_microloop_s1_5bffd3",
+      "task_id": "scikit-learn__scikit-learn-14894",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-14396_retry_s1_7865d8",
+      "task_id": "sympy__sympy-14396",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-10914_retry_s1_c9145d",
+      "task_id": "django__django-10914",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sphinx-doc_sphinx-82_supervisor_s1_ef127a",
+      "task_id": "sphinx-doc__sphinx-8273",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_matplotlib_matplotli_microloop_s1_832a45",
+      "task_id": "matplotlib__matplotlib-23913",
+      "resolved": true,
+      "total_steps": 7,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_microloop_s1_a6cf73",
+      "task_id": "scikit-learn__scikit-learn-10508",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-13230_supervisor_s1_7caa8e",
+      "task_id": "django__django-13230",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-13043_microloop_s1_2aa77f",
+      "task_id": "sympy__sympy-13043",
+      "resolved": true,
+      "total_steps": 8,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172942_astropy_astropy-1290_retry_s1_11254a",
+      "task_id": "astropy__astropy-12907",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_sphinx-doc_sphinx-87_retry_s1_25cc1c",
+      "task_id": "sphinx-doc__sphinx-8721",
+      "resolved": false,
+      "total_steps": 5,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_pydata_xarray-4094_supervisor_s1_887292",
+      "task_id": "pydata__xarray-4094",
+      "resolved": false,
+      "total_steps": 10,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_pytest-dev_pytest-71_retry_s1_08943d",
+      "task_id": "pytest-dev__pytest-7168",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sphinx-doc_sphinx-82_microloop_s1_b179cc",
+      "task_id": "sphinx-doc__sphinx-8273",
+      "resolved": false,
+      "total_steps": 6,
+      "outcome": "failed-recoverable",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_astropy_astropy-1418_supervisor_s1_29c747",
+      "task_id": "astropy__astropy-14182",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_pytest-dev_pytest-52_vanilla_s1_2eccb1",
+      "task_id": "pytest-dev__pytest-5221",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11099_vanilla_s1_105b62",
+      "task_id": "django__django-11099",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_astropy_astropy-1290_supervisor_s1_d53247",
+      "task_id": "astropy__astropy-12907",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_django_django-10914_microloop_s1_a20ad8",
+      "task_id": "django__django-10914",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_astropy_astropy-1290_microloop_s1_c696ba",
+      "task_id": "astropy__astropy-12907",
+      "resolved": true,
+      "total_steps": 7,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11815_supervisor_s1_f02ce6",
+      "task_id": "django__django-11815",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11583_supervisor_s1_46d62c",
+      "task_id": "django__django-11583",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_scikit-learn_scikit-_vanilla_s1_ac8b9e",
       "task_id": "scikit-learn__scikit-learn-10508",
       "resolved": false,
       "total_steps": 12,
@@ -338,15 +1295,49 @@
       ]
     },
     {
-      "run_id": "run_20260926_165051_matplotlib_matplotli_vanilla_s1_41205c",
-      "task_id": "matplotlib__matplotlib-24149",
-      "resolved": true,
-      "total_steps": 5,
-      "outcome": "successful-efficient",
-      "failure_modes": []
+      "run_id": "run_20260926_172944_sympy_sympy-13480_vanilla_s1_aea174",
+      "task_id": "sympy__sympy-13480",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
     },
     {
-      "run_id": "run_20260926_165051_mwaskom_seaborn-3190_vanilla_s1_b895e0",
+      "run_id": "run_20260926_172944_matplotlib_matplotli_microloop_s1_d1fd11",
+      "task_id": "matplotlib__matplotlib-26011",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_matplotlib_matplotli_microloop_s1_0d3290",
+      "task_id": "matplotlib__matplotlib-24149",
+      "resolved": true,
+      "total_steps": 7,
+      "outcome": "successful-wasteful",
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172944_sympy_sympy-13480_supervisor_s1_cce817",
+      "task_id": "sympy__sympy-13480",
+      "resolved": false,
+      "total_steps": 3,
+      "outcome": "failed-irrecoverable",
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ]
+    },
+    {
+      "run_id": "run_20260926_172943_mwaskom_seaborn-3190_vanilla_s1_cd9c31",
       "task_id": "mwaskom__seaborn-3190",
       "resolved": true,
       "total_steps": 5,
@@ -354,13 +1345,32 @@
       "failure_modes": []
     },
     {
-      "run_id": "run_20260926_165051_sympy_sympy-13043_vanilla_s1_54cfb0",
-      "task_id": "sympy__sympy-13043",
-      "resolved": false,
-      "total_steps": 3,
-      "outcome": "failed-irrecoverable",
+      "run_id": "run_20260926_172943_django_django-11039_retry_s1_51f193",
+      "task_id": "django__django-11039",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_mwaskom_seaborn-3190_microloop_s1_34adf9",
+      "task_id": "mwaskom__seaborn-3190",
+      "resolved": true,
+      "total_steps": 5,
+      "outcome": "successful-efficient",
+      "failure_modes": []
+    },
+    {
+      "run_id": "run_20260926_172943_django_django-11815_retry_s1_c97862",
+      "task_id": "django__django-11815",
+      "resolved": true,
+      "total_steps": 13,
+      "outcome": "successful-wasteful",
       "failure_modes": [
-        "irrecoverable_reasoning_error"
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
       ]
     }
   ]

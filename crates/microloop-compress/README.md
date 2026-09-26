@@ -1,7 +1,8 @@
-# Deferred compression / CCR module
+# Microloop Compact Context Representation (CCR)
 
-Preserved from the pre-Experiment-001 codebase. This crate is excluded from the
-active workspace and has no dependency path from the progress monitor. It is not
-part of the current product promise, experiment treatment, or CI support matrix.
-See ../../docs/REPOSITORY-SCOPE.md. Restore only when an evaluated recovery policy
-needs it, with its own tests and an explicit experiment change.
+This crate implements Compact Context Representation (CCR) and compression primitives.
+
+### Status in Microloop v0.3 / Experiment 001
+* **Role:** Excluded from the default v0.3 validation benchmark workspace to eliminate experimental confounders and isolate trajectory recovery dynamics.
+* **Planned Role in v0.4+:** Will serve as the underlying engine for **Checkpoint Compaction**, preserving ground-truth execution history in durable storage while feeding compressed representations to long-horizon agent contexts.
+* See [Repository Scope](../../docs/REPOSITORY-SCOPE.md) and [System Architecture](../../docs/ARCHITECTURE.md).

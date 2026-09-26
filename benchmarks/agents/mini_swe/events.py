@@ -16,12 +16,15 @@ def hash_text(text: str) -> str:
 
 
 def mask_volatile_noise_py(text: str) -> str:
-    """Masks volatile tokens (UUIDs, hex addresses, timestamps, temp paths, PIDs) for normalized hashing."""
-    s = re.sub(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b", "<UUID>", text)
+    """Masks volatile tokens (ANSI escapes, UUIDs, git/docker hashes, hex addresses, timestamps, temp paths, PIDs, ports) for normalized hashing."""
+    s = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
+    s = re.sub(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b", "<UUID>", s)
+    s = re.sub(r"\b[0-9a-fA-F]{40,64}\b", "<HASH>", s)
     s = re.sub(r"\b0x[0-9a-fA-F]{4,16}\b", "<HEX>", s)
     s = re.sub(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b", "<TIMESTAMP>", s)
-    s = re.sub(r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+)/[^\s\"':;]+", "<TMP_PATH>", s)
+    s = re.sub(r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+|private/var/folders/[^\s/]+/[^\s/]+/[^\s/]+|root/\.cache/[^\s/]+)/[^\s\"':;]+", "<TMP_PATH>", s)
     s = re.sub(r"\b(?:pid|PID|process|PROCESS)\s*[=:]\s*\d+\b", "pid=<PID>", s)
+    s = re.sub(r":\b[3-6][0-9]{4}\b", ":<PORT>", s)
     return re.sub(r"[ \t]+", " ", s).strip()
 
 

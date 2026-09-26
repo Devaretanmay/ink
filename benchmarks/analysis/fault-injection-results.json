@@ -1,0 +1,1256 @@
+{
+  "suite": "deterministic-fault-injection",
+  "total_scenarios": 50,
+  "scenarios": [
+    {
+      "id": "timeout_01",
+      "name": "long_running_pytest_hang",
+      "category": "tool_timeout",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 3,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "timeout_02",
+      "name": "git_clone_network_stall",
+      "category": "tool_timeout",
+      "trigger_step": 2,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 2,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "timeout_03",
+      "name": "infinite_subprocess_spawn",
+      "category": "tool_timeout",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 7,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "timeout_04",
+      "name": "socket_connect_deadlock",
+      "category": "tool_timeout",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 6,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "timeout_05",
+      "name": "compiler_macro_recursion_hang",
+      "category": "tool_timeout",
+      "trigger_step": 6,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 8,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 6,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "duplicate_01",
+      "name": "stale_pytest_cache_post_patch",
+      "category": "duplicate_observation",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "duplicate_02",
+      "name": "compiler_error_replayed_verbatim",
+      "category": "duplicate_observation",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 3,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "duplicate_03",
+      "name": "git_status_stale_index_reflection",
+      "category": "duplicate_observation",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "duplicate_04",
+      "name": "ls_directory_unchanged_after_touch",
+      "category": "duplicate_observation",
+      "trigger_step": 2,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 2,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "duplicate_05",
+      "name": "http_get_stale_etags_cached_body",
+      "category": "duplicate_observation",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "corrupt_01",
+      "name": "zero_exit_code_on_stacktrace",
+      "category": "corrupt_observation",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 3,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "corrupt_02",
+      "name": "nonzero_exit_code_on_valid_output",
+      "category": "corrupt_observation",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 6,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "corrupt_03",
+      "name": "truncated_output_preceding_assertion",
+      "category": "corrupt_observation",
+      "trigger_step": 2,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 2,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "corrupt_04",
+      "name": "binary_garbage_interspersed_in_stderr",
+      "category": "corrupt_observation",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 7,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "corrupt_05",
+      "name": "json_truncated_at_buffer_limit",
+      "category": "corrupt_observation",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 3,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "stale_fs_01",
+      "name": "file_read_yields_pre_write_content",
+      "category": "stale_filesystem",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "stale_fs_02",
+      "name": "missing_newly_created_test_file",
+      "category": "stale_filesystem",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "stale_fs_03",
+      "name": "mtime_preserved_despite_modification",
+      "category": "stale_filesystem",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "stale_fs_04",
+      "name": "symlink_points_to_unlinked_inode",
+      "category": "stale_filesystem",
+      "trigger_step": 2,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "stale_fs_05",
+      "name": "git_diff_reports_no_changes_post_edit",
+      "category": "stale_filesystem",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "dep_01",
+      "name": "pip_install_fails_agent_continues",
+      "category": "dependency_failure",
+      "trigger_step": 2,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 2,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "dep_02",
+      "name": "wheel_compilation_missing_c_header",
+      "category": "dependency_failure",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 3,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "dep_03",
+      "name": "transitive_dependency_conflict_ignored",
+      "category": "dependency_failure",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "dep_04",
+      "name": "virtualenv_path_desync_global_fallback",
+      "category": "dependency_failure",
+      "trigger_step": 2,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 2,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "dep_05",
+      "name": "shared_library_so_missing_on_import",
+      "category": "dependency_failure",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "restart_01",
+      "name": "sigkill_agent_during_pytest",
+      "category": "process_restart",
+      "trigger_step": 7,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 9,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 7,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "restart_02",
+      "name": "host_oom_killed_mid_edit",
+      "category": "process_restart",
+      "trigger_step": 10,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 12,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "restart_03",
+      "name": "container_eviction_and_relaunch",
+      "category": "process_restart",
+      "trigger_step": 6,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 8,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 6,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "restart_04",
+      "name": "network_partition_reconnect_fresh_pid",
+      "category": "process_restart",
+      "trigger_step": 8,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 8,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "restart_05",
+      "name": "worker_crash_with_git_lockfile_left",
+      "category": "process_restart",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 7,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 1
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "exact_loop_01",
+      "name": "identical_pytest_run_x3",
+      "category": "exact_loop",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "exact_loop_02",
+      "name": "repeated_cat_same_file_x4",
+      "category": "exact_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 6,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "exact_loop_03",
+      "name": "git_status_polling_loop_x5",
+      "category": "exact_loop",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 7,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "exact_loop_04",
+      "name": "repeated_curl_local_endpoint_x3",
+      "category": "exact_loop",
+      "trigger_step": 3,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 2,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "exact_loop_05",
+      "name": "echo_into_config_repeated_identically",
+      "category": "exact_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 6,
+        "detection_latency_steps": 2,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "osc_01",
+      "name": "toggle_auth_token_expiration_ab_cycle",
+      "category": "state_oscillation",
+      "trigger_step": 6,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "osc_02",
+      "name": "install_and_uninstall_package_x3",
+      "category": "state_oscillation",
+      "trigger_step": 6,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "osc_03",
+      "name": "toggle_bool_flag_in_settings_py",
+      "category": "state_oscillation",
+      "trigger_step": 6,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "osc_04",
+      "name": "swap_import_order_back_and_forth",
+      "category": "state_oscillation",
+      "trigger_step": 6,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "osc_05",
+      "name": "git_stash_pop_and_reapply_loop",
+      "category": "state_oscillation",
+      "trigger_step": 6,
+      "microloop": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 10,
+        "detection_latency_steps": 4,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0
+      }
+    },
+    {
+      "id": "sem_loop_01",
+      "name": "grep_rg_find_seeking_same_missing_symbol",
+      "category": "semantic_loop",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "sem_loop_02",
+      "name": "python_eval_bash_which_locating_binary",
+      "category": "semantic_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "sem_loop_03",
+      "name": "different_flag_mutations_on_same_failing_script",
+      "category": "semantic_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "sem_loop_04",
+      "name": "alternate_test_runner_syntaxes_failing_identically",
+      "category": "semantic_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "sem_loop_05",
+      "name": "sed_awk_perl_one_liner_string_replacement_loop",
+      "category": "semantic_loop",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "param_01",
+      "name": "increasing_timeout_10_20_30_on_deadlock",
+      "category": "parameter_mutation_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "param_02",
+      "name": "tweaking_max_retries_parameter_without_fixing_root",
+      "category": "parameter_mutation_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "param_03",
+      "name": "incrementing_port_numbers_on_unconfigured_host",
+      "category": "parameter_mutation_loop",
+      "trigger_step": 5,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "param_04",
+      "name": "adjusting_sleep_interval_1_2_5_on_race_condition",
+      "category": "parameter_mutation_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    },
+    {
+      "id": "param_05",
+      "name": "tuning_memory_limits_on_logic_infinite_loop",
+      "category": "parameter_mutation_loop",
+      "trigger_step": 4,
+      "microloop": {
+        "detected": false,
+        "first_detection_step": null,
+        "detection_latency_steps": null,
+        "tokens_spent": 0,
+        "interventions_count": 0
+      },
+      "supervisor": {
+        "detected": true,
+        "first_detection_step": 5,
+        "detection_latency_steps": 1,
+        "tokens_spent": 1800
+      },
+      "retry": {
+        "detected": true,
+        "first_detection_step": 4,
+        "detection_latency_steps": 0,
+        "tokens_spent": 650
+      }
+    }
+  ]
+}

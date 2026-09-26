@@ -23,19 +23,10 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 from benchmarks.analysis.classify import analyze_single_trajectory
-from benchmarks.agents.mini_swe.events import hash_text
+from benchmarks.agents.mini_swe.events import hash_text, mask_volatile_noise_py
 from microloop import Monitor, Policy
 
-
-def mask_noise_py(text: str) -> str:
-    """Python equivalent of volatile noise masking for pre-hashing long strings."""
-    s = re.sub(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b", "<UUID>", text)
-    s = re.sub(r"\b0x[0-9a-fA-F]{4,16}\b", "<HEX>", s)
-    s = re.sub(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b", "<TIMESTAMP>", s)
-    s = re.sub(r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+)/[^\s\"':;]+", "<TMP_PATH>", s)
-    s = re.sub(r"\b(?:pid|PID|process|PROCESS)\s*[=:]\s*\d+\b", "pid=<PID>", s)
-    s = re.sub(r"[ \t]+", " ", s).strip()
-    return s
+mask_noise_py = mask_volatile_noise_py
 
 
 def evaluate_trajectory_run(

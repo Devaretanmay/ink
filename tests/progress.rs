@@ -56,8 +56,11 @@ fn normalized_repetition() {
     let mut m = monitor();
     for s in 1..=3 {
         let mut e = event(s, true);
-        e.action.fingerprint = format!("run_test /tmp/run_10{s}/test.py --id 550e8400-e29b-41d4-a716-44665544000{s}");
-        e.observation.fingerprint = Some(format!("Error at 0x7f8a9b1c2d3{s} at 2026-09-26T12:00:0{s}Z"));
+        e.action.fingerprint =
+            format!("run_test /tmp/run_10{s}/test.py --id 550e8400-e29b-41d4-a716-44665544000{s}");
+        e.observation.fingerprint = Some(format!(
+            "Error at 0x7f8a9b1c2d3{s} at 2026-09-26T12:00:0{s}Z"
+        ));
         e.observation.error_fingerprint = Some(format!("error-step-{s}"));
         let d = m.observe(e).unwrap();
         if s < 3 {
@@ -80,8 +83,11 @@ fn normalized_repetition() {
     .unwrap();
     for s in 1..=3 {
         let mut e = event(s, true);
-        e.action.fingerprint = format!("run_test /tmp/run_10{s}/test.py --id 550e8400-e29b-41d4-a716-44665544000{s}");
-        e.observation.fingerprint = Some(format!("Error at 0x7f8a9b1c2d3{s} at 2026-09-26T12:00:0{s}Z"));
+        e.action.fingerprint =
+            format!("run_test /tmp/run_10{s}/test.py --id 550e8400-e29b-41d4-a716-44665544000{s}");
+        e.observation.fingerprint = Some(format!(
+            "Error at 0x7f8a9b1c2d3{s} at 2026-09-26T12:00:0{s}Z"
+        ));
         e.observation.error_fingerprint = Some(format!("error-step-{s}"));
         let d = disabled_m.observe(e).unwrap();
         assert_eq!(d.state, ProgressState::Healthy);
