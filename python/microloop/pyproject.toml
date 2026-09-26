@@ -37,3 +37,5 @@ Repository = "https://github.com/Devaretanmay/microloop"
 features = ["pyo3/extension-module"]
 module-name = "microloop.microloop_core"
 python-source = "."
+# Without this, a stale local __pycache__ is packaged into the wheel.
+exclude = ["**/__pycache__/**", "**/*.pyc", "**/tests/**"]
