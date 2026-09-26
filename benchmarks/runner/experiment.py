@@ -149,46 +149,46 @@ def main() -> None:
 
     if args.task:
         tasks = [{"task_id": args.task}]
-        run_id = generate_run_id(args.task, args.conditions[0], 1)
         config = MiniSWEConfig()
-        started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        res = run_single_task(tasks[0], run_id, args.conditions[0], config, dry_run=args.dry_run)
-        ended_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
         writer = ResultWriter(args.output_dir)
-        metadata = create_run_metadata(
-            experiment="experiment-001",
-            run_id=run_id,
-            task_id=args.task,
-            condition=args.conditions[0],
-            provider=config.provider,
-            model=config.model,
-            temperature=config.temperature,
-            reasoning=config.reasoning_effort,
-            max_steps=config.max_steps,
-            max_tokens=config.max_tokens,
-            docker_image=config.docker_image,
-            seed=1,
-            started_at=started_at,
-            ended_at=ended_at,
-            success=res.success,
-            resolved_by_evaluator=res.evaluation_result.get("resolved"),
-            total_steps=res.total_steps,
-            total_tool_calls=res.total_tool_calls,
-            tokens_prompt=res.tokens_prompt,
-            tokens_completion=res.tokens_completion,
-            cost_usd=0.001,
-            duration_seconds=res.duration_seconds,
-        )
-        writer.write_run_bundle(
-            run_id=run_id,
-            metadata=metadata,
-            trajectory_events=res.events,
-            final_patch=res.final_patch,
-            evaluation_result=res.evaluation_result,
-            microloop_features=res.microloop_decisions,
-        )
-        print(f"Executed single task: {args.task} (Steps: {res.total_steps}, Patch length: {len(res.final_patch)})")
-        print(f"Wrote run bundle to {args.output_dir}/{run_id}")
+        for cond in args.conditions:
+            run_id = generate_run_id(args.task, cond, 1)
+            started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            res = run_single_task(tasks[0], run_id, cond, config, dry_run=args.dry_run)
+            ended_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            metadata = create_run_metadata(
+                experiment="experiment-001",
+                run_id=run_id,
+                task_id=args.task,
+                condition=cond,
+                provider=config.provider,
+                model=config.model,
+                temperature=config.temperature,
+                reasoning=config.reasoning_effort,
+                max_steps=config.max_steps,
+                max_tokens=config.max_tokens,
+                docker_image=config.docker_image,
+                seed=1,
+                started_at=started_at,
+                ended_at=ended_at,
+                success=res.success,
+                resolved_by_evaluator=res.evaluation_result.get("resolved"),
+                total_steps=res.total_steps,
+                total_tool_calls=res.total_tool_calls,
+                tokens_prompt=res.tokens_prompt,
+                tokens_completion=res.tokens_completion,
+                cost_usd=round(0.002 * (res.tokens_prompt + res.tokens_completion) / 1000, 4),
+                duration_seconds=res.duration_seconds,
+            )
+            writer.write_run_bundle(
+                run_id=run_id,
+                metadata=metadata,
+                trajectory_events=res.events,
+                final_patch=res.final_patch,
+                evaluation_result=res.evaluation_result,
+                microloop_features=res.microloop_decisions,
+            )
+            print(f"Executed single task: {args.task} | Condition: {cond} (Steps: {res.total_steps}, Success: {res.success}, Patch length: {len(res.final_patch)})")
         print("PIPELINE_VERIFIED")
         return
 

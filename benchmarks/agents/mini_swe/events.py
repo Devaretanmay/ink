@@ -15,6 +15,16 @@ def hash_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8", errors="replace")).hexdigest()[:16]
 
 
+def mask_volatile_noise_py(text: str) -> str:
+    """Masks volatile tokens (UUIDs, hex addresses, timestamps, temp paths, PIDs) for normalized hashing."""
+    s = re.sub(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b", "<UUID>", text)
+    s = re.sub(r"\b0x[0-9a-fA-F]{4,16}\b", "<HEX>", s)
+    s = re.sub(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b", "<TIMESTAMP>", s)
+    s = re.sub(r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+)/[^\s\"':;]+", "<TMP_PATH>", s)
+    s = re.sub(r"\b(?:pid|PID|process|PROCESS)\s*[=:]\s*\d+\b", "pid=<PID>", s)
+    return re.sub(r"[ \t]+", " ", s).strip()
+
+
 def parse_pytest_metrics(output: str) -> Dict[str, Optional[int]]:
     """
     Carefully parses test metrics from test runner output.

@@ -33,18 +33,26 @@ class MiniSWEAdapter:
         self,
         run_id: str,
         task_id: str,
-        config: MiniSWEConfig,
+        config: Optional[Any] = None,
         observer_mode: bool = True,
+        cooldown_steps: int = 3,
+        max_replans: int = 2,
     ) -> None:
         self.run_id = run_id
         self.task_id = task_id
         self.config = config
         self.observer_mode = observer_mode
+        self.cooldown_steps = cooldown_steps
+        self.max_replans = max_replans
         self.step_counter = 0
 
         # Initialize Microloop monitor and policy
         self.monitor = Monitor(run_id=run_id, window=32, repetitions=3)
-        self.policy = Policy(replan=not observer_mode)
+        self.policy = Policy(
+            replan=not observer_mode,
+            cooldown_steps=cooldown_steps,
+            max_replans=max_replans,
+        )
         self.trajectory_events: List[Dict[str, Any]] = []
         self.microloop_decisions: List[Dict[str, Any]] = []
 
@@ -88,7 +96,10 @@ class MiniSWEAdapter:
 
         # 2. Map to Rust monitor Event schema
         action_hash = hash_text(command)
+        from benchmarks.agents.mini_swe.events import mask_volatile_noise_py
+        norm_action_hash = hash_text(mask_volatile_noise_py(command))
         obs_hash = hash_text(stdout + stderr)
+        norm_obs_hash = hash_text(mask_volatile_noise_py(stdout + stderr))
         err_fp = f"{error_class}:{action_hash}" if exit_code != 0 and error_class else (
             f"Exit{exit_code}:{action_hash}" if exit_code != 0 else None
         )
@@ -100,11 +111,13 @@ class MiniSWEAdapter:
             "action": {
                 "name": "shell",
                 "fingerprint": action_hash,
+                "normalized_fingerprint": norm_action_hash,
             },
             "observation": {
                 "success": exit_code == 0,
                 "fingerprint": obs_hash,
                 "error_fingerprint": err_fp,
+                "normalized_fingerprint": norm_obs_hash,
             },
             "verification": (
                 {
@@ -152,7 +165,8 @@ class MiniSWEAdapter:
 if HAS_MINISWE:
     class MicroloopSWEAgent(DefaultAgent):
         """
-        Specialized Mini-SWE-Agent wrapping execution with real-time Microloop telemetry.
+        Specialized Mini-SWE-Agent wrapping execution with real-time Microloop telemetry
+        and closed-loop recovery prompt injection.
         """
 
         def __init__(self, *args, microloop_adapter: MiniSWEAdapter, **kwargs):
@@ -171,19 +185,36 @@ if HAS_MINISWE:
                     output = {"output": str(e), "returncode": -1, "exception_info": str(e)}
 
                 dur_ms = int((time.time() - t_start) * 1000)
-                outputs.append(output)
-
                 out_str = output.get("output", "") if isinstance(output, dict) else str(output)
                 ret_code = output.get("returncode", 0) if isinstance(output, dict) else 0
 
                 # Capture step into Microloop adapter
-                self.microloop_adapter.record_step(
+                step_res = self.microloop_adapter.record_step(
                     command=cmd,
                     exit_code=ret_code,
                     stdout=out_str,
                     stderr="",
                     duration_ms=dur_ms,
                 )
+                intervention = step_res.get("intervention", {})
+
+                # Active recovery injection when running in Treatment Condition (Microloop Active)
+                if not self.microloop_adapter.observer_mode:
+                    if intervention.get("kind") == "replan" and intervention.get("feedback"):
+                        feedback = intervention["feedback"]
+                        injection = f"\n\n[MICROLOOP RECOVERY DIRECTIVE]\n{feedback}"
+                        if isinstance(output, dict):
+                            output["output"] = output.get("output", "") + injection
+                        else:
+                            output = {"output": str(output) + injection, "returncode": ret_code}
+                    elif intervention.get("kind") == "stop":
+                        stop_msg = "\n\n[MICROLOOP DIRECTIVE: TERMINATE RUN]\nMaximum replan budget reached without progress."
+                        if isinstance(output, dict):
+                            output["output"] = output.get("output", "") + stop_msg
+                        else:
+                            output = {"output": str(output) + stop_msg, "returncode": ret_code}
+
+                outputs.append(output)
 
             return self.add_messages(*self.model.format_observation_messages(message, outputs, self.get_template_vars()))
 else:
