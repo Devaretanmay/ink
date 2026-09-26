@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 
 
 class ResultWriter:
-    def __init__(self, base_output_dir: str = "results") -> None:
+    def __init__(self, base_output_dir: str = "benchmarks/results/raw") -> None:
         self.base_output_dir = os.path.abspath(base_output_dir)
         os.makedirs(self.base_output_dir, exist_ok=True)
 

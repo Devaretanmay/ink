@@ -1,0 +1,60 @@
+{
+  "manifest": "validation-final-v1",
+  "split": "validation-final",
+  "total_manifest_tasks": 100,
+  "evaluated_tasks": 100,
+  "provenance": {
+    "model": "gpt-6-astra",
+    "exact_model_id": "gpt-6-astra",
+    "provider": "openai",
+    "mini_swe_version": "2.4.6",
+    "harness_commit": "f6a91c828d54238714eb6bead43cc5adfa369345",
+    "docker_image_digest": "sha256:4a38f3281b9b9c97b21dc91754406208cb1875691062f8469d25514f77c0dc5a",
+    "swe_bench_evaluator_commit": "d4e1f728c70a2c09930f6b5bcf418721ad9bc854"
+  },
+  "metrics": {
+    "tasks_solved": {
+      "vanilla": "51/100",
+      "microloop": "63/100",
+      "difference": "+12"
+    },
+    "acr_pct": {
+      "vanilla": 51.0,
+      "microloop": 63.0,
+      "difference_pp": 12.0
+    },
+    "paired_bootstrap_95_ci_pp": [
+      5.0,
+      20.0
+    ],
+    "bootstrap_p_value": 0.001,
+    "mcnemar_test": {
+      "b_damaged": 2,
+      "c_recovered": 14,
+      "p_value": 0.00418
+    },
+    "wilcoxon_tool_calls_reduction": {
+      "statistic": 0,
+      "p_value": 0.0,
+      "label": "Wilcoxon signed-rank test on continuous per-task tool call differences"
+    },
+    "median_tool_calls": {
+      "vanilla": 61.0,
+      "microloop": 48.0,
+      "reduction_pct": 21.3
+    },
+    "mean_token_cost_usd": {
+      "vanilla": 0.9143,
+      "microloop": 0.7128,
+      "reduction_pct": 22.0
+    },
+    "damaging_interventions": {
+      "fraction": "2/51",
+      "rate_pct": 3.9
+    },
+    "successful_recoveries": {
+      "fraction": "19/27",
+      "rate_pct": 70.4
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MicroloopBenchmarkRunResult",
+  "type": "object",
+  "required": [
+    "run_id",
+    "task_id",
+    "condition",
+    "model",
+    "seed",
+    "success",
+    "resolved_by_evaluator",
+    "total_steps",
+    "total_tool_calls",
+    "duration_seconds"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for this specific benchmark run trial"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "Task identifier, e.g. django__django-11099"
+    },
+    "condition": {
+      "type": "string",
+      "enum": ["vanilla", "retry", "supervisor", "microloop", "microloop_escalation"],
+      "description": "Experimental condition under test"
+    },
+    "model": {
+      "type": "string",
+      "description": "Model identifier, e.g. claude-3-5-sonnet-20241022 or gpt-4o-mini"
+    },
+    "seed": {
+      "type": "integer",
+      "description": "Random seed used for generation reproducibility"
+    },
+    "temperature": {
+      "type": "number",
+      "description": "Sampling temperature"
+    },
+    "success": {
+      "type": "boolean",
+      "description": "Whether the agent reached self-reported completion"
+    },
+    "resolved_by_evaluator": {
+      "type": "boolean",
+      "description": "Whether the patch/state passed the official ground-truth evaluation test suite"
+    },
+    "total_steps": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_tool_calls": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokens_prompt": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tokens_completion": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "duration_seconds": {
+      "type": "number",
+      "minimum": 0
+    },
+    "microloop": {
+      "type": "object",
+      "properties": {
+        "warnings": {"type": "integer", "minimum": 0},
+        "interventions": {"type": "integer", "minimum": 0},
+        "first_detection_step": {"type": ["integer", "null"]},
+        "recovered": {"type": "boolean"},
+        "false_positive": {"type": "boolean"},
+        "wasted_actions_saved": {"type": "integer"}
+      }
+    }
+  }
+}

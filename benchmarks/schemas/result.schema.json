@@ -9,14 +9,18 @@
     "condition",
     "microloop_commit",
     "harness_commit",
+    "mini_swe_version",
+    "docker_image",
+    "docker_image_digest",
+    "swe_bench_evaluator_commit",
     "provider",
     "model",
+    "exact_model_id",
     "temperature",
     "reasoning",
     "max_steps",
     "max_tokens",
     "started_at",
-    "docker_image",
     "seed"
   ],
   "properties": {
@@ -40,12 +44,30 @@
     "harness_commit": {
       "type": "string"
     },
+    "mini_swe_version": {
+      "type": "string"
+    },
+    "docker_image": {
+      "type": "string"
+    },
+    "docker_image_digest": {
+      "type": "string"
+    },
+    "swe_bench_evaluator_commit": {
+      "type": "string"
+    },
     "provider": {
       "type": "string",
       "enum": ["openai", "anthropic", "litellm", "mock", "offline"]
     },
     "model": {
       "type": "string"
+    },
+    "exact_model_id": {
+      "type": "string"
+    },
+    "provider_response_metadata": {
+      "type": ["object", "null"]
     },
     "temperature": {
       "type": "number"
@@ -65,9 +87,6 @@
     "ended_at": {
       "type": ["string", "null"]
     },
-    "docker_image": {
-      "type": "string"
-    },
     "seed": {
       "type": "integer"
     },
@@ -86,6 +105,12 @@
     "tokens_prompt": {
       "type": ["integer", "null"]
     },
+    "tokens_prompt_cached_read": {
+      "type": ["integer", "null"]
+    },
+    "tokens_prompt_cache_write": {
+      "type": ["integer", "null"]
+    },
     "tokens_completion": {
       "type": ["integer", "null"]
     },
@@ -94,6 +119,15 @@
     },
     "duration_seconds": {
       "type": ["number", "null"]
+    },
+    "interventions_applied": {
+      "type": ["integer", "null"]
+    },
+    "interventions_recovered": {
+      "type": ["integer", "null"]
+    },
+    "damaging_intervention": {
+      "type": ["boolean", "null"]
     }
   }
 }

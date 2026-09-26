@@ -8,10 +8,10 @@ __pycache__/
 .DS_Store
 .env
 .env.*
-!.env.example
-results/
-results*/
-results_*
+/results/
+/results*/
+/results_*
+!benchmarks/results/
 benchmarks/data/
 .agents/
 .idea/
