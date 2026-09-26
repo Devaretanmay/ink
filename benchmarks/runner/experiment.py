@@ -34,10 +34,12 @@ def load_manifest_tasks(manifest_name: str) -> List[Dict[str, Any]]:
 def run_experiment(
     manifest_name: str = "dev-v1",
     conditions: Optional[List[str]] = None,
-    seeds: int = 3,
+    seeds: int = 1,
     task_limit: Optional[int] = None,
     dry_run: bool = False,
     output_dir: str = "results",
+    model: str = "gpt-4o-2024-08-06",
+    provider: str = "openai",
 ) -> List[Dict[str, Any]]:
     """
     Executes a benchmark experiment using randomized block interleaving.
@@ -50,7 +52,7 @@ def run_experiment(
         tasks = tasks[:task_limit]
 
     writer = ResultWriter(output_dir)
-    config = MiniSWEConfig()
+    config = MiniSWEConfig(model=model, provider=provider)
     completed_runs: List[Dict[str, Any]] = []
 
     print(f"[Experiment] Initiating experiment on {len(tasks)} tasks.")
@@ -145,11 +147,13 @@ def main() -> None:
     parser.add_argument("--task", type=str, default=None, help="Execute specific task ID only")
     parser.add_argument("--dry-run", action="store_true", help="Execute deterministic simulation")
     parser.add_argument("--output-dir", type=str, default="results")
+    parser.add_argument("--model", type=str, default="gpt-4o-2024-08-06", help="Pinned model name")
+    parser.add_argument("--provider", type=str, default="openai", help="Provider name (openai, anthropic, mock)")
     args = parser.parse_args()
 
     if args.task:
         tasks = [{"task_id": args.task}]
-        config = MiniSWEConfig()
+        config = MiniSWEConfig(model=args.model, provider=args.provider)
         writer = ResultWriter(args.output_dir)
         for cond in args.conditions:
             run_id = generate_run_id(args.task, cond, 1)
@@ -199,6 +203,8 @@ def main() -> None:
         task_limit=args.task_limit,
         dry_run=args.dry_run,
         output_dir=args.output_dir,
+        model=args.model,
+        provider=args.provider,
     )
     print("PIPELINE_VERIFIED")
 
