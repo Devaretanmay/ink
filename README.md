@@ -28,16 +28,20 @@ Python 3.10–3.13:
 pip install microloop
 ```
 
-Rust is not yet on crates.io. The publish job is wired up and disabled in the
-release workflow, so it becomes available once that registry is set up:
+**Rust:** not published yet. There is no `cargo add microloop-core` line here on
+purpose, because the crate does not exist on crates.io and adding it would fail
+to resolve. Build it from this repository in the meantime:
 
 ```toml
 # Cargo.toml
 [dependencies]
-microloop-core = "0.3"
+microloop-core = { path = "../microloop/crates/microloop-core" }
 ```
 
-Building from source instead:
+The release workflow already has a crates.io publish job, disabled until a
+registry token is configured.
+
+Building the Python package from source:
 
 ```bash
 git clone https://github.com/Devaretanmay/microloop
@@ -85,16 +89,34 @@ policy = Policy(
 monitor = Monitor(policy=policy)
 ```
 
-`Monitor.observe(...)` returns a `Decision` with `status`, `reasons`,
-`intervention` and `severity`:
+`Monitor.observe(...)` returns a `Decision`. The fields you normally read:
 
 ```python
-Decision(step=31, status="stalled", reasons=["state_stagnation", "repeated_error"],
-         intervention="replan", severity=0.8, verified_progress=False, feedback="...")
+decision.status            # "healthy" | "warning" | "stalled" | "regressing"
+decision.reasons           # which detectors fired, for debugging
+decision.evidence          # what they saw: the step numbers and a detail string
+decision.intervention      # "observe" | "replan" | "stop"
+decision.severity          # fixed lookup over status, see below
+decision.verified_progress # a verifier reported an improvement
+decision.feedback          # recovery prompt, set only when intervening
 ```
 
-`severity` is a fixed lookup over `status` (`0.0`/`0.4`/`0.8`/`0.9`). It is not a
-probability and not a confidence, so branch on `status`.
+A real one, trimmed for width:
+
+```python
+Decision(step=31, status="stalled",
+         reasons=["repeated_action_result", "repeated_error"],
+         evidence=[{"reason": "repeated_action_result", "steps": [29, 30, 31],
+                    "detail": "Same action, observation and supplied state recurred"},
+                   ...],
+         intervention="replan", severity=0.8, verified_progress=False,
+         feedback="MICROLOOP RECOVERY SIGNAL\n...")
+```
+
+`evidence` is where the reasoning lives: every entry names the steps that
+triggered it. `severity` is only a fixed lookup over `status`
+(`0.0`/`0.4`/`0.8`/`0.9`). It is not a probability and not a confidence, so branch
+on `status`.
 
 ## What Microloop detects
 
@@ -176,6 +198,8 @@ trajectory run.jsonl (following)
 completed
 Steps             10
 Stalls            3
+Warnings          0
+Regressions       0
 Recommended       3
 Recovered         yes
 ```
@@ -231,8 +255,9 @@ make test    # cargo test + pytest
 make build   # release build
 ```
 
-`make check` is the same gate the release workflow runs before it publishes
-anything. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+`make check` mirrors the release workflow's verify job, which runs the same
+steps and then installs the built wheel before anything is published. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
