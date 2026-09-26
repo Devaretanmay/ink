@@ -36,9 +36,9 @@ bundles are written to `benchmarks/results/raw/`, which is git-ignored.
 |-------------------|---------|-----------|------------|
 | Tasks solved      | 51/100  | 63/100    | +12        |
 | ACR               | 51.0%   | 63.0%     | +12.0 pp   |
-| 95% paired CI     | —       | —         | [+5.0,+20.0] pp |
+| 95% paired CI     | n/a     | n/a       | [+5.0,+20.0] pp |
 | Median tool calls | 61      | 48        | −21.3%     |
-| Damaging interventions | —  | 2/51      | 3.9%       |
+| Damaging interventions | n/a | 2/51    | 3.9%       |
 
 Full report and provenance: `benchmarks/results/published/validation-final-v1-report.md`.
 

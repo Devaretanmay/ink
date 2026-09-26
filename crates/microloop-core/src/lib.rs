@@ -17,9 +17,9 @@
 //!
 //! The supported API is [`Event`], [`Monitor`], [`Decision`], [`Policy`],
 //! [`PolicyConfig`], [`MonitorConfig`], [`ProgressState`],
-//! [`InterventionAction`], [`Reason`] and [`Evidence`]. Detection internals —
-//! the engine, detectors, history window and canonicalization — are private and
-//! may change in any release. Reach the runtime through [`Monitor`].
+//! [`InterventionAction`], [`Reason`] and [`Evidence`]. Detection internals (the
+//! engine, detectors, history window and canonicalization) are private and may
+//! change in any release. Reach the runtime through [`Monitor`].
 //!
 //! # How a step is classified
 //!

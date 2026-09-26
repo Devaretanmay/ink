@@ -12,8 +12,8 @@ regressing, or operating on stale state, and can trigger a configured
 intervention when progress degrades.
 
 Workflow engines keep agents *running*. Observability tools show *what agents
-did*. Guardrails decide *what agents may do*. Microloop decides *whether the
-agent is still making useful progress*.
+did*. Permission and policy layers decide *what agents may do*. Microloop
+decides *whether the agent is still making useful progress*.
 
 The runtime is **in-process and makes no network calls**. It sits under any
 harness. It is not an agent framework.
@@ -28,7 +28,7 @@ Python 3.10–3.13:
 pip install microloop
 ```
 
-Rust — not yet on crates.io. The publish job is wired up and disabled in the
+Rust is not yet on crates.io. The publish job is wired up and disabled in the
 release workflow, so it becomes available once that registry is set up:
 
 ```toml
@@ -48,7 +48,7 @@ maturin develop --manifest-path python/microloop/Cargo.toml
 
 ## Quick start
 
-Pseudocode — `agent` below stands for your own loop. For a complete runnable
+Pseudocode: `agent` below stands for your own loop. For a complete runnable
 version see [`examples/coding-agent`](examples/coding-agent).
 
 ```python
@@ -94,7 +94,7 @@ Decision(step=31, status="stalled", reasons=["state_stagnation", "repeated_error
 ```
 
 `severity` is a fixed lookup over `status` (`0.0`/`0.4`/`0.8`/`0.9`). It is not a
-probability and not a confidence — branch on `status`.
+probability and not a confidence, so branch on `status`.
 
 ## What Microloop detects
 
@@ -200,7 +200,7 @@ not a claim this repository can currently substantiate.
 
 We would rather say that than publish a number nobody can regenerate.
 
-To reproduce a result, run the harness yourself — it requires provider
+To reproduce a result, run the harness yourself. It requires provider
 credentials, Docker and `mini-swe-agent`:
 
 ```bash
@@ -218,9 +218,9 @@ pass `--allow-simulated`, which stamps the output `SIMULATED - NOT EVIDENCE`.
 
 ## Architecture
 
-- [`docs/concepts.md`](docs/concepts.md) — trajectory, progress, decisions, interventions
-- [`docs/integration.md`](docs/integration.md) — integrating Microloop
-- [`docs/architecture.md`](docs/architecture.md) — engine internals, normalization, bindings
+- [`docs/concepts.md`](docs/concepts.md): trajectory, progress, decisions, interventions
+- [`docs/integration.md`](docs/integration.md): integrating Microloop
+- [`docs/architecture.md`](docs/architecture.md): engine internals, normalization, bindings
 
 ## Development
 

@@ -1,7 +1,7 @@
 # Workspace-level developer tooling and benchmark dependencies.
 #
 # The distributable runtime package is configured in python/microloop/pyproject.toml
-# and is intentionally NOT installable from here — this project only exists to
+# and is intentionally NOT installable from here. This project only exists to
 # declare the dev/benchmark extras and to configure shared tooling (ruff, pytest).
 
 [build-system]

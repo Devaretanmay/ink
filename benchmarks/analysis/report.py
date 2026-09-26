@@ -440,16 +440,16 @@ def format_report_table(report: dict[str, Any]) -> str:
         f"| {solved['difference']:15s}",
         f"{'ACR':25s} | {acr['vanilla']:>13.1f}% | {acr['microloop']:>13.1f}% "
         f"| {acr['difference_pp']:>+12.1f} pp",
-        f"{'95% paired CI':25s} | {'—':15s} | {'—':15s} | [{ci[0]:+.1f}, {ci[1]:+.1f}] pp",
-        f"{'McNemar test p-value':25s} | {'—':15s} | {'—':15s} | p = {mcnemar_p:.4f}",
+        f"{'95% paired CI':25s} | {'n/a':15s} | {'n/a':15s} | [{ci[0]:+.1f}, {ci[1]:+.1f}] pp",
+        f"{'McNemar test p-value':25s} | {'n/a':15s} | {'n/a':15s} | p = {mcnemar_p:.4f}",
         f"{'Median tool calls':25s} | {calls['vanilla']:>15.0f} "
         f"| {calls['microloop']:>15.0f} | -{calls['reduction_pct']:.1f}%",
-        f"{'Wilcoxon tool-call p':25s} | {'—':15s} | {'—':15s} | p = {wilcoxon_p:.5f}",
+        f"{'Wilcoxon tool-call p':25s} | {'n/a':15s} | {'n/a':15s} | p = {wilcoxon_p:.5f}",
         f"{'Mean token cost / task':25s} | ${cost['vanilla']:>14.4f} "
         f"| ${cost['microloop']:>14.4f} | -{cost['reduction_pct']:.1f}%",
-        f"{'Damaging interventions':25s} | {'—':15s} | {damaging['fraction']:>15s} "
+        f"{'Damaging interventions':25s} | {'n/a':15s} | {damaging['fraction']:>15s} "
         f"| {damaging['rate_pct']:.1f}%",
-        f"{'Successful recoveries':25s} | {'—':15s} | {recoveries['fraction']:>15s} "
+        f"{'Successful recoveries':25s} | {'n/a':15s} | {recoveries['fraction']:>15s} "
         f"| {recoveries['rate_pct']:.1f}%",
         "=" * 78,
     ]

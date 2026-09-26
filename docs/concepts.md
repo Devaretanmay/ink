@@ -19,10 +19,10 @@ conventions (`metadata.success`, `metrics.exit_code`, `metrics.failures`,
 
 `ProgressState` is the public classification:
 
-- `healthy` — progress, or no evidence of non-progress.
-- `warning` — a suspicious signal that does not justify claiming failure.
-- `stalled` — recurring failed actions, recurring errors, or a verified plateau.
-- `regressing` — a verifier got objectively worse than the best prior result.
+- `healthy`: progress, or no evidence of non-progress.
+- `warning`: a suspicious signal that does not justify claiming failure.
+- `stalled`: recurring failed actions, recurring errors, or a verified plateau.
+- `regressing`: a verifier got objectively worse than the best prior result.
 
 The classification is conservative: without evidence, the state stays `healthy`.
 
@@ -47,7 +47,7 @@ debugging but are not the product surface:
 
 `severity` is a categorical ordering for `status`, produced by a fixed lookup:
 `0.0` healthy, `0.4` warning, `0.8` stalled, `0.9` regressing. It is **not** a
-probability and **not** a confidence — it carries no information beyond `status`
+probability and **not** a confidence. It carries no information beyond `status`
 and must not be compared across runs. Branch on `status`.
 
 ## Intervention

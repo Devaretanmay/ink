@@ -19,7 +19,7 @@ pub struct Decision {
     pub intervention: InterventionAction,
     /// Categorical ordering for `status`, as a fixed lookup: `0.0` healthy,
     /// `0.4` warning, `0.8` stalled, `0.9` regressing. Not a probability, not a
-    /// confidence, and not comparable across runs — use `status` to branch on.
+    /// confidence, and not comparable across runs, so use `status` to branch on.
     pub severity: f64,
     /// True when a verifier reported objective improvement.
     pub verified_progress: bool,

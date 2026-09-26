@@ -1,5 +1,5 @@
 """
-Microloop — Keep agents making progress.
+Microloop: keep agents making progress.
 
 A local reliability runtime for autonomous agents. It watches an agent's
 execution trajectory, detects when the agent is looping, stalled, regressing,

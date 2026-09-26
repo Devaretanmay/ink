@@ -72,7 +72,7 @@ def _check_schema(record: dict[str, Any], path: str, lineno: int) -> None:
         raise SystemExit(
             f"{path}:{lineno}: incompatible trajectory schema {version}; "
             f"this runtime reads schema {SCHEMA_VERSION}. Trajectory major versions "
-            "must match — upgrade Microloop, or re-record the trajectory with "
+            "must match. Upgrade Microloop, or re-record the trajectory with "
             "this schema version."
         )
 

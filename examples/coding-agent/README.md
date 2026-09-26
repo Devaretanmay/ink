@@ -2,7 +2,7 @@
 
 An offline, **deterministic** demonstration of the recovery loop. It uses the
 real public API (`Monitor`, `Policy`, `InterventionAction`) against a real
-temporary repository — but the agent's failure and recovery path is *scripted*,
+temporary repository, but the agent's failure and recovery path is *scripted*,
 not the result of a model deciding what to do. It is a worked example of the
 integration pattern, not a benchmark.
 
@@ -24,7 +24,7 @@ python examples/coding-agent/agent.py
 This example is run in CI (`make check`), so the public API it exercises cannot
 break without the build noticing.
 
-Expected output — stable across runs:
+Expected output, stable across runs:
 
 ```
  1  healthy    observe  -

@@ -3,7 +3,7 @@
 All notable changes to Microloop are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [0.3.0] — unreleased
+## [0.3.0] (unreleased)
 
 The productization release. Microloop is now a developer-ready local reliability
 runtime rather than a benchmark harness.
@@ -67,6 +67,6 @@ runtime rather than a benchmark harness.
   host-owned loop over `Monitor` is the supported integration. See
   `docs/integration.md`.
 
-## [0.2.0] — 2026-07-01
+## [0.2.0] (2026-07-01)
 
 - Experimental trajectory monitoring and policy engine.
