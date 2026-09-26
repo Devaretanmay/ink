@@ -6,18 +6,15 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  # PyPI publishing is live: the `microloop` distribution is owned by this
-  # project (releases 0.1.1 .. 0.2.0) and 0.3.0 continues that line.
-  #   Requires: a PyPI trusted publisher configured for this repository, or a
-  #   `PYPI_API_TOKEN` repository secret. The job uses trusted publishing
-  #   (OIDC) and needs no stored credential.
-  #
-  # crates.io publishing is off. `microloop-core` has never been published and no
-  # registry token is configured here. Flip this to "true" once a
-  # `CARGO_REGISTRY_TOKEN` secret exists, and add the `cargo add microloop-core`
-  # instruction to the README at the same time.
-  PUBLISH_PYPI: "true"
-  PUBLISH_CRATES: "false"
+# Publishing is gated on repository variables, not `env`, because the `env`
+# context is not available in a job-level `if`.
+#
+#   gh variable set PUBLISH_PYPI true        # requires a PyPI trusted publisher
+#   gh variable set PUBLISH_CRATES true     # requires a CARGO_REGISTRY_TOKEN
+#
+# Both are unset by default, so tagging produces verified wheels and artifacts
+# but publishes nothing. v0.3.0 was uploaded directly with a scoped API token
+# because no trusted publisher had been registered for this repository yet.
 
 jobs:
   # Nothing is published until the full gate passes: fmt, clippy, the whole-tree
@@ -94,7 +91,7 @@ jobs:
   publish-pypi:
     name: publish (pypi)
     needs: [verify, wheels]
-    if: env.PUBLISH_PYPI == 'true'
+    if: vars.PUBLISH_PYPI == 'true'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -113,7 +110,7 @@ jobs:
   publish-crates:
     name: publish (crates.io)
     needs: verify
-    if: env.PUBLISH_CRATES == 'true'
+    if: vars.PUBLISH_CRATES == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

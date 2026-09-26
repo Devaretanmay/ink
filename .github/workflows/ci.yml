@@ -13,6 +13,18 @@ env:
   MSRV: "1.80.0"
 
 jobs:
+  # A malformed workflow file fails at 0s with "this run likely failed because of
+  # a workflow file issue" and no jobs, which is easy to misread as a test
+  # failure. Catch it before it reaches a push.
+  workflow-lint:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color .github/workflows/*.yml
+
   rust:
     name: rust (${{ matrix.os }})
     strategy:
@@ -28,7 +40,9 @@ jobs:
       - run: cargo test --workspace
 
   msrv:
-    name: rust (msrv ${{ env.MSRV }})
+    # The job `name` cannot reference the env context, so it is spelled out
+    # here; the toolchain itself still comes from the MSRV env var below.
+    name: rust (msrv 1.80.0)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
