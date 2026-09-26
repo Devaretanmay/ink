@@ -24,6 +24,8 @@ import sys
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
+from benchmarks.agents.mini_swe.config import MiniSWEConfig
+
 
 def wilson_score_interval(successes: int, trials: int, confidence: float = 0.95) -> Tuple[float, float]:
     """Computes Wilson score continuity-adjusted interval for a binomial proportion."""
@@ -152,6 +154,7 @@ def analyze_benchmark_results(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         "tokens_prompt": 0,
         "tokens_completion": 0,
         "duration_seconds": 0.0,
+        "model": "claude-3-7-sonnet-20250219",
         "task_outcomes": {},  # (task_id, seed) -> bool
         "task_steps": {},
         "task_tokens": {},
@@ -167,9 +170,11 @@ def analyze_benchmark_results(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         t_prompt = r.get("tokens_prompt", 0)
         t_comp = r.get("tokens_completion", 0)
         dur = r.get("duration_seconds", 0.0)
+        model_name = r.get("model", "claude-3-7-sonnet-20250219")
 
         entry = conditions_data[cond]
         entry["trials"] += 1
+        entry["model"] = model_name
         if success:
             entry["successes"] += 1
         entry["total_steps"] += steps
@@ -193,13 +198,14 @@ def analyze_benchmark_results(runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         mean_steps = data["total_steps"] / n if n > 0 else 0.0
         mean_tokens = (data["tokens_prompt"] + data["tokens_completion"]) / n if n > 0 else 0.0
 
-        # 2026 Prompt-Cache Economics (85% prompt cache hit rate)
-        # Pricing: Uncached Prompt $2.50/M, Cached Prompt $0.30/M, Completion $10.00/M
+        # Model-Aware Prompt-Cache Economics (85% prompt cache hit rate)
+        model_name = data.get("model", "claude-3-7-sonnet-20250219")
+        pricing = MiniSWEConfig(model=model_name).get_pricing()
         tot_prompt = data["tokens_prompt"]
         tot_comp = data["tokens_completion"]
-        uncached_cost = (tot_prompt * 0.15 / 1_000_000.0) * 2.50
-        cached_cost = (tot_prompt * 0.85 / 1_000_000.0) * 0.30
-        comp_cost = (tot_comp / 1_000_000.0) * 10.00
+        uncached_cost = (tot_prompt * 0.15 / 1_000_000.0) * pricing["uncached_prompt"]
+        cached_cost = (tot_prompt * 0.85 / 1_000_000.0) * pricing["cached_prompt"]
+        comp_cost = (tot_comp / 1_000_000.0) * pricing["completion"]
         total_cost_usd = uncached_cost + cached_cost + comp_cost
         cost_per_resolved = (total_cost_usd / k) if k > 0 else 0.0
 

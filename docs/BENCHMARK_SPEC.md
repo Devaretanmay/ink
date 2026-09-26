@@ -49,23 +49,26 @@ The objective of **Experiment 001** is to test whether real-time trajectory moni
    └────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Randomized Block Interleaving & Provenance
+### 2.3 Pinned Frontier Models & Prompt Caching Economics
 
-To eliminate confounding variables from model provider infrastructure drift:
-1. **No Sequential Batching:** We do not run Vanilla on week 1 and Microloop on week 2.
-2. **Randomized Block Schedule:** Conditions are interleaved task by task:
-   $$\text{Task 001}: \text{Run 1 (Vanilla)} \to \text{Run 2 (Microloop)} \to \text{Run 3 (Retry)}$$
-   $$\text{Task 002}: \text{Run 1 (Retry)} \to \text{Run 2 (Vanilla)} \to \text{Run 3 (Microloop)}$$
-3. **No `latest` Aliases:** Pinned model version IDs, explicit temperature ($0.0$), reasoning parameters, and Git commit hashes are recorded for every trial.
+To eliminate confounding variables from model provider infrastructure drift and test cross-model stability:
+1. **No Sequential Batching:** We do not run Vanilla on week 1 and Microloop on week 2. Conditions are interleaved task by task via randomized blocks.
+2. **Pinned Frontier Models:**
+   * **Model 1 (Anthropic Primary):** `claude-3-7-sonnet-20250219` ($T=0.0$, hybrid reasoning).
+     * Pricing: $3.00/1M uncached prompt, **$0.30/1M cached prompt (90% discount)**, $15.00/1M completion.
+   * **Model 2 (OpenAI Secondary):** `o3-mini` (medium reasoning effort).
+     * Pricing: $1.10/1M uncached prompt, **$0.55/1M cached prompt (50% discount)**, $4.40/1M completion.
+   * **Comparative Baseline Models:** `claude-3-5-sonnet-20241022` and `gpt-4o-2024-08-06`.
+3. **No `latest` Aliases:** Pinned model version IDs, explicit temperature, reasoning parameters, and Git commit hashes are recorded for every trial.
 
-### 2.3 Four Experimental Conditions
+### 2.4 Four Experimental Conditions
 
 | Condition | Agent Harness | Model & Tools | Microloop | Intervention Policy |
 |---|---|---|---|---|
-| **A. Vanilla** | mini-SWE-agent v2 | Fixed pinned model & tools | None | None (standard execution until exit or budget cap) |
-| **B. Retry Baseline** | mini-SWE-agent v2 | Fixed pinned model & tools | None | Retry tool once on error; restart agent once on failure with remaining budget |
-| **C. LLM Supervisor** | mini-SWE-agent v2 | Fixed pinned model & tools | None | External LLM prompted every 5 steps to Continue/Replan/Restart/Stop |
-| **D. Microloop** | mini-SWE-agent v2 | Fixed pinned model & tools | Attached | Deterministic trajectory monitoring + structured Replan |
+| **A. Vanilla** | mini-SWE-agent v2 | Pinned frontier model | None | None (standard execution until exit or budget cap) |
+| **B. Retry Baseline** | mini-SWE-agent v2 | Pinned frontier model | None | Retry tool once on error; restart agent once on failure with remaining budget |
+| **C. LLM Supervisor** | mini-SWE-agent v2 | Pinned frontier model | None | External LLM prompted every 5 steps to Continue/Replan/Restart/Stop |
+| **D. Microloop** | mini-SWE-agent v2 | Pinned frontier model | Attached | Deterministic trajectory monitoring + structured Replan |
 
 ---
 

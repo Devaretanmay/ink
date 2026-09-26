@@ -10,10 +10,8 @@ __pycache__/
 .env.*
 !.env.example
 results/
-results_dev/
-results_validation/
-results_validation_gpt4o/
-results_validation_claude/
+results*/
+results_*
 benchmarks/data/
 .agents/
 .idea/

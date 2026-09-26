@@ -89,11 +89,11 @@ Evaluation progresses across three strict stages:
 * **No `latest` Aliases:** Every run explicitly logs pinned model versions, reasoning effort, temperature, and commit hashes:
   ```json
   {
-    "provider": "openai",
-    "model": "gpt-4o-2024-08-06",
+    "provider": "anthropic",
+    "model": "claude-3-7-sonnet-20250219",
     "reasoning_effort": "medium",
     "temperature": 0.0,
-    "experiment_commit": "8e45fc8"
+    "experiment_commit": "5bff65b"
   }
   ```
 
