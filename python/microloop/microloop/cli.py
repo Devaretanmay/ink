@@ -2,6 +2,11 @@
 
 Reads schema 0.3.0 trajectory JSONL and streams it through the native runtime.
 ``monitor`` can follow a live file as an agent appends steps.
+
+``replay`` re-runs *recorded events* through the current Microloop engine. It
+does not reproduce the original agent execution: no model is called and no tools
+run. A trajectory recorded by an older engine may therefore classify differently
+today.
 """
 from __future__ import annotations
 
@@ -12,10 +17,23 @@ import sys
 import time
 from typing import Any
 
-from . import SCHEMA_VERSION, Event, InterventionAction, Monitor, Policy, __version__
+from . import (
+    SCHEMA_VERSION,
+    Event,
+    InterventionAction,
+    Monitor,
+    Policy,
+    ProgressState,
+    __version__,
+)
 
-# Diagnostic policy: surface a recommendation without ever stopping the run.
-_DIAGNOSTIC_POLICY = Policy(
+# Trajectory schema major version this runtime can read. A different major
+# version changes the meaning of fields, so it is rejected rather than guessed.
+_SCHEMA_MAJOR = int(SCHEMA_VERSION.split(".", 1)[0])
+
+# Recommendation policy for `replay` and `monitor`: surfaces what a host *could*
+# do without ever taking it. `inspect` deliberately does not use this; see below.
+_RECOMMENDATION_POLICY = Policy(
     warning=InterventionAction.Observe,
     stalled=InterventionAction.Replan,
     regressing=InterventionAction.Replan,
@@ -38,6 +56,27 @@ def _paint(text: str, status: str, enabled: bool) -> str:
     return f"{_COLORS.get(status, '')}{text}{_RESET}"
 
 
+def _check_schema(record: dict[str, Any], path: str, lineno: int) -> None:
+    """Reject a trajectory this runtime cannot read."""
+    raw = record.get("schema_version")
+    if raw is None:
+        return
+    version = str(raw)
+    major = version.partition(".")[0]
+    if not major.isdigit():
+        raise SystemExit(
+            f"{path}:{lineno}: unreadable schema_version {version!r}; "
+            f"expected '<major>.<minor>' (this runtime reads {SCHEMA_VERSION})"
+        )
+    if int(major) != _SCHEMA_MAJOR:
+        raise SystemExit(
+            f"{path}:{lineno}: incompatible trajectory schema {version}; "
+            f"this runtime reads schema {SCHEMA_VERSION}. Trajectory major versions "
+            "must match — upgrade Microloop, or re-record the trajectory with "
+            "this schema version."
+        )
+
+
 def _load_record(path: str, lineno: int, line: str) -> dict[str, Any]:
     try:
         record = json.loads(line)
@@ -45,6 +84,7 @@ def _load_record(path: str, lineno: int, line: str) -> dict[str, Any]:
         raise SystemExit(f"{path}:{lineno}: invalid JSON: {error}") from error
     if not isinstance(record, dict):
         raise SystemExit(f"{path}:{lineno}: expected a JSON object")
+    _check_schema(record, path, lineno)
     return record
 
 
@@ -91,8 +131,13 @@ def _event_from_record(record: dict[str, Any], fallback_step: int) -> Event:
     )
 
 
-def _monitor() -> Monitor:
-    return Monitor(policy=_DIAGNOSTIC_POLICY)
+def _recommending() -> Monitor:
+    return Monitor(policy=_RECOMMENDATION_POLICY)
+
+
+def _observing() -> Monitor:
+    """Default runtime posture: detection without any intervention."""
+    return Monitor()
 
 
 def commands() -> dict[str, Any]:
@@ -106,12 +151,14 @@ def commands() -> dict[str, Any]:
 
 def _inspect(args: argparse.Namespace) -> int:
     schema, records = _read_trajectory(args.trajectory)
-    monitor = _monitor()
+    # Detection only: `inspect` reports what the detectors found, so it runs the
+    # default observation-only policy and never shows a host's replan/stop choice.
+    monitor = _observing()
     first_detected: int | None = None
     last = None
     for index, record in enumerate(records, start=1):
         decision = monitor.observe_event(_event_from_record(record, index))
-        if decision.status != "healthy" and first_detected is None:
+        if decision.status != ProgressState.Healthy and first_detected is None:
             first_detected = decision.step
         last = decision
     assert last is not None
@@ -123,14 +170,14 @@ def _inspect(args: argparse.Namespace) -> int:
     print(f"{'Status':<15}{last.status}")
     print(f"{'Detected at':<15}{'step ' + str(first_detected) if first_detected else 'none'}")
     print(f"{'Reasons':<15}{reasons}")
-    print(f"{'Intervention':<15}{last.intervention}")
     print(f"{'Evidence':<15}{evidence}")
+    print(f"{'Action':<15}{last.intervention} (default policy: observe only)")
     return 0
 
 
 def _replay(args: argparse.Namespace) -> int:
     schema, records = _read_trajectory(args.trajectory)
-    monitor = _monitor()
+    monitor = _recommending()
     for index, record in enumerate(records, start=1):
         decision = monitor.observe_event(_event_from_record(record, index))
         payload = {
@@ -155,7 +202,7 @@ def _replay(args: argparse.Namespace) -> int:
 
 def _monitor_live(args: argparse.Namespace) -> int:
     color = sys.stdout.isatty() and not args.no_color
-    monitor = _monitor()
+    monitor = _recommending()
     steps = 0
     stalls = 0
     warnings = 0
@@ -189,7 +236,7 @@ def _monitor_live(args: argparse.Namespace) -> int:
                 print(f"      {item['detail']}")
             if decision.intervention != InterventionAction.Observe:
                 interventions += 1
-                print(f"      -> {decision.intervention.upper()}")
+                print(f"      -> {decision.intervention.upper()} (recommended)")
             print()
     except KeyboardInterrupt:
         print()
@@ -199,7 +246,7 @@ def _monitor_live(args: argparse.Namespace) -> int:
     print(f"{'Stalls':<18}{stalls}")
     print(f"{'Warnings':<18}{warnings}")
     print(f"{'Regressions':<18}{regressions}")
-    print(f"{'Interventions':<18}{interventions}")
+    print(f"{'Recommended':<18}{interventions}")
     print(f"{'Recovered':<18}{'yes' if recovered else 'no'}")
     return 0
 
@@ -233,9 +280,15 @@ def build_parser() -> argparse.ArgumentParser:
         version=f"microloop {__version__} (schema {SCHEMA_VERSION}, runtime: native)",
     )
     sub = parser.add_subparsers(dest="command")
-    inspect_parser = sub.add_parser("inspect", help="summarize a trajectory JSONL")
+    inspect_parser = sub.add_parser(
+        "inspect",
+        help="summarize a trajectory JSONL (detection only, no intervention policy)",
+    )
     inspect_parser.add_argument("trajectory")
-    replay_parser = sub.add_parser("replay", help="stream decisions for a trajectory JSONL")
+    replay_parser = sub.add_parser(
+        "replay",
+        help="re-run recorded events through the current engine",
+    )
     replay_parser.add_argument("trajectory")
     replay_parser.add_argument("--json", action="store_true", help="emit decisions as JSONL")
     monitor_parser = sub.add_parser("monitor", help="print a live progress view")

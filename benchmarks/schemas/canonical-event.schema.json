@@ -16,7 +16,7 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["0.1", "1.0"]
+      "const": "0.1"
     },
     "run_id": {
       "type": "string",

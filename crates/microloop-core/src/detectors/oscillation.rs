@@ -5,7 +5,7 @@ use crate::history::Record;
 
 /// Detect three contiguous A/B state cycles with no intervening change.
 /// State changes may be legitimate, so callers treat this as a warning only.
-pub fn detect(history: &[Record]) -> Option<Evidence> {
+pub(crate) fn detect(history: &[Record]) -> Option<Evidence> {
     if history.len() < 6 {
         return None;
     }

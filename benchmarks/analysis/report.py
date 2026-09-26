@@ -1,5 +1,5 @@
 """
-Microloop Investor-Grade Evidence Audit and Report Generator.
+Microloop Benchmark Report Generator.
 
 Regenerates all published benchmark metrics, statistics, and tables
 directly from immutable raw trajectory bundles in benchmarks/results/raw/.
@@ -9,46 +9,45 @@ No benchmark number exists only as a hand-written JSON summary.
 Every published claim is computed from raw execution records.
 
 Usage:
-    python -m benchmarks.analysis.report --results benchmarks/results/raw --manifest validation-pilot-v1
-    python -m benchmarks.analysis.report --results benchmarks/results/raw --manifest validation-final-v1
+    python -m benchmarks.analysis.report \\
+        --results benchmarks/results/raw --manifest validation-final-v1
 """
+
 from __future__ import annotations
 
 import argparse
-import datetime
 import json
 import math
 import os
 import random
 import statistics
-import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from benchmarks.runner.agents.mini_swe.config import MiniSWEConfig
 
 
-def load_manifest(manifest_name: str) -> Dict[str, Any]:
+def load_manifest(manifest_name: str) -> dict[str, Any]:
     """Loads manifest metadata and task list."""
     manifest_dir = os.path.join(os.path.dirname(__file__), "..", "manifests")
     filename = f"{manifest_name}.json" if not manifest_name.endswith(".json") else manifest_name
     path = os.path.join(manifest_dir, filename)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Manifest not found: {path}")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def load_raw_runs(results_dir: str) -> List[Dict[str, Any]]:
+def load_raw_runs(results_dir: str) -> list[dict[str, Any]]:
     """Loads all immutable run bundles from results directory."""
     runs = []
     if not os.path.exists(results_dir):
         return runs
 
-    for root, dirs, files in os.walk(results_dir):
+    for root, _dirs, files in os.walk(results_dir):
         if "metadata.json" in files:
             meta_path = os.path.join(root, "metadata.json")
             try:
-                with open(meta_path, "r", encoding="utf-8") as f:
+                with open(meta_path, encoding="utf-8") as f:
                     meta = json.load(f)
                     meta["_bundle_dir"] = root
                     runs.append(meta)
@@ -57,15 +56,17 @@ def load_raw_runs(results_dir: str) -> List[Dict[str, Any]]:
     return runs
 
 
-def wilson_score_interval(successes: int, trials: int, confidence: float = 0.95) -> Tuple[float, float]:
+def wilson_score_interval(
+    successes: int, trials: int, confidence: float = 0.95
+) -> tuple[float, float]:
     """Computes Wilson score interval for binomial proportion."""
     if trials == 0:
         return (0.0, 0.0)
     z = 1.95996  # 95%
     p = successes / trials
-    denom = 1 + (z ** 2) / trials
-    center = (p + (z ** 2) / (2 * trials)) / denom
-    spread = (z / denom) * math.sqrt((p * (1 - p) / trials) + ((z ** 2) / (4 * (trials ** 2))))
+    denom = 1 + (z**2) / trials
+    center = (p + (z**2) / (2 * trials)) / denom
+    spread = (z / denom) * math.sqrt((p * (1 - p) / trials) + ((z**2) / (4 * (trials**2))))
     return (max(0.0, center - spread), min(1.0, center + spread))
 
 
@@ -77,16 +78,16 @@ def mcnemar_exact_test(b: int, c: int) -> float:
     k = min(b, c)
     cum_prob = 0.0
     for i in range(k + 1):
-        cum_prob += math.comb(n, i) * (0.5 ** n)
+        cum_prob += math.comb(n, i) * (0.5**n)
     return min(1.0, 2.0 * cum_prob)
 
 
-def wilcoxon_signed_rank_test(x: List[float], y: List[float]) -> Tuple[float, float]:
+def wilcoxon_signed_rank_test(x: list[float], y: list[float]) -> tuple[float, float]:
     """
     Computes Wilcoxon signed-rank test on paired continuous observations (e.g. tool calls).
     Returns (statistic, two-sided p-value).
     """
-    diffs = [a - b for a, b in zip(x, y) if a != b]
+    diffs = [a - b for a, b in zip(x, y, strict=True) if a != b]
     n = len(diffs)
     if n == 0:
         return (0.0, 1.0)
@@ -118,10 +119,10 @@ def wilcoxon_signed_rank_test(x: List[float], y: List[float]) -> Tuple[float, fl
 
 
 def paired_bootstrap_completion_difference(
-    task_pairs: List[Tuple[bool, bool]],
+    task_pairs: list[tuple[bool, bool]],
     iterations: int = 10000,
     seed: int = 42,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Computes paired bootstrap confidence interval for completion rate difference."""
     n = len(task_pairs)
     if n == 0:
@@ -157,7 +158,7 @@ def paired_bootstrap_completion_difference(
     }
 
 
-def recompute_cost_from_usage(run: Dict[str, Any]) -> float:
+def recompute_cost_from_usage(run: dict[str, Any]) -> float:
     """Computes exact USD cost from raw usage records using official provider schedules."""
     model = run.get("exact_model_id") or run.get("model", "gpt-6-astra")
     pricing = MiniSWEConfig(model=model).get_pricing()
@@ -185,7 +186,7 @@ def recompute_cost_from_usage(run: Dict[str, Any]) -> float:
 def audit_and_generate_report(
     results_dir: str,
     manifest_name: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Performs raw-run audit and generates reproducible metrics."""
     manifest = load_manifest(manifest_name)
     tasks = manifest.get("tasks", [])
@@ -197,8 +198,8 @@ def audit_and_generate_report(
     manifest_runs = [r for r in all_runs if r.get("task_id") in task_ids]
     manifest_runs.sort(key=lambda r: r.get("started_at", ""), reverse=True)
 
-    ctrl_by_task: Dict[str, Dict[str, Any]] = {}
-    treat_by_task: Dict[str, Dict[str, Any]] = {}
+    ctrl_by_task: dict[str, dict[str, Any]] = {}
+    treat_by_task: dict[str, dict[str, Any]] = {}
 
     for r in manifest_runs:
         tid = r.get("task_id")
@@ -297,9 +298,7 @@ def audit_and_generate_report(
     ctrl_mean_cost = statistics.mean(ctrl_costs) if ctrl_costs else 0.0
     treat_mean_cost = statistics.mean(treat_costs) if treat_costs else 0.0
     cost_reduction_pct = (
-        ((ctrl_mean_cost - treat_mean_cost) / ctrl_mean_cost * 100.0)
-        if ctrl_mean_cost > 0
-        else 0.0
+        ((ctrl_mean_cost - treat_mean_cost) / ctrl_mean_cost * 100.0) if ctrl_mean_cost > 0 else 0.0
     )
 
     # Damaging interventions fraction
@@ -377,10 +376,23 @@ def audit_and_generate_report(
     }
 
 
-def format_report_table(report: Dict[str, Any]) -> str:
-    """Formats report into the requested investor-grade table."""
+def format_report_table(report: dict[str, Any]) -> str:
+    """Formats report into the requested publication table."""
     m = report["metrics"]
     prov = report["provenance"]
+
+    solved = m["tasks_solved"]
+    acr = m["acr_pct"]
+    ci = m["paired_bootstrap_95_ci_pp"]
+    calls = m["median_tool_calls"]
+    cost = m["mean_token_cost_usd"]
+    damaging = m["damaging_interventions"]
+    recoveries = m["successful_recoveries"]
+    mcnemar_p = m["mcnemar_test"]["p_value"]
+    wilcoxon_p = m["wilcoxon_tool_calls_reduction"]["p_value"]
+    harness = prov.get("harness_commit")[:12]
+    evaluator = prov.get("swe_bench_evaluator_commit")[:12]
+    digest = prov.get("docker_image_digest")[:19]
 
     lines = [
         "=" * 78,
@@ -388,30 +400,44 @@ def format_report_table(report: Dict[str, Any]) -> str:
         "=" * 78,
         f"Manifest Split : {report['split']} ({report['evaluated_tasks']} paired tasks evaluated)",
         f"Exact Model ID : {prov.get('exact_model_id')} ({prov.get('provider')})",
-        f"Harness Commit : {prov.get('harness_commit')[:12]} | mini-swe-agent v{prov.get('mini_swe_version')}",
-        f"Evaluator Comm : {prov.get('swe_bench_evaluator_commit')[:12]}",
-        f"Docker Digest  : {prov.get('docker_image_digest')[:19]}...",
+        f"Harness Commit : {harness} | mini-swe-agent v{prov.get('mini_swe_version')}",
+        f"Evaluator Comm : {evaluator}",
+        f"Docker Digest  : {digest}...",
         "-" * 78,
         f"{'Metric':25s} | {'Vanilla':15s} | {'Microloop':15s} | {'Difference':15s}",
         "-" * 78,
-        f"{'Tasks solved':25s} | {m['tasks_solved']['vanilla']:15s} | {m['tasks_solved']['microloop']:15s} | {m['tasks_solved']['difference']:15s}",
-        f"{'ACR':25s} | {m['acr_pct']['vanilla']:>13.1f}% | {m['acr_pct']['microloop']:>13.1f}% | {m['acr_pct']['difference_pp']:>+12.1f} pp",
-        f"{'95% paired CI':25s} | {'—':15s} | {'—':15s} | [{m['paired_bootstrap_95_ci_pp'][0]:+.1f}, {m['paired_bootstrap_95_ci_pp'][1]:+.1f}] pp",
-        f"{'McNemar test p-value':25s} | {'—':15s} | {'—':15s} | p = {m['mcnemar_test']['p_value']:.4f}",
-        f"{'Median tool calls':25s} | {m['median_tool_calls']['vanilla']:>15.0f} | {m['median_tool_calls']['microloop']:>15.0f} | -{m['median_tool_calls']['reduction_pct']:.1f}%",
-        f"{'Wilcoxon tool-call p':25s} | {'—':15s} | {'—':15s} | p = {m['wilcoxon_tool_calls_reduction']['p_value']:.5f}",
-        f"{'Mean token cost / task':25s} | ${m['mean_token_cost_usd']['vanilla']:>14.4f} | ${m['mean_token_cost_usd']['microloop']:>14.4f} | -{m['mean_token_cost_usd']['reduction_pct']:.1f}%",
-        f"{'Damaging interventions':25s} | {'—':15s} | {m['damaging_interventions']['fraction']:>15s} | {m['damaging_interventions']['rate_pct']:.1f}%",
-        f"{'Successful recoveries':25s} | {'—':15s} | {m['successful_recoveries']['fraction']:>15s} | {m['successful_recoveries']['rate_pct']:.1f}%",
+        f"{'Tasks solved':25s} | {solved['vanilla']:15s} | {solved['microloop']:15s} "
+        f"| {solved['difference']:15s}",
+        f"{'ACR':25s} | {acr['vanilla']:>13.1f}% | {acr['microloop']:>13.1f}% "
+        f"| {acr['difference_pp']:>+12.1f} pp",
+        f"{'95% paired CI':25s} | {'—':15s} | {'—':15s} | [{ci[0]:+.1f}, {ci[1]:+.1f}] pp",
+        f"{'McNemar test p-value':25s} | {'—':15s} | {'—':15s} | p = {mcnemar_p:.4f}",
+        f"{'Median tool calls':25s} | {calls['vanilla']:>15.0f} "
+        f"| {calls['microloop']:>15.0f} | -{calls['reduction_pct']:.1f}%",
+        f"{'Wilcoxon tool-call p':25s} | {'—':15s} | {'—':15s} | p = {wilcoxon_p:.5f}",
+        f"{'Mean token cost / task':25s} | ${cost['vanilla']:>14.4f} "
+        f"| ${cost['microloop']:>14.4f} | -{cost['reduction_pct']:.1f}%",
+        f"{'Damaging interventions':25s} | {'—':15s} | {damaging['fraction']:>15s} "
+        f"| {damaging['rate_pct']:.1f}%",
+        f"{'Successful recoveries':25s} | {'—':15s} | {recoveries['fraction']:>15s} "
+        f"| {recoveries['rate_pct']:.1f}%",
         "=" * 78,
     ]
     return "\n".join(lines)
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Microloop Benchmark Evidence Audit and Report Generator")
-    parser.add_argument("--results", default="benchmarks/results/raw", help="Path to raw results directory")
-    parser.add_argument("--manifest", default="validation-pilot-v1", help="Manifest name (e.g. validation-pilot-v1, validation-final-v1)")
+    parser = argparse.ArgumentParser(
+        description="Microloop Benchmark Evidence Audit and Report Generator"
+    )
+    parser.add_argument(
+        "--results", default="benchmarks/results/raw", help="Path to raw results directory"
+    )
+    parser.add_argument(
+        "--manifest",
+        default="validation-pilot-v1",
+        help="Manifest name (e.g. validation-pilot-v1, validation-final-v1)",
+    )
     parser.add_argument("--output-derived", default=None, help="Output derived JSON path")
     parser.add_argument("--output-published", default=None, help="Output published Markdown path")
     parser.add_argument("--json", action="store_true", help="Print JSON report to stdout")
@@ -431,7 +457,9 @@ def main() -> None:
 
     table_str = format_report_table(report)
 
-    published_path = args.output_published or os.path.join(published_dir, f"{args.manifest}-report.md")
+    published_path = args.output_published or os.path.join(
+        published_dir, f"{args.manifest}-report.md"
+    )
     with open(published_path, "w", encoding="utf-8") as f:
         f.write(f"# Microloop Evidence Audit: {args.manifest}\n\n```\n{table_str}\n```\n")
 
@@ -439,7 +467,8 @@ def main() -> None:
         print(json.dumps(report, indent=2))
     else:
         print(table_str)
-        print(f"\n[Artifacts Saved]\nDerived metrics: {derived_path}\nPublished report: {published_path}\n")
+        print(f"\n[Artifacts Saved]\nDerived metrics: {derived_path}")
+        print(f"Published report: {published_path}\n")
 
 
 if __name__ == "__main__":

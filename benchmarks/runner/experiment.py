@@ -6,6 +6,7 @@ Outputs immutable raw telemetry into benchmarks/results/raw/.
 Usage:
     python -m benchmarks.runner.experiment --manifest validation-pilot-v1 --dry-run
 """
+
 from __future__ import annotations
 
 import argparse
@@ -13,7 +14,7 @@ import datetime
 import json
 import os
 import random
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from benchmarks.runner.agents.mini_swe.config import MiniSWEConfig
 from benchmarks.runner.agents.mini_swe.runner import run_single_task
@@ -22,13 +23,13 @@ from benchmarks.runner.result_writer import ResultWriter
 from benchmarks.runner.run_id import generate_run_id
 
 
-def load_manifest_tasks(manifest_name: str) -> List[Dict[str, Any]]:
+def load_manifest_tasks(manifest_name: str) -> list[dict[str, Any]]:
     manifest_dir = os.path.join(os.path.dirname(__file__), "..", "manifests")
     filename = f"{manifest_name}.json" if not manifest_name.endswith(".json") else manifest_name
     path = os.path.join(manifest_dir, filename)
     if not os.path.exists(path):
         raise FileNotFoundError(f"Manifest not found: {path}")
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         data = json.load(f)
         return data.get("tasks", [])
 
@@ -55,14 +56,14 @@ def compute_exact_cost(
 
 def run_experiment(
     manifest_name: str = "validation-pilot-v1",
-    conditions: Optional[List[str]] = None,
+    conditions: list[str] | None = None,
     seeds: int = 1,
-    task_limit: Optional[int] = None,
+    task_limit: int | None = None,
     dry_run: bool = False,
     output_dir: str = "benchmarks/results/raw",
     model: str = "gpt-6-astra",
     provider: str = "openai",
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Executes a benchmark experiment using randomized block interleaving.
     """
@@ -75,13 +76,16 @@ def run_experiment(
 
     writer = ResultWriter(output_dir)
     config = MiniSWEConfig(model=model, provider=provider)
-    completed_runs: List[Dict[str, Any]] = []
+    completed_runs: list[dict[str, Any]] = []
 
     print(f"[Experiment] Initiating experiment on {len(tasks)} tasks.")
     print(f"[Experiment] Manifest: {manifest_name} | Conditions: {conditions} | Seeds: {seeds}")
-    print(f"[Experiment] Pinned Model: {config.model} (Provider: {config.provider}, Temp: {config.temperature})")
+    print(
+        f"[Experiment] Pinned Model: {config.model} "
+        f"(Provider: {config.provider}, Temp: {config.temperature})"
+    )
 
-    # Generate randomized block schedule: for each task and seed, randomize condition execution order
+    # Randomized block schedule: per task and seed, randomize condition order
     execution_plan = []
     for task in tasks:
         task_id = task["task_id"]
@@ -98,7 +102,10 @@ def run_experiment(
         run_id = generate_run_id(task_id, condition, seed)
         started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-        print(f"[{idx}/{len(execution_plan)}] Executing {task_id} | Condition: {condition} | Seed: {seed} | RunID: {run_id}")
+        print(
+            f"[{idx}/{len(execution_plan)}] Executing {task_id} | "
+            f"Condition: {condition} | Seed: {seed} | RunID: {run_id}"
+        )
 
         # Execute single task trial
         task_result = run_single_task(
@@ -126,10 +133,12 @@ def run_experiment(
         cost_usd = compute_exact_cost(config.model, t_prompt, t_comp, t_cached_read, t_cache_write)
 
         interventions_count = len(task_result.microloop_decisions)
-        interventions_rec = sum(1 for d in task_result.microloop_decisions if d.get("recovered", False))
+        interventions_rec = sum(
+            1 for d in task_result.microloop_decisions if d.get("recovered", False)
+        )
 
         metadata = create_run_metadata(
-            experiment="experiment-001",
+            experiment=manifest_name,
             run_id=run_id,
             task_id=task_id,
             condition=condition,
@@ -175,7 +184,9 @@ def run_experiment(
 
         completed_runs.append(metadata)
 
-    print(f"\n[Experiment] Completed {len(completed_runs)} runs. Raw bundles written to {output_dir}/")
+    print(
+        f"\n[Experiment] Completed {len(completed_runs)} runs. Raw bundles written to {output_dir}/"
+    )
     return completed_runs
 
 
@@ -207,7 +218,7 @@ def main() -> None:
             t_write = int(t_prompt * 0.15)
             cost = compute_exact_cost(config.model, t_prompt, t_comp, t_read, t_write)
             metadata = create_run_metadata(
-                experiment="experiment-001",
+                experiment=args.manifest,
                 run_id=run_id,
                 task_id=args.task,
                 condition=cond,
@@ -237,7 +248,9 @@ def main() -> None:
                 cost_usd=cost,
                 duration_seconds=res.duration_seconds,
                 interventions_applied=len(res.microloop_decisions),
-                interventions_recovered=sum(1 for d in res.microloop_decisions if d.get("recovered")),
+                interventions_recovered=sum(
+                    1 for d in res.microloop_decisions if d.get("recovered")
+                ),
                 damaging_intervention=False,
             )
             writer.write_run_bundle(
@@ -248,7 +261,11 @@ def main() -> None:
                 evaluation_result=res.evaluation_result,
                 microloop_features=res.microloop_decisions,
             )
-            print(f"Executed single task: {args.task} | Condition: {cond} (Steps: {res.total_steps}, Success: {res.success}, Patch length: {len(res.final_patch)})")
+            print(
+                f"Executed single task: {args.task} | Condition: {cond} "
+                f"(Steps: {res.total_steps}, Success: {res.success}, "
+                f"Patch length: {len(res.final_patch)})"
+            )
         print("PIPELINE_VERIFIED")
         return
 

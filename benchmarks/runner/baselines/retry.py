@@ -4,9 +4,8 @@ Executes the base agent with a naive retry / restart policy:
 - If an action fails with non-zero exit code: retry once.
 - If step context is exhausted or error persists: restart from clean workspace once.
 """
-from __future__ import annotations
 
-from typing import Any, Dict
+from __future__ import annotations
 
 
 class RetryPolicy:

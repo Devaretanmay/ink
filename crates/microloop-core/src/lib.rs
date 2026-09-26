@@ -12,15 +12,38 @@
 //!
 //! The runtime performs no network calls and executes no agent actions. It only
 //! returns instructions; the host decides whether to act on them.
+//!
+//! # Public surface
+//!
+//! The supported API is [`Event`], [`Monitor`], [`Decision`], [`Policy`],
+//! [`PolicyConfig`], [`MonitorConfig`], [`ProgressState`],
+//! [`InterventionAction`], [`Reason`] and [`Evidence`]. Detection internals —
+//! the engine, detectors, history window and canonicalization — are private and
+//! may change in any release. Reach the runtime through [`Monitor`].
+//!
+//! # How a step is classified
+//!
+//! [`Monitor::observe`] validates the [`Event`], appends it to a bounded
+//! history window, runs the detectors over that window, and synthesizes one
+//! [`ProgressState`]. The [`Policy`] then maps that state to an
+//! [`InterventionAction`]. Detection and policy are independent: detectors
+//! produce evidence and a status, and only the policy decides whether to
+//! observe, replan, or stop.
+//!
+//! The policy defaults to [`InterventionAction::Observe`] for every state.
+//! Automatic `Replan` or `Stop` requires an explicit opt-in via [`PolicyConfig`],
+//! and is additionally bounded by a cooldown and a per-run intervention cap.
 
-pub mod canonical;
-pub mod detectors;
-pub mod engine;
-pub mod event;
-pub mod history;
-pub mod monitor;
-pub mod policy;
+mod canonical;
+mod config;
+mod detectors;
+mod engine;
+mod event;
+mod history;
+mod monitor;
+mod policy;
 
-pub use event::{Event, Evidence, MonitorConfig, ProgressState, Reason};
+pub use config::MonitorConfig;
+pub use event::{Event, Evidence, MetricMap, ProgressState, Reason, StringMap};
 pub use monitor::{Decision, Monitor};
 pub use policy::{InterventionAction, Policy, PolicyConfig};

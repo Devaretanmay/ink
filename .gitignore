@@ -16,6 +16,7 @@ benchmarks/data/
 .agents/
 .idea/
 .vscode/
+.freebuff/
 
 benchmarks/results/raw/
 *.whl

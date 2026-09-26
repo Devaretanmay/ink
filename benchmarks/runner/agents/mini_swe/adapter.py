@@ -3,10 +3,11 @@ Mini-SWE-Agent v2 Adapter and Microloop Agent Integration.
 Wraps execution, generates canonical events, and streams trajectory telemetry.
 Microloop operates in observation-only mode for baseline runs.
 """
+
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from benchmarks.runner.bridge import (
     decision_to_dict,
@@ -14,11 +15,13 @@ from benchmarks.runner.bridge import (
     monitor_for,
     observe_canonical,
 )
+
 from .events import build_canonical_event
 
 try:
-    from minisweagent.agents.default import DefaultAgent, AgentConfig
-    from minisweagent.exceptions import Submitted, LimitsExceeded, TimeExceeded  # noqa: F401
+    from minisweagent.agents.default import AgentConfig, DefaultAgent
+    from minisweagent.exceptions import LimitsExceeded, Submitted, TimeExceeded  # noqa: F401
+
     HAS_MINISWE = True
 except ImportError:
     HAS_MINISWE = False
@@ -35,7 +38,7 @@ class MiniSWEAdapter:
         self,
         run_id: str,
         task_id: str,
-        config: Optional[Any] = None,
+        config: Any | None = None,
         observer_mode: bool = True,
         cooldown_steps: int = 3,
         max_replans: int = 2,
@@ -54,8 +57,8 @@ class MiniSWEAdapter:
             cooldown_steps=cooldown_steps,
             max_interventions=max_replans,
         )
-        self.trajectory_events: List[Dict[str, Any]] = []
-        self.microloop_decisions: List[Dict[str, Any]] = []
+        self.trajectory_events: list[dict[str, Any]] = []
+        self.microloop_decisions: list[dict[str, Any]] = []
 
     def record_step(
         self,
@@ -68,8 +71,8 @@ class MiniSWEAdapter:
         dirty: bool = False,
         changed_files: int = 0,
         diff_content: str = "",
-        error_class: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        error_class: str | None = None,
+    ) -> dict[str, Any]:
         """
         Records an execution step into canonical event format.
         Computes the Microloop decision in observation-only mode.
@@ -116,6 +119,7 @@ class MiniSWEAdapter:
 
 
 if HAS_MINISWE:
+
     class MicroloopSWEAgent(DefaultAgent):
         """
         Specialized Mini-SWE-Agent wrapping execution with real-time Microloop telemetry
@@ -161,7 +165,10 @@ if HAS_MINISWE:
                         else:
                             output = {"output": str(output) + injection, "returncode": ret_code}
                     elif intervention.get("kind") == "stop":
-                        stop_msg = "\n\n[MICROLOOP DIRECTIVE: TERMINATE RUN]\nMaximum replan budget reached without progress."
+                        stop_msg = (
+                            "\n\n[MICROLOOP DIRECTIVE: TERMINATE RUN]\n"
+                            "Maximum replan budget reached without progress."
+                        )
                         if isinstance(output, dict):
                             output["output"] = output.get("output", "") + stop_msg
                         else:
@@ -169,7 +176,10 @@ if HAS_MINISWE:
 
                 outputs.append(output)
 
-            return self.add_messages(*self.model.format_observation_messages(message, outputs, self.get_template_vars()))
+            return self.add_messages(
+                *self.model.format_observation_messages(message, outputs, self.get_template_vars())
+            )
 else:
+
     class MicroloopSWEAgent:
         pass

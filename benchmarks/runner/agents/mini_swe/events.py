@@ -2,12 +2,13 @@
 Canonical event builder and parser for Mini-SWE-Agent trajectories.
 Normalizes tool actions, observations, workspace state, and test metrics.
 """
+
 from __future__ import annotations
 
 import hashlib
 import re
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def hash_text(text: str) -> str:
@@ -16,19 +17,36 @@ def hash_text(text: str) -> str:
 
 
 def mask_volatile_noise_py(text: str) -> str:
-    """Masks volatile tokens (ANSI escapes, UUIDs, git/docker hashes, hex addresses, timestamps, temp paths, PIDs, ports) for normalized hashing."""
+    """
+    Masks volatile tokens for normalized hashing.
+
+    Covers ANSI escapes, UUIDs, git/docker hashes, hex addresses, timestamps,
+    temp paths, PIDs and ports.
+    """
     s = re.sub(r"\x1b\[[0-9;]*[a-zA-Z]", "", text)
-    s = re.sub(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b", "<UUID>", s)
+    s = re.sub(
+        r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b",
+        "<UUID>",
+        s,
+    )
     s = re.sub(r"\b[0-9a-fA-F]{40,64}\b", "<HASH>", s)
     s = re.sub(r"\b0x[0-9a-fA-F]{4,16}\b", "<HEX>", s)
-    s = re.sub(r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b", "<TIMESTAMP>", s)
-    s = re.sub(r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+|private/var/folders/[^\s/]+/[^\s/]+/[^\s/]+|root/\.cache/[^\s/]+)/[^\s\"':;]+", "<TMP_PATH>", s)
+    s = re.sub(
+        r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b",
+        "<TIMESTAMP>",
+        s,
+    )
+    s = re.sub(
+        r"/(?:tmp|var/folders/[^\s/]+/[^\s/]+/[^\s/]+|private/var/folders/[^\s/]+/[^\s/]+/[^\s/]+|root/\.cache/[^\s/]+)/[^\s\"':;]+",
+        "<TMP_PATH>",
+        s,
+    )
     s = re.sub(r"\b(?:pid|PID|process|PROCESS)\s*[=:]\s*\d+\b", "pid=<PID>", s)
     s = re.sub(r":\b[3-6][0-9]{4}\b", ":<PORT>", s)
     return re.sub(r"[ \t]+", " ", s).strip()
 
 
-def parse_pytest_metrics(output: str) -> Dict[str, Optional[int]]:
+def parse_pytest_metrics(output: str) -> dict[str, int | None]:
     """
     Carefully parses test metrics from test runner output.
     Returns null if unknown. Never invents progress metrics.
@@ -72,11 +90,12 @@ def build_canonical_event(
     dirty: bool = False,
     changed_files: int = 0,
     diff_content: str = "",
-    error_class: Optional[str] = None,
-    verification_scope: Optional[str] = None,
-) -> Dict[str, Any]:
+    error_class: str | None = None,
+    verification_scope: str | None = None,
+) -> dict[str, Any]:
     """
-    Constructs a schema-valid canonical event matching event.schema.json.
+    Constructs a schema-valid canonical event matching
+    benchmarks/schemas/canonical-event.schema.json.
     """
     test_metrics = {"tests_passed": None, "tests_failed": None}
     if "pytest" in command or "test" in command or "unittest" in command:

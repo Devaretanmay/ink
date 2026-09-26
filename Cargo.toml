@@ -2,7 +2,6 @@
 resolver = "2"
 members = ["crates/microloop-core", "python/microloop"]
 default-members = ["crates/microloop-core"]
-exclude = ["crates/microloop-compress"]
 
 [workspace.package]
 version = "0.3.0"

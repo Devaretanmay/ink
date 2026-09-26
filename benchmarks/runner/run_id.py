@@ -2,9 +2,9 @@
 Unique Run Identifier generator.
 Produces monotonically sortable, collision-free run identifiers.
 """
+
 from __future__ import annotations
 
-import os
 import time
 import uuid
 

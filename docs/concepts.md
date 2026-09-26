@@ -45,7 +45,10 @@ debugging but are not the product surface:
 `Decision` is what `Monitor.observe(...)` returns: `step`, `status`, `reasons`,
 `evidence`, `intervention`, `severity`, `verified_progress` and `feedback`.
 
-`severity` is a heuristic score in `0.0..=1.0`, not a calibrated probability.
+`severity` is a categorical ordering for `status`, produced by a fixed lookup:
+`0.0` healthy, `0.4` warning, `0.8` stalled, `0.9` regressing. It is **not** a
+probability and **not** a confidence — it carries no information beyond `status`
+and must not be compared across runs. Branch on `status`.
 
 ## Intervention
 

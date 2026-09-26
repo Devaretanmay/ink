@@ -6,16 +6,18 @@ Supports:
 2. Deterministic execution via mini-swe-agent's test models
 3. High-fidelity baseline trajectory simulation across difficulty tiers
 """
+
 from __future__ import annotations
 
 import logging
 import random
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from .adapter import MiniSWEAdapter, MicroloopSWEAgent, HAS_MINISWE
-from .config import MiniSWEConfig
 from benchmarks.runner.evaluator import Evaluator
+
+from .adapter import HAS_MINISWE, MicroloopSWEAgent, MiniSWEAdapter
+from .config import MiniSWEConfig
 
 
 class TaskRunResult:
@@ -24,8 +26,8 @@ class TaskRunResult:
         task_id: str,
         run_id: str,
         condition: str,
-        events: List[Dict[str, Any]],
-        microloop_decisions: List[Dict[str, Any]],
+        events: list[dict[str, Any]],
+        microloop_decisions: list[dict[str, Any]],
         final_patch: str,
         duration_seconds: float,
         total_steps: int,
@@ -33,7 +35,7 @@ class TaskRunResult:
         tokens_prompt: int,
         tokens_completion: int,
         success: bool,
-        evaluation_result: Optional[Dict[str, Any]] = None,
+        evaluation_result: dict[str, Any] | None = None,
     ) -> None:
         self.task_id = task_id
         self.run_id = run_id
@@ -51,7 +53,7 @@ class TaskRunResult:
 
 
 def run_single_task(
-    task: Dict[str, Any],
+    task: dict[str, Any],
     run_id: str,
     condition: str,
     config: MiniSWEConfig,
@@ -62,11 +64,27 @@ def run_single_task(
     """
     task_id = task.get("task_id", "unknown_task")
     difficulty = task.get("difficulty", "medium")
-    adapter = MiniSWEAdapter(run_id=run_id, task_id=task_id, config=config, observer_mode=(condition == "vanilla"))
+
+    simulating = dry_run or config.provider in ("mock", "offline")
+    if not simulating and not HAS_MINISWE:
+        # Without mini-swe-agent there is no real agent run. Falling through to
+        # the simulation would emit fabricated trajectories into the same
+        # results tree as real ones, so refuse instead.
+        raise RuntimeError(
+            "mini-swe-agent is not installed, so this run cannot execute a real "
+            "agent. Install the benchmark extra "
+            "(`pip install -e '.[benchmarks]'`), or pass --dry-run / use the "
+            "'mock' or 'offline' provider to run the deterministic simulation "
+            "explicitly."
+        )
+
+    adapter = MiniSWEAdapter(
+        run_id=run_id, task_id=task_id, config=config, observer_mode=(condition == "vanilla")
+    )
     start_time = time.time()
     evaluator = Evaluator(use_docker=config.use_container)
 
-    if dry_run or not HAS_MINISWE or config.provider in ("mock", "offline"):
+    if simulating:
         # Deterministic simulation matching calibrated 2026 SWE-bench Verified difficulty tiers
         seed = config.seed
         model_salt = abs(hash(config.model)) % 10000
@@ -103,23 +121,13 @@ def run_single_task(
             supervisor_recovers = (0.35 + base_boost) <= roll < (0.40 + base_boost)
             retry_recovers = False
             is_irrecoverable = roll >= 0.90
-        else: # hard
+        else:  # hard
             baseline_resolved = roll < (0.20 + base_boost)
             is_wasteful = 0.10 <= roll < (0.20 + base_boost)
             microloop_recovers = (0.20 + base_boost) <= roll < (0.30 + base_boost)
             supervisor_recovers = (0.20 + base_boost) <= roll < (0.23 + base_boost)
             retry_recovers = False
             is_irrecoverable = roll >= 0.82
-
-        # Determine condition outcome
-        if condition == "microloop":
-            is_resolved = baseline_resolved or microloop_recovers
-        elif condition == "supervisor":
-            is_resolved = baseline_resolved or supervisor_recovers
-        elif condition == "retry":
-            is_resolved = baseline_resolved or retry_recovers
-        else: # vanilla
-            is_resolved = baseline_resolved
 
         # Generate trajectory steps
         adapter.record_step(
@@ -135,9 +143,12 @@ def run_single_task(
 
         initial_fail_count = 1 if difficulty == "easy" else (4 if difficulty == "medium" else 7)
         adapter.record_step(
-            command=f"pytest tests/ -q",
+            command="pytest tests/ -q",
             exit_code=1,
-            stdout=f"{initial_fail_count} failed, 20 passed in 1.1s\nFAILED tests/test_core.py::test_case",
+            stdout=(
+                f"{initial_fail_count} failed, 20 passed in 1.1s"
+                "\nFAILED tests/test_core.py::test_case"
+            ),
             stderr="",
             duration_ms=1100,
             git_head="1a2b3c4d",
@@ -183,7 +194,8 @@ def run_single_task(
             success = True
 
         elif baseline_resolved and is_wasteful:
-            # Successful-wasteful: Vanilla wastes 18 steps; Microloop catches loop early and resolves in 7 steps
+            # Successful-wasteful: vanilla wastes 18 steps;
+            # microloop catches the loop early and resolves in 7 steps
             if condition == "microloop":
                 # Microloop intercepts after attempt 1 and recovers immediately
                 adapter.record_step(
@@ -240,15 +252,17 @@ def run_single_task(
                     dirty=True,
                     changed_files=1,
                 )
-                final_patch = "diff --git a/src/core.py b/src/core.py\n+ # targeted fix post replan\n"
+                final_patch = (
+                    "diff --git a/src/core.py b/src/core.py\n+ # targeted fix post replan\n"
+                )
                 success = True
             else:
                 # Vanilla / Retry / Supervisor waste multiple steps
                 for i in range(1, 4):
                     adapter.record_step(
-                        command=f"grep -rn 'error_target' src/",
+                        command="grep -rn 'error_target' src/",
                         exit_code=0,
-                        stdout=f"src/core.py:{i*10}: error_target",
+                        stdout=f"src/core.py:{i * 10}: error_target",
                         stderr="",
                         duration_ms=50,
                         git_head="1a2b3c4d",
@@ -306,7 +320,8 @@ def run_single_task(
             # Failed-recoverable: Condition D (Microloop) recovers via targeted intervention
             if condition == "microloop":
                 if microloop_recovers:
-                    # Microloop intervenes at cycle 2 with Replan directive, prompting clean resolution
+                    # Microloop intervenes at cycle 2 with a Replan
+                    # directive, prompting clean resolution
                     adapter.record_step(
                         command="edit src/module.py mutation_1",
                         exit_code=0,
@@ -321,7 +336,10 @@ def run_single_task(
                     adapter.record_step(
                         command="pytest tests/ -q",
                         exit_code=1,
-                        stdout=f"{initial_fail_count} failed, 20 passed\nFAILED tests/test_core.py::test_recurrent_error",
+                        stdout=(
+                            f"{initial_fail_count} failed, 20 passed"
+                            "\nFAILED tests/test_core.py::test_recurrent_error"
+                        ),
                         stderr="",
                         duration_ms=950,
                         git_head="1a2b3c4d",
@@ -343,7 +361,10 @@ def run_single_task(
                     adapter.record_step(
                         command="pytest tests/ -q",
                         exit_code=1,
-                        stdout=f"{initial_fail_count} failed, 20 passed\nFAILED tests/test_core.py::test_recurrent_error",
+                        stdout=(
+                            f"{initial_fail_count} failed, 20 passed"
+                            "\nFAILED tests/test_core.py::test_recurrent_error"
+                        ),
                         stderr="",
                         duration_ms=950,
                         git_head="1a2b3c4d",
@@ -373,10 +394,14 @@ def run_single_task(
                         dirty=True,
                         changed_files=1,
                     )
-                    final_patch = "diff --git a/src/module.py b/src/module.py\n+ # corrected architecture fix\n"
+                    final_patch = (
+                        "diff --git a/src/module.py b/src/module.py"
+                        "\n+ # corrected architecture fix\n"
+                    )
                     success = True
                 else:
-                    # Unrecoverable within budget: Microloop attempts replan, detects continued stagnation, halts at step 6 preserving budget
+                    # Unrecoverable within budget: microloop attempts a
+                    # replan, detects continued stagnation, halts at step 6
                     adapter.record_step(
                         command="edit src/module.py mutation_1",
                         exit_code=0,
@@ -391,7 +416,10 @@ def run_single_task(
                     adapter.record_step(
                         command="pytest tests/ -q",
                         exit_code=1,
-                        stdout=f"{initial_fail_count} failed, 20 passed\nFAILED tests/test_core.py::test_recurrent_error",
+                        stdout=(
+                            f"{initial_fail_count} failed, 20 passed"
+                            "\nFAILED tests/test_core.py::test_recurrent_error"
+                        ),
                         stderr="",
                         duration_ms=950,
                         git_head="1a2b3c4d",
@@ -413,7 +441,10 @@ def run_single_task(
                     adapter.record_step(
                         command="pytest tests/ -q",
                         exit_code=1,
-                        stdout=f"{initial_fail_count} failed, 20 passed\nFAILED tests/test_core.py::test_recurrent_error",
+                        stdout=(
+                            f"{initial_fail_count} failed, 20 passed"
+                            "\nFAILED tests/test_core.py::test_recurrent_error"
+                        ),
                         stderr="",
                         duration_ms=950,
                         git_head="1a2b3c4d",
@@ -443,7 +474,10 @@ def run_single_task(
                         adapter.record_step(
                             command="pytest tests/ -q",
                             exit_code=1,
-                            stdout=f"{initial_fail_count} failed, 20 passed\nFAILED tests/test_core.py::test_recurrent_error",
+                            stdout=(
+                                f"{initial_fail_count} failed, 20 passed"
+                                "\nFAILED tests/test_core.py::test_recurrent_error"
+                            ),
                             stderr="",
                             duration_ms=950,
                             git_head="1a2b3c4d",
@@ -476,10 +510,13 @@ def run_single_task(
                         dirty=True,
                         changed_files=1,
                     )
-                    final_patch = "diff --git a/src/module.py b/src/module.py\n+ # supervisor pass\n"
+                    final_patch = (
+                        "diff --git a/src/module.py b/src/module.py\n+ # supervisor pass\n"
+                    )
                     success = True
                 else:
-                    # LLM supervisor calls external model, but without fine-grained trajectory evidence fails on complex tasks
+                    # LLM supervisor calls an external model, but without
+                    # fine-grained trajectory evidence fails on complex tasks
                     for step_idx in range(1, 5):
                         adapter.record_step(
                             command=f"edit src/module.py sup_attempt_{step_idx}",
@@ -502,7 +539,9 @@ def run_single_task(
                             changed_files=1,
                             error_class="AssertionError",
                         )
-                    final_patch = "diff --git a/src/module.py b/src/module.py\n+ # supervisor attempt\n"
+                    final_patch = (
+                        "diff --git a/src/module.py b/src/module.py\n+ # supervisor attempt\n"
+                    )
                     success = False
             else:
                 # Vanilla: loops 5 cycles and exhausts budget
@@ -521,7 +560,10 @@ def run_single_task(
                     adapter.record_step(
                         command="pytest tests/ -q",
                         exit_code=1,
-                        stdout=f"{initial_fail_count} failed, 20 passed\nFAILED tests/test_core.py::test_recurrent_error",
+                        stdout=(
+                            f"{initial_fail_count} failed, 20 passed"
+                            "\nFAILED tests/test_core.py::test_recurrent_error"
+                        ),
                         stderr="",
                         duration_ms=950,
                         git_head="1a2b3c4d",
@@ -553,9 +595,9 @@ def run_single_task(
     else:
         # Full live mini-swe-agent execution
         try:
+            from minisweagent.agents.default import AgentConfig
             from minisweagent.environments.local import LocalEnvironment
             from minisweagent.models.litellm_model import LiteLLMModel
-            from minisweagent.agents.default import AgentConfig
 
             env = LocalEnvironment()
             model = LiteLLMModel(model_name=config.model, temperature=config.temperature)
@@ -573,7 +615,12 @@ def run_single_task(
         except Exception as e:
             logging.getLogger("runner").error(f"Live mini-swe execution failed: {e}")
             final_patch = ""
-            evaluation_result = {"resolved": False, "error": str(e), "tests_passed": [], "tests_failed": ["run_error"]}
+            evaluation_result = {
+                "resolved": False,
+                "error": str(e),
+                "tests_passed": [],
+                "tests_failed": ["run_error"],
+            }
             success = False
 
     duration = time.time() - start_time

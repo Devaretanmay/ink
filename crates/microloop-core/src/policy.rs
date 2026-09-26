@@ -64,6 +64,11 @@ impl PolicyConfig {
 }
 
 /// Stateful intervention policy.
+///
+/// Defaults to observation-only: every progress state maps to
+/// [`InterventionAction::Observe`]. Automatic `Replan` or `Stop` requires an
+/// explicit opt-in through [`PolicyConfig`]. The policy never executes anything;
+/// it only returns the action the host may choose to take.
 #[derive(Debug)]
 pub struct Policy {
     config: PolicyConfig,

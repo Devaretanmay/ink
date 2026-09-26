@@ -8,11 +8,12 @@ results/<run_id>/
   evaluation.json
   microloop_features.jsonl
 """
+
 from __future__ import annotations
 
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 
 class ResultWriter:
@@ -28,11 +29,11 @@ class ResultWriter:
     def write_run_bundle(
         self,
         run_id: str,
-        metadata: Dict[str, Any],
-        trajectory_events: List[Dict[str, Any]],
+        metadata: dict[str, Any],
+        trajectory_events: list[dict[str, Any]],
         final_patch: str,
-        evaluation_result: Dict[str, Any],
-        microloop_features: List[Dict[str, Any]],
+        evaluation_result: dict[str, Any],
+        microloop_features: list[dict[str, Any]],
     ) -> str:
         """
         Persists all artifacts for an individual trial into its dedicated directory.

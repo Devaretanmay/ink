@@ -4,10 +4,38 @@ on:
   push:
     tags: ["v*"]
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
+  # Nothing is published until the full gate passes: fmt, clippy, the whole-tree
+  # lint, the Rust and Python test suites, the documented example, and a wheel
+  # build. This is the same set of checks as `make check`.
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e '.[dev]'
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - run: ruff check .
+      - run: maturin build --manifest-path python/microloop/Cargo.toml --out dist
+      - run: pip install dist/*.whl
+      - run: pytest python/microloop/tests/
+      - run: python examples/coding-agent/agent.py
+
   wheels:
+    name: wheels (${{ matrix.os }})
+    needs: verify
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
@@ -18,13 +46,22 @@ jobs:
           python-version: "3.12"
       - run: pip install maturin
       - run: maturin build --release --manifest-path python/microloop/Cargo.toml --out dist
+      # Install the freshly built wheel before it is allowed near PyPI.
+      - name: Install the wheel into a clean environment
+        run: |
+          python -m venv .wheeltest
+          .wheeltest/bin/python -m pip install --upgrade pip
+          .wheeltest/bin/python -m pip install dist/*.whl
+      - name: Native extension loads and the CLI works
+        run: .wheeltest/bin/python -m microloop.cli doctor
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
           path: dist/*.whl
 
-  publish:
-    needs: wheels
+  publish-pypi:
+    name: publish (pypi)
+    needs: [verify, wheels]
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -33,6 +70,22 @@ jobs:
         with:
           path: dist
           merge-multiple: true
+      # NOTE: this job is expected to fail until the distribution name is
+      # resolved. The `microloop` name on PyPI belongs to an unrelated project,
+      # so either secure the intended name or rename the distribution (keeping
+      # `import microloop` unchanged) in python/microloop/pyproject.toml before
+      # the first real release. Do not remove this gate to force a publish.
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
+
+  publish-crates:
+    name: publish (crates.io)
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - run: cargo publish -p microloop-core --locked

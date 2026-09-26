@@ -4,7 +4,7 @@ use crate::event::{Evidence, Reason};
 use crate::history::Record;
 
 /// Exact repetition: same action, observation, outcome and state.
-pub fn exact(current: &Record, history: &[Record], repetitions: usize) -> Option<Evidence> {
+pub(crate) fn exact(current: &Record, history: &[Record], repetitions: usize) -> Option<Evidence> {
     if current.observation.is_empty() {
         return None;
     }
@@ -29,7 +29,11 @@ pub fn exact(current: &Record, history: &[Record], repetitions: usize) -> Option
 }
 
 /// Normalized repetition: structurally identical after masking volatile tokens.
-pub fn normalized(current: &Record, history: &[Record], repetitions: usize) -> Option<Evidence> {
+pub(crate) fn normalized(
+    current: &Record,
+    history: &[Record],
+    repetitions: usize,
+) -> Option<Evidence> {
     let action = current.norm_action.as_ref()?;
     let observation = current.norm_observation.as_ref()?;
     if action.is_empty() || observation.is_empty() {

@@ -6,7 +6,7 @@ use crate::history::Record;
 /// Detect a verifier plateau. Requires `verification_samples` fresh samples in
 /// the same scope spanning at least `min_span` steps, all with the same
 /// non-zero failure count as the current step.
-pub fn detect(
+pub(crate) fn detect(
     history: &[Record],
     current: &Record,
     verification_samples: usize,

@@ -2,11 +2,11 @@
 Provenance metadata extractor and serializer.
 Captures exact commits, model identifiers, provider configuration, and run conditions.
 """
+
 from __future__ import annotations
 
-import datetime
 import subprocess
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def get_git_commit(repo_path: str = ".") -> str:
@@ -40,29 +40,30 @@ def create_run_metadata(
     docker_image: str,
     seed: int,
     started_at: str,
-    ended_at: Optional[str] = None,
-    success: Optional[bool] = None,
-    resolved_by_evaluator: Optional[bool] = None,
-    total_steps: Optional[int] = None,
-    total_tool_calls: Optional[int] = None,
-    tokens_prompt: Optional[int] = None,
-    tokens_prompt_cached_read: Optional[int] = None,
-    tokens_prompt_cache_write: Optional[int] = None,
-    tokens_completion: Optional[int] = None,
-    cost_usd: Optional[float] = None,
-    duration_seconds: Optional[float] = None,
-    interventions_applied: Optional[int] = None,
-    interventions_recovered: Optional[int] = None,
-    damaging_intervention: Optional[bool] = None,
-    exact_model_id: Optional[str] = None,
-    provider_response_metadata: Optional[Dict[str, Any]] = None,
-    docker_image_digest: Optional[str] = None,
-    harness_commit: Optional[str] = None,
-    swe_bench_evaluator_commit: Optional[str] = None,
-    mini_swe_version: Optional[str] = None,
-) -> Dict[str, Any]:
+    ended_at: str | None = None,
+    success: bool | None = None,
+    resolved_by_evaluator: bool | None = None,
+    total_steps: int | None = None,
+    total_tool_calls: int | None = None,
+    tokens_prompt: int | None = None,
+    tokens_prompt_cached_read: int | None = None,
+    tokens_prompt_cache_write: int | None = None,
+    tokens_completion: int | None = None,
+    cost_usd: float | None = None,
+    duration_seconds: float | None = None,
+    interventions_applied: int | None = None,
+    interventions_recovered: int | None = None,
+    damaging_intervention: bool | None = None,
+    exact_model_id: str | None = None,
+    provider_response_metadata: dict[str, Any] | None = None,
+    docker_image_digest: str | None = None,
+    harness_commit: str | None = None,
+    swe_bench_evaluator_commit: str | None = None,
+    mini_swe_version: str | None = None,
+) -> dict[str, Any]:
     """
-    Constructs an immutable run metadata dictionary complying with result.schema.json.
+    Constructs an immutable run metadata dictionary complying with
+    benchmarks/schemas/run-result.schema.json.
     """
     commit = get_git_commit()
     # Normalize exact model ID to official provider API strings
@@ -83,12 +84,15 @@ def create_run_metadata(
         "harness_commit": harness_commit or "f6a91c828d54238714eb6bead43cc5adfa369345",
         "mini_swe_version": mini_swe_version or "2.4.6",
         "docker_image": docker_image,
-        "docker_image_digest": docker_image_digest or "sha256:4a38f3281b9b9c97b21dc91754406208cb1875691062f8469d25514f77c0dc5a",
-        "swe_bench_evaluator_commit": swe_bench_evaluator_commit or "d4e1f728c70a2c09930f6b5bcf418721ad9bc854",
+        "docker_image_digest": docker_image_digest
+        or "sha256:4a38f3281b9b9c97b21dc91754406208cb1875691062f8469d25514f77c0dc5a",
+        "swe_bench_evaluator_commit": swe_bench_evaluator_commit
+        or "d4e1f728c70a2c09930f6b5bcf418721ad9bc854",
         "provider": provider,
         "model": model,
         "exact_model_id": exact_model_id,
-        "provider_response_metadata": provider_response_metadata or {
+        "provider_response_metadata": provider_response_metadata
+        or {
             "system_fingerprint": f"fp_{exact_model_id.replace('-', '_')}",
             "request_id": f"req_{run_id[-12:]}",
             "provider": provider,
@@ -112,5 +116,7 @@ def create_run_metadata(
         "duration_seconds": duration_seconds,
         "interventions_applied": interventions_applied or 0,
         "interventions_recovered": interventions_recovered or 0,
-        "damaging_intervention": damaging_intervention if damaging_intervention is not None else False,
+        "damaging_intervention": damaging_intervention
+        if damaging_intervention is not None
+        else False,
     }

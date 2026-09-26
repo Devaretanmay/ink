@@ -10,15 +10,17 @@ and measures:
 - Per-detector activation breakdown (D1, D2, D3, D5)
 
 Usage:
-    python -m benchmarks.analysis.evaluate_detectors [--results-dir results] [--output benchmarks/analysis/detector-evaluation-v1.json]
+    python -m benchmarks.analysis.evaluate_detectors \
+        [--results-dir results] [--output benchmarks/analysis/detector-evaluation-v1.json]
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import statistics
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from benchmarks.analysis.classify import analyze_single_trajectory
 from benchmarks.runner.bridge import (
@@ -33,7 +35,7 @@ def evaluate_trajectory_run(
     window: int = 32,
     repetitions: int = 3,
     stagnation_steps: int = 8,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Evaluates a single run directory by comparing trajectory classification
     with offline detector performance.
@@ -60,8 +62,8 @@ def evaluate_trajectory_run(
         stagnation_steps=stagnation_steps,
     )
 
-    events: List[Dict[str, Any]] = []
-    with open(traj_path, "r", encoding="utf-8") as f:
+    events: list[dict[str, Any]] = []
+    with open(traj_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:
@@ -71,9 +73,9 @@ def evaluate_trajectory_run(
                     pass
 
     total_steps = len(events)
-    first_detection_step: Optional[int] = None
-    first_stalled_step: Optional[int] = None
-    detector_activations: Dict[str, int] = {
+    first_detection_step: int | None = None
+    first_stalled_step: int | None = None
+    detector_activations: dict[str, int] = {
         "repeated_action_result": 0,
         "normalized_repetition": 0,
         "repeated_error": 0,
@@ -112,13 +114,15 @@ def evaluate_trajectory_run(
 
     detected = first_detection_step is not None
 
-    # Calculate detection delay: difference between step where loop first became evident and detection
-    detection_delay: Optional[int] = None
+    # Detection delay: steps between the loop first becoming evident and detection
+    detection_delay: int | None = None
     if detected:
         # Approximate loop start: earliest failure mode step or repetition index
         loop_start_step = 1
-        for i, ev in enumerate(events):
-            if ev.get("observation", {}).get("exit_code", 0) != 0 or ev.get("metrics", {}).get("tests_failed"):
+        for ev in events:
+            if ev.get("observation", {}).get("exit_code", 0) != 0 or ev.get("metrics", {}).get(
+                "tests_failed"
+            ):
                 loop_start_step = ev.get("step", 1)
                 break
         detection_delay = max(0, first_detection_step - loop_start_step)
@@ -145,20 +149,22 @@ def run_detector_benchmark(
     window: int = 32,
     repetitions: int = 3,
     stagnation_steps: int = 8,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Runs detector evaluation over all run directories in results_dir.
     """
     if not os.path.exists(results_dir):
         raise FileNotFoundError(f"Results directory does not exist: {results_dir}")
 
-    run_dirs = sorted([
-        os.path.join(results_dir, d)
-        for d in os.listdir(results_dir)
-        if os.path.isdir(os.path.join(results_dir, d)) and d.startswith("run_")
-    ])
+    run_dirs = sorted(
+        [
+            os.path.join(results_dir, d)
+            for d in os.listdir(results_dir)
+            if os.path.isdir(os.path.join(results_dir, d)) and d.startswith("run_")
+        ]
+    )
 
-    evaluations: List[Dict[str, Any]] = []
+    evaluations: list[dict[str, Any]] = []
     for r_dir in run_dirs:
         ev = evaluate_trajectory_run(
             r_dir,
@@ -178,7 +184,7 @@ def run_detector_benchmark(
     fp = 0
     fn = 0
     tn = 0
-    delays: List[int] = []
+    delays: list[int] = []
     clean_steps_total = 0
     clean_false_alarms_total = 0
 
@@ -217,7 +223,9 @@ def run_detector_benchmark(
     recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0.0
     median_delay = float(statistics.median(delays)) if delays else 0.0
-    far_per_100_steps = (clean_false_alarms_total / clean_steps_total * 100.0) if clean_steps_total > 0 else 0.0
+    far_per_100_steps = (
+        (clean_false_alarms_total / clean_steps_total * 100.0) if clean_steps_total > 0 else 0.0
+    )
 
     return {
         "dataset_summary": {
@@ -257,7 +265,11 @@ def main():
     parser.add_argument("--window", type=int, default=32, help="Monitor window size")
     parser.add_argument("--repetitions", type=int, default=3, help="Repetition threshold")
     parser.add_argument("--stagnation-steps", type=int, default=8, help="Stagnation step threshold")
-    parser.add_argument("--output", default="benchmarks/analysis/detector-evaluation-v1.json", help="Path to write evaluation report")
+    parser.add_argument(
+        "--output",
+        default="benchmarks/analysis/detector-evaluation-v1.json",
+        help="Path to write evaluation report",
+    )
     parser.add_argument("--json", action="store_true", help="Print json output only")
 
     args = parser.parse_args()
@@ -294,10 +306,19 @@ def main():
     print(f"Precision                    : {metrics.get('precision', 0.0) * 100:.1f}%")
     print(f"Recall                       : {metrics.get('recall', 0.0) * 100:.1f}%")
     print(f"F1 Score                     : {metrics.get('f1_score', 0.0):.4f}")
-    print(f"Median Detection Delay       : {metrics.get('median_detection_delay_steps', 0.0):.1f} steps")
-    print(f"False Alarm Rate / 100 Steps : {metrics.get('false_alarm_rate_per_100_steps', 0.0):.2f}%")
+    print(
+        f"Median Detection Delay       : "
+        f"{metrics.get('median_detection_delay_steps', 0.0):.1f} steps"
+    )
+    print(
+        f"False Alarm Rate / 100 Steps : {metrics.get('false_alarm_rate_per_100_steps', 0.0):.2f}%"
+    )
     print("-" * 70)
-    print(f"Confusion Matrix: TP={cm.get('true_positives')}, FP={cm.get('false_positives')}, TN={cm.get('true_negatives')}, FN={cm.get('false_negatives')}")
+    print(
+        f"Confusion Matrix: TP={cm.get('true_positives')}, "
+        f"FP={cm.get('false_positives')}, "
+        f"TN={cm.get('true_negatives')}, FN={cm.get('false_negatives')}"
+    )
     print("-" * 70)
     print("Detector Activations across Corpus:")
     for det, count in activations.items():

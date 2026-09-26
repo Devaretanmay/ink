@@ -19,22 +19,23 @@ Compares:
 - Naive Retry (retries on error)
 
 Usage:
-    python -m benchmarks.analysis.fault_injection.runner [--manifest benchmarks/manifests/fault-injection-v1.json]
+    python -m benchmarks.analysis.fault_injection.runner \
+        [--manifest benchmarks/manifests/fault-injection-v1.json]
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from benchmarks.runner.agents.mini_swe.events import build_canonical_event
 from benchmarks.runner.baselines.retry import RetryPolicy
-from benchmarks.runner.baselines.supervisor import LLMSupervisor
 from benchmarks.runner.bridge import intervention_of, monitor_for, observe_canonical
 
 
-def generate_fault_scenario_events(scenario: Dict[str, Any], category: str) -> List[Dict[str, Any]]:
+def generate_fault_scenario_events(scenario: dict[str, Any], category: str) -> list[dict[str, Any]]:
     """
     Generates an exact sequence of canonical events reflecting the specific fault scenario.
     """
@@ -111,7 +112,9 @@ def generate_fault_scenario_events(scenario: Dict[str, Any], category: str) -> L
                     command="pytest tests/test_corrupt.py",
                     exit_code=1,
                     stdout="AssertionError: expected <Object at 0x7f8a9b1c2d30> got None",
-                    stderr="Traceback (most recent call last):\n  File 'test.py', line 42 in test_func",
+                    stderr=(
+                        "Traceback (most recent call last):\n  File 'test.py', line 42 in test_func"
+                    ),
                     duration_ms=400,
                     error_class="AssertionError",
                 )
@@ -241,7 +244,10 @@ def generate_fault_scenario_events(scenario: Dict[str, Any], category: str) -> L
                     task_id=s_id,
                     step=step,
                     action_type="shell",
-                    command=f"run_worker /tmp/worker_job.py --timeout {val} --uuid 550e8400-e29b-41d4-a716-4466554400{step}",
+                    command=(
+                        f"run_worker /tmp/worker_job.py --timeout {val} "
+                        f"--uuid 550e8400-e29b-41d4-a716-4466554400{step}"
+                    ),
                     exit_code=1,
                     stdout=f"Worker failed after {val}s at 2026-09-26T12:00:0{step}Z",
                     stderr="TimeoutError: Worker job failed",
@@ -253,13 +259,15 @@ def generate_fault_scenario_events(scenario: Dict[str, Any], category: str) -> L
     return events
 
 
-def test_scenario_microloop(scenario: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
+def test_scenario_microloop(
+    scenario: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Tests Microloop Monitor + Policy on the scenario events."""
     trigger_step = scenario.get("trigger_step", 3)
     monitor = monitor_for(window=32, repetitions=3, cooldown_steps=2, max_interventions=2)
 
     detected = False
-    first_detection_step: Optional[int] = None
+    first_detection_step: int | None = None
     interventions = []
 
     for event in events:
@@ -279,7 +287,9 @@ def test_scenario_microloop(scenario: Dict[str, Any], events: List[Dict[str, Any
         if intervention["kind"] in ("replan", "stop"):
             interventions.append(intervention)
 
-    latency = max(0, first_detection_step - trigger_step) if first_detection_step is not None else None
+    latency = (
+        max(0, first_detection_step - trigger_step) if first_detection_step is not None else None
+    )
 
     return {
         "detected": detected,
@@ -290,22 +300,25 @@ def test_scenario_microloop(scenario: Dict[str, Any], events: List[Dict[str, Any
     }
 
 
-def test_scenario_supervisor(scenario: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
+def test_scenario_supervisor(
+    scenario: dict[str, Any], events: list[dict[str, Any]]
+) -> dict[str, Any]:
     """Simulates LLM Supervisor inspecting trajectory every 5 steps."""
     trigger_step = scenario.get("trigger_step", 3)
-    supervisor = LLMSupervisor(check_interval=5)
     history = []
     detected = False
-    first_detection_step: Optional[int] = None
+    first_detection_step: int | None = None
     tokens_spent = 0
 
     for event in events:
         step = event["step"]
-        history.append({
-            "step": step,
-            "action": event["action"]["command"],
-            "success": event["observation"]["exit_code"] == 0,
-        })
+        history.append(
+            {
+                "step": step,
+                "action": event["action"]["command"],
+                "success": event["observation"]["exit_code"] == 0,
+            }
+        )
         if step % 5 == 0 and step >= trigger_step:
             tokens_spent += 1800  # Supervisor model prompt + completion tokens
             # Supervisor detects clear loops upon scheduled check
@@ -313,7 +326,9 @@ def test_scenario_supervisor(scenario: Dict[str, Any], events: List[Dict[str, An
                 detected = True
                 first_detection_step = step
 
-    latency = max(0, first_detection_step - trigger_step) if first_detection_step is not None else None
+    latency = (
+        max(0, first_detection_step - trigger_step) if first_detection_step is not None else None
+    )
 
     return {
         "detected": detected,
@@ -323,7 +338,7 @@ def test_scenario_supervisor(scenario: Dict[str, Any], events: List[Dict[str, An
     }
 
 
-def test_scenario_retry(scenario: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
+def test_scenario_retry(scenario: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
     """Tests naive retry behavior."""
     trigger_step = scenario.get("trigger_step", 3)
     retry_policy = RetryPolicy(max_restarts=1, max_retries_per_error=1)
@@ -343,9 +358,11 @@ def test_scenario_retry(scenario: Dict[str, Any], events: List[Dict[str, Any]]) 
     }
 
 
-def run_fault_injection_suite(manifest_path: str = "benchmarks/manifests/fault-injection-v1.json") -> Dict[str, Any]:
+def run_fault_injection_suite(
+    manifest_path: str = "benchmarks/manifests/fault-injection-v1.json",
+) -> dict[str, Any]:
     """Runs all 50 scenarios in the fault injection manifest."""
-    with open(manifest_path, "r", encoding="utf-8") as f:
+    with open(manifest_path, encoding="utf-8") as f:
         manifest = json.load(f)
 
     categories = manifest.get("categories", [])
@@ -359,15 +376,17 @@ def run_fault_injection_suite(manifest_path: str = "benchmarks/manifests/fault-i
             supervisor_res = test_scenario_supervisor(sc, events)
             retry_res = test_scenario_retry(sc, events)
 
-            scenario_results.append({
-                "id": sc["id"],
-                "name": sc["name"],
-                "category": category,
-                "trigger_step": sc["trigger_step"],
-                "microloop": microloop_res,
-                "supervisor": supervisor_res,
-                "retry": retry_res,
-            })
+            scenario_results.append(
+                {
+                    "id": sc["id"],
+                    "name": sc["name"],
+                    "category": category,
+                    "trigger_step": sc["trigger_step"],
+                    "microloop": microloop_res,
+                    "supervisor": supervisor_res,
+                    "retry": retry_res,
+                }
+            )
 
     return {
         "suite": manifest.get("suite"),
@@ -378,8 +397,16 @@ def run_fault_injection_suite(manifest_path: str = "benchmarks/manifests/fault-i
 
 def main():
     parser = argparse.ArgumentParser(description="Deterministic Fault Injection Suite Runner")
-    parser.add_argument("--manifest", default="benchmarks/manifests/fault-injection-v1.json", help="Path to fault manifest")
-    parser.add_argument("--output", default="benchmarks/analysis/fault-injection-results.json", help="Path to save results")
+    parser.add_argument(
+        "--manifest",
+        default="benchmarks/manifests/fault-injection-v1.json",
+        help="Path to fault manifest",
+    )
+    parser.add_argument(
+        "--output",
+        default="benchmarks/analysis/fault-injection-results.json",
+        help="Path to save results",
+    )
     parser.add_argument("--json", action="store_true", help="Print json output only")
     args = parser.parse_args()
 
@@ -394,7 +421,10 @@ def main():
         print(json.dumps(results, indent=2))
         return
 
-    print(f"\n[Fault Injection Runner] Successfully executed {results['total_scenarios']} scenarios across 10 categories.")
+    print(
+        f"\n[Fault Injection Runner] Successfully executed "
+        f"{results['total_scenarios']} scenarios across 10 categories."
+    )
     print(f"Results written to: {args.output}\n")
 
 

@@ -6,13 +6,14 @@ without invoking external LLMs.
 Usage:
     python -m benchmarks.runner.replay path/to/trajectory.jsonl
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import sys
-from typing import Any, Dict, Optional
+from typing import Any
 
 from benchmarks.runner.bridge import (
     decision_to_dict,
@@ -27,7 +28,7 @@ def replay_trajectory(
     window: int = 32,
     repetitions: int = 3,
     verbose: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """
     Replays a raw trajectory.jsonl file through Microloop Monitor.
     Returns analysis summary.
@@ -37,7 +38,7 @@ def replay_trajectory(
 
     # Read events
     events = []
-    with open(trajectory_path, "r", encoding="utf-8") as f:
+    with open(trajectory_path, encoding="utf-8") as f:
         for line_no, line in enumerate(f, start=1):
             line = line.strip()
             if not line:
@@ -58,13 +59,13 @@ def replay_trajectory(
     stalls = 0
     warnings = 0
     regressions = 0
-    first_detection_step: Optional[int] = None
+    first_detection_step: int | None = None
 
     if verbose:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"       MICROLOOP TRAJECTORY REPLAY: {os.path.basename(trajectory_path)}")
         print(f"       Run ID: {run_id} | Total Steps: {len(events)}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
     for event in events:
         step = event.get("step", 0)
@@ -99,14 +100,14 @@ def replay_trajectory(
                 print(f"         └─ INTERVENTION: REPLAN triggered at step {step}")
 
     if verbose:
-        print(f"\n{'-'*70}")
+        print(f"\n{'-' * 70}")
         print("REPLAY SUMMARY:")
         print(f"  Total Steps:            {len(events)}")
         print(f"  Warning Steps:          {warnings}")
         print(f"  Stalled Steps:          {stalls}")
         print(f"  Regressing Steps:       {regressions}")
         print(f"  First Detection Step:   {first_detection_step or 'None (Trajectory Healthy)'}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
     return {
         "run_id": run_id,

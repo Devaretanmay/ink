@@ -4,9 +4,10 @@ The benchmark telemetry schema (``build_canonical_event``) is intentionally
 separate from the runtime's public event model. This module maps one to the
 other so the runner, replay tool and analyses all use the shipped runtime API.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def monitor_for(
@@ -36,7 +37,7 @@ def monitor_for(
     )
 
 
-def observe_canonical(monitor, event: Dict[str, Any]):
+def observe_canonical(monitor, event: dict[str, Any]):
     """Run one canonical benchmark event through the runtime."""
     action = event.get("action") or {}
     observation = event.get("observation") or {}
@@ -46,13 +47,13 @@ def observe_canonical(monitor, event: Dict[str, Any]):
 
     exit_code = int(observation.get("exit_code", 0) or 0)
     combined = f"{observation.get('stdout', '')}{observation.get('stderr', '')}"
-    metrics: Dict[str, float] = {"exit_code": float(exit_code)}
+    metrics: dict[str, float] = {"exit_code": float(exit_code)}
 
     failures = metrics_in.get("tests_failed")
     if failures is not None:
         metrics["failures"] = float(failures)
 
-    metadata: Dict[str, str] = {}
+    metadata: dict[str, str] = {}
     error_class = observation.get("error_class")
     if error_class:
         metadata["error"] = str(error_class)
@@ -75,7 +76,7 @@ def observe_canonical(monitor, event: Dict[str, Any]):
     )
 
 
-def decision_to_dict(decision) -> Dict[str, Any]:
+def decision_to_dict(decision) -> dict[str, Any]:
     """Serialize a Decision for feature logs and summaries."""
     return {
         "step": decision.step,
@@ -88,6 +89,6 @@ def decision_to_dict(decision) -> Dict[str, Any]:
     }
 
 
-def intervention_of(decision) -> Dict[str, Optional[str]]:
+def intervention_of(decision) -> dict[str, str | None]:
     """Backwards-compatible intervention record: ``{"kind", "feedback"}``."""
     return {"kind": decision.intervention, "feedback": decision.feedback}

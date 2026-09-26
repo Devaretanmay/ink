@@ -7,16 +7,17 @@ Analyzes raw trajectories and evaluation outcomes to classify runs into:
 - failed-irrecoverable
 And extracts empirical failure mode frequencies.
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
-def analyze_single_trajectory(run_dir: str) -> Dict[str, Any]:
+def analyze_single_trajectory(run_dir: str) -> dict[str, Any]:
     """
     Analyzes an individual run directory containing:
     metadata.json, trajectory.jsonl, evaluation.json
@@ -27,17 +28,17 @@ def analyze_single_trajectory(run_dir: str) -> Dict[str, Any]:
 
     metadata = {}
     if os.path.exists(metadata_path):
-        with open(metadata_path, "r", encoding="utf-8") as f:
+        with open(metadata_path, encoding="utf-8") as f:
             metadata = json.load(f)
 
     evaluation = {}
     if os.path.exists(eval_path):
-        with open(eval_path, "r", encoding="utf-8") as f:
+        with open(eval_path, encoding="utf-8") as f:
             evaluation = json.load(f)
 
-    events: List[Dict[str, Any]] = []
+    events: list[dict[str, Any]] = []
     if os.path.exists(traj_path):
-        with open(traj_path, "r", encoding="utf-8") as f:
+        with open(traj_path, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -53,7 +54,6 @@ def analyze_single_trajectory(run_dir: str) -> Dict[str, Any]:
 
     # Detect empirical failure signals
     commands = [e.get("action", {}).get("command", "") for e in events]
-    outputs = [e.get("observation", {}).get("stdout", "") + e.get("observation", {}).get("stderr", "") for e in events]
     exit_codes = [e.get("observation", {}).get("exit_code", 0) for e in events]
     error_classes = [e.get("observation", {}).get("error_class") for e in events]
 
@@ -90,14 +90,26 @@ def analyze_single_trajectory(run_dir: str) -> Dict[str, Any]:
         for e in events
         if e.get("metrics", {}).get("tests_failed") is not None
     ]
-    if len(failing_counts) >= 2 and all(c == failing_counts[0] for c in failing_counts) and failing_counts[0] > 0:
+    if (
+        len(failing_counts) >= 2
+        and all(c == failing_counts[0] for c in failing_counts)
+        and failing_counts[0] > 0
+    ):
         failure_modes_detected.add("state_stagnation")
 
     # 5. Strategy Oscillation: alternating A-B-A-B in edited files or commands
-    diff_hashes = [e.get("workspace", {}).get("diff_hash", "") for e in events if e.get("workspace", {}).get("dirty")]
+    diff_hashes = [
+        e.get("workspace", {}).get("diff_hash", "")
+        for e in events
+        if e.get("workspace", {}).get("dirty")
+    ]
     if len(diff_hashes) >= 4:
         for i in range(len(diff_hashes) - 3):
-            if diff_hashes[i] == diff_hashes[i + 2] and diff_hashes[i + 1] == diff_hashes[i + 3] and diff_hashes[i] != diff_hashes[i + 1]:
+            if (
+                diff_hashes[i] == diff_hashes[i + 2]
+                and diff_hashes[i + 1] == diff_hashes[i + 3]
+                and diff_hashes[i] != diff_hashes[i + 1]
+            ):
                 failure_modes_detected.add("strategy_oscillation")
                 break
 
@@ -128,7 +140,14 @@ def analyze_single_trajectory(run_dir: str) -> Dict[str, Any]:
             outcome = "successful-efficient"
     else:
         # Unresolved: check if recoverable
-        recoverable_signals = {"exact_repetition", "normalized_repetition", "error_recurrence", "state_stagnation", "strategy_oscillation", "tool_thrashing"}
+        recoverable_signals = {
+            "exact_repetition",
+            "normalized_repetition",
+            "error_recurrence",
+            "state_stagnation",
+            "strategy_oscillation",
+            "tool_thrashing",
+        }
         if failure_modes_detected & recoverable_signals:
             outcome = "failed-recoverable"
         else:
@@ -145,7 +164,9 @@ def analyze_single_trajectory(run_dir: str) -> Dict[str, Any]:
     }
 
 
-def generate_taxonomy(results_dir: str, output_path: str = "benchmarks/analysis/failure-taxonomy-v1.json") -> Dict[str, Any]:
+def generate_taxonomy(
+    results_dir: str, output_path: str = "benchmarks/analysis/failure-taxonomy-v1.json"
+) -> dict[str, Any]:
     """
     Scans results directory, analyzes all run directories, and writes taxonomy JSON.
     """
@@ -201,7 +222,9 @@ def generate_taxonomy(results_dir: str, output_path: str = "benchmarks/analysis/
 def main() -> None:
     parser = argparse.ArgumentParser(description="Microloop Trajectory Classifier")
     parser.add_argument("--results-dir", type=str, default="results")
-    parser.add_argument("--output", type=str, default="benchmarks/analysis/failure-taxonomy-v1.json")
+    parser.add_argument(
+        "--output", type=str, default="benchmarks/analysis/failure-taxonomy-v1.json"
+    )
     args = parser.parse_args()
 
     tax = generate_taxonomy(args.results_dir, args.output)
@@ -211,7 +234,7 @@ def main() -> None:
     print(f"Total Runs Analyzed: {tax['total_runs_analyzed']}")
     print("\nOutcome Distribution:")
     for k, v in tax["outcome_distribution"].items():
-        pct = (v / max(1, tax['total_runs_analyzed'])) * 100
+        pct = (v / max(1, tax["total_runs_analyzed"])) * 100
         print(f"  {k:<24}: {v:>3} ({pct:.1f}%)")
     print("\nEmpirical Failure Modes:")
     for k, v in tax["failure_modes"].items():

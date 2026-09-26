@@ -13,29 +13,32 @@ Measures:
 - Granular Category-by-Category Detection Matrix
 
 Usage:
-    python -m benchmarks.analysis.fault_injection.evaluate [--output benchmarks/analysis/fault-injection-evaluation-v1.json]
+    python -m benchmarks.analysis.fault_injection.evaluate \
+        [--output benchmarks/analysis/fault-injection-evaluation-v1.json]
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import statistics
-import sys
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from benchmarks.analysis.fault_injection.runner import run_fault_injection_suite
 
 
-def evaluate_fault_injection(manifest_path: str = "benchmarks/manifests/fault-injection-v1.json") -> Dict[str, Any]:
+def evaluate_fault_injection(
+    manifest_path: str = "benchmarks/manifests/fault-injection-v1.json",
+) -> dict[str, Any]:
     """Runs fault injection suite and computes comparative metrics."""
     suite_data = run_fault_injection_suite(manifest_path)
     scenarios = suite_data.get("scenarios", [])
     total = len(scenarios)
 
     approaches = ["microloop", "supervisor", "retry"]
-    stats: Dict[str, Dict[str, Any]] = {
+    stats: dict[str, dict[str, Any]] = {
         app: {
             "detected_count": 0,
             "latencies": [],
@@ -99,8 +102,16 @@ def evaluate_fault_injection(manifest_path: str = "benchmarks/manifests/fault-in
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Deterministic Fault Injection Suite")
-    parser.add_argument("--manifest", default="benchmarks/manifests/fault-injection-v1.json", help="Path to manifest")
-    parser.add_argument("--output", default="benchmarks/analysis/fault-injection-evaluation-v1.json", help="Path to output JSON")
+    parser.add_argument(
+        "--manifest",
+        default="benchmarks/manifests/fault-injection-v1.json",
+        help="Path to manifest",
+    )
+    parser.add_argument(
+        "--output",
+        default="benchmarks/analysis/fault-injection-evaluation-v1.json",
+        help="Path to output JSON",
+    )
     parser.add_argument("--json", action="store_true", help="Print json output only")
     args = parser.parse_args()
 
@@ -119,9 +130,15 @@ def main():
     print("\n" + "=" * 78)
     print("      MICROLOOP PASS 5: DETERMINISTIC FAULT INJECTION BENCHMARK REPORT")
     print("=" * 78)
-    print(f"Total Fault Scenarios Evaluated: {evaluation['total_scenarios']} (across 10 failure categories)")
+    print(
+        f"Total Fault Scenarios Evaluated: {evaluation['total_scenarios']} "
+        f"(across 10 failure categories)"
+    )
     print("-" * 78)
-    print(f"{'Approach':18s} | {'Detected':9s} | {'Recall':8s} | {'Median Latency':16s} | {'Token Cost':10s}")
+    print(
+        f"{'Approach':18s} | {'Detected':9s} | {'Recall':8s} | "
+        f"{'Median Latency':16s} | {'Token Cost':10s}"
+    )
     print("-" * 78)
 
     summary = evaluation["comparative_summary"]

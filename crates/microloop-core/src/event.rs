@@ -1,20 +1,9 @@
 //! Canonical structured event model.
 //!
-//! An [`Event`] is one agent step. It carries what the agent did, what it saw,
-//! and optional structured context the host chose to attach. Signals are read
-//! by convention from [`Event::state`], [`Event::metrics`] and
-//! [`Event::metadata`]:
-//!
-//! | Key                                | Meaning                                   |
-//! |------------------------------------|-------------------------------------------|
-//! | `metadata.success`                 | `"false"`/`"0"` marks a failed step        |
-//! | `metadata.error`                   | stable error signature                     |
-//! | `metadata.verifier`                | verifier scope name (e.g. `"pytest:auth"`) |
-//! | `metadata.verification_id`         | unique id of one fresh verification run    |
-//! | `metrics.exit_code`                | non-zero marks a failed step               |
-//! | `metrics.failures`                 | verifier failure count                     |
-//!
-//! Missing signals are treated as unknown; the runtime never invents evidence.
+//! An [`Event`] is one agent step: what the agent did, what it saw, and the
+//! optional structured context the host chose to attach. Detection bounds live
+//! in [`crate::config::MonitorConfig`]; this module describes runtime events
+//! only.
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -25,6 +14,20 @@ pub type StringMap = BTreeMap<String, String>;
 pub type MetricMap = BTreeMap<String, f64>;
 
 /// A single agent step.
+///
+/// Signals are read by convention from [`Event::state`], [`Event::metrics`] and
+/// [`Event::metadata`]:
+///
+/// | Key                          | Meaning                                     |
+/// |------------------------------|---------------------------------------------|
+/// | `metadata.success`           | `"false"`/`"0"` marks a failed step         |
+/// | `metadata.error`             | stable error signature                     |
+/// | `metadata.verifier`          | verifier scope name (e.g. `"pytest:auth"`) |
+/// | `metadata.verification_id`   | unique id of one fresh verification run    |
+/// | `metrics.exit_code`          | non-zero marks a failed step                |
+/// | `metrics.failures`           | verifier failure count                     |
+///
+/// Missing signals are treated as unknown; the runtime never invents evidence.
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 pub struct Event {
     /// Monotonic step index. Steps must strictly increase within a run.
@@ -98,77 +101,9 @@ pub struct Evidence {
     pub detail: String,
 }
 
-/// Tunable detection bounds. All fields have conservative defaults.
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
-#[serde(default, deny_unknown_fields)]
-pub struct MonitorConfig {
-    /// Maximum number of recent steps retained.
-    pub window: usize,
-    /// Recurrence count required to call a repeated action/result or error.
-    pub repetitions: usize,
-    /// Step span over which an unchanged verifier is considered stagnant.
-    pub stagnation_steps: u64,
-    /// Fresh verifier samples required before stagnation can be reported.
-    pub verification_samples: usize,
-    /// Mask volatile tokens (paths, hashes, timestamps, PIDs) before comparison.
-    pub normalization: bool,
-}
-
-impl Default for MonitorConfig {
-    fn default() -> Self {
-        Self {
-            window: 32,
-            repetitions: 3,
-            stagnation_steps: 8,
-            verification_samples: 3,
-            normalization: true,
-        }
-    }
-}
-
-impl MonitorConfig {
-    /// Validate bounds.
-    pub fn validate(&self) -> Result<(), String> {
-        if !(4..=4096).contains(&self.window) {
-            return Err("window must be in 4..=4096".into());
-        }
-        if !(2..=self.window).contains(&self.repetitions) {
-            return Err("repetitions must be in 2..=window".into());
-        }
-        if !(2..=self.window).contains(&self.verification_samples) {
-            return Err("verification_samples must be in 2..=window".into());
-        }
-        if self.stagnation_steps == 0 {
-            return Err("stagnation_steps must be positive".into());
-        }
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn default_config_is_valid() {
-        assert!(MonitorConfig::default().validate().is_ok());
-    }
-
-    #[test]
-    fn out_of_range_bounds_are_rejected() {
-        assert!(MonitorConfig {
-            window: 3,
-            ..Default::default()
-        }
-        .validate()
-        .is_err());
-        assert!(MonitorConfig {
-            repetitions: 1,
-            ..Default::default()
-        }
-        .validate()
-        .is_err());
-    }
 
     #[test]
     fn event_defaults_are_empty() {

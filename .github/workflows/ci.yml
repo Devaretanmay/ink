@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+env:
+  CARGO_TERM_COLOR: always
+  # Keep the declared MSRV honest: if this job is ever removed, drop
+  # `rust-version` from Cargo.toml rather than publishing an unverified claim.
+  MSRV: "1.80.0"
+
 jobs:
   rust:
+    name: rust (${{ matrix.os }})
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -19,10 +27,57 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
+  msrv:
+    name: rust (msrv ${{ env.MSRV }})
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ env.MSRV }}
+      - run: cargo check --workspace --all-targets
+      - run: cargo test --workspace
+
+  # The package ships a native PyO3 extension, so an install of the built wheel
+  # is verified on macOS and Windows, not just Linux. This catches ABI and
+  # loader problems that `cargo test` cannot see.
+  wheel:
+    name: wheel install (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install maturin pytest
+      - run: maturin build --release --manifest-path python/microloop/Cargo.toml --out dist
+      # Fresh environment: nothing but the wheel, exactly as a user would get it.
+      - name: Install the wheel into a clean environment
+        run: |
+          python -m venv .wheeltest
+          .wheeltest/bin/python -m pip install --upgrade pip
+          .wheeltest/bin/python -m pip install dist/*.whl
+          .wheeltest/bin/python -m pip install pytest
+      - name: Native extension loads and the CLI works
+        run: .wheeltest/bin/python -m microloop.cli doctor
+      - name: Test suite passes against the installed wheel
+        run: |
+          .wheeltest/bin/python -m pytest python/microloop/tests/
+      - name: The documented example runs
+        run: .wheeltest/bin/python examples/coding-agent/agent.py
+
   python:
+    name: python (${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
+        # The supported range declared in python/microloop/pyproject.toml.
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
@@ -33,5 +88,7 @@ jobs:
       - run: pip install maturin pytest ruff
       - run: maturin build --manifest-path python/microloop/Cargo.toml --out dist
       - run: pip install dist/*.whl
-      - run: ruff check python/
+      # Lint the whole tracked repository, not only python/.
+      - run: ruff check .
       - run: pytest python/microloop/tests/
+      - run: python examples/coding-agent/agent.py

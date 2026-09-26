@@ -4,8 +4,8 @@
 //! window. Detectors report [`crate::event::Evidence`]; [`crate::engine`]
 //! synthesizes the final progress state.
 
-pub mod error;
-pub mod oscillation;
-pub mod repetition;
-pub mod stagnation;
-pub mod verification;
+pub(crate) mod error;
+pub(crate) mod oscillation;
+pub(crate) mod repetition;
+pub(crate) mod stagnation;
+pub(crate) mod verification;

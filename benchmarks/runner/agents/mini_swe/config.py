@@ -2,10 +2,10 @@
 Mini-SWE-Agent configuration model.
 Captures pinned model version, provider parameters, and budget limits.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, Optional
+from dataclasses import dataclass
 
 
 @dataclass
@@ -18,14 +18,16 @@ class MiniSWEConfig:
     max_tokens: int = 100_000
     max_wall_time_seconds: int = 1800
     docker_image: str = "swebench/swe-bench-verified:latest"
-    docker_image_digest: str = "sha256:4a38f3281b9b9c97b21dc91754406208cb1875691062f8469d25514f77c0dc5a"
+    docker_image_digest: str = (
+        "sha256:4a38f3281b9b9c97b21dc91754406208cb1875691062f8469d25514f77c0dc5a"
+    )
     harness_commit: str = "f6a91c828d54238714eb6bead43cc5adfa369345"
     mini_swe_version: str = "2.4.6"
     swe_bench_evaluator_commit: str = "d4e1f728c70a2c09930f6b5bcf418721ad9bc854"
     seed: int = 42
     use_container: bool = True
 
-    def get_pricing(self) -> Dict[str, float]:
+    def get_pricing(self) -> dict[str, float]:
         """
         Returns USD per 1M tokens:
         - uncached_prompt: input token cost without cache hit

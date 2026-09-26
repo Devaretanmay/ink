@@ -1,22 +1,23 @@
 //! Progress engine: runs the detectors and synthesizes one progress state.
 
+use crate::config::MonitorConfig;
 use crate::detectors::{error, oscillation, repetition, stagnation, verification};
-use crate::event::{Event, Evidence, MonitorConfig, ProgressState, Reason};
+use crate::event::{Event, Evidence, ProgressState, Reason};
 use crate::history::{failures_from, History, Record};
 
 /// Detection result for a single step, before policy is applied.
 #[derive(Clone, Debug)]
-pub struct Outcome {
-    pub step: u64,
-    pub status: ProgressState,
-    pub reasons: Vec<Reason>,
-    pub evidence: Vec<Evidence>,
-    pub verified_progress: bool,
+pub(crate) struct Outcome {
+    pub(crate) step: u64,
+    pub(crate) status: ProgressState,
+    pub(crate) reasons: Vec<Reason>,
+    pub(crate) evidence: Vec<Evidence>,
+    pub(crate) verified_progress: bool,
 }
 
 /// Deterministic progress runtime. Holds the bounded trajectory history and the
 /// verification scope. It never executes agent actions or performs I/O.
-pub struct ProgressEngine {
+pub(crate) struct ProgressEngine {
     config: MonitorConfig,
     history: History,
     scope: Option<String>,
@@ -24,7 +25,7 @@ pub struct ProgressEngine {
 }
 
 impl ProgressEngine {
-    pub fn new(config: MonitorConfig) -> Result<Self, String> {
+    pub(crate) fn new(config: MonitorConfig) -> Result<Self, String> {
         config.validate()?;
         Ok(Self {
             history: History::new(config.window),
@@ -34,12 +35,12 @@ impl ProgressEngine {
         })
     }
 
-    pub fn config(&self) -> &MonitorConfig {
+    pub(crate) fn config(&self) -> &MonitorConfig {
         &self.config
     }
 
     /// Observe one step and classify the trajectory so far.
-    pub fn observe(&mut self, event: Event) -> Result<Outcome, String> {
+    pub(crate) fn observe(&mut self, event: Event) -> Result<Outcome, String> {
         self.validate(&event)?;
 
         let mut record = Record::from_event(&event, self.config.normalization);

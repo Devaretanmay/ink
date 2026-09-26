@@ -3,9 +3,10 @@ Baseline C: LLM Supervisor Condition.
 Prompts an external supervisory LLM every N steps with recent trajectory history
 to decide: CONTINUE, REPLAN, RESTART, or STOP.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any
 
 
 class LLMSupervisor:
@@ -14,11 +15,11 @@ class LLMSupervisor:
         self.model = model
         self.supervision_calls = 0
 
-    def generate_supervisor_prompt(self, recent_history: List[Dict[str, Any]]) -> str:
+    def generate_supervisor_prompt(self, recent_history: list[dict[str, Any]]) -> str:
         """Constructs prompt for the supervisory model."""
         history_summary = "\n".join(
             f"Step {h.get('step')}: Action={h.get('action')}, Result Success={h.get('success')}"
-            for h in recent_history[-self.check_interval:]
+            for h in recent_history[-self.check_interval :]
         )
         return (
             "You are an AI Agent Supervisor evaluating an autonomous coding task.\n"
@@ -28,7 +29,7 @@ class LLMSupervisor:
             "Decision:"
         )
 
-    def evaluate_step(self, step: int, history: List[Dict[str, Any]]) -> str:
+    def evaluate_step(self, step: int, history: list[dict[str, Any]]) -> str:
         """Evaluates whether to supervise at this step."""
         if step > 0 and step % self.check_interval == 0:
             self.supervision_calls += 1

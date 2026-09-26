@@ -1,4 +1,20 @@
+import microloop
 from microloop import InterventionAction, Monitor, Policy
+
+
+def test_public_surface_stays_small() -> None:
+    """Guard against the API silently regrowing between releases."""
+    assert microloop.__all__ == [
+        "Decision",
+        "Event",
+        "InterventionAction",
+        "Monitor",
+        "Policy",
+        "ProgressState",
+        "SCHEMA_VERSION",
+        "__version__",
+    ]
+    assert not hasattr(microloop, "wrap")
 
 
 def _failing(monitor: Monitor, step: int):

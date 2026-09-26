@@ -2,14 +2,14 @@
 
 /// A verifier got worse relative to the best observed count in the same scope.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Regression {
+pub(crate) struct Regression {
     pub from_step: u64,
     pub from_failures: u64,
 }
 
 /// Compare the current failure count against the best (lowest) previous fresh
 /// measurement. Returns `(progress, regression)`.
-pub fn compare(previous: &[(u64, u64)], failures: u64) -> (bool, Option<Regression>) {
+pub(crate) fn compare(previous: &[(u64, u64)], failures: u64) -> (bool, Option<Regression>) {
     let Some((best_step, best_failures)) = previous.iter().min_by_key(|(_, failures)| *failures)
     else {
         return (false, None);

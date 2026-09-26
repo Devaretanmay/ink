@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MicroloopRunMetadataAndResult",
+  "title": "MicroloopRunResult",
   "type": "object",
   "required": [
     "experiment",
@@ -26,7 +26,7 @@
   "properties": {
     "experiment": {
       "type": "string",
-      "example": "experiment-001"
+      "example": "validation-final-v1"
     },
     "run_id": {
       "type": "string"

@@ -27,24 +27,21 @@ for step in agent.steps():
 `intervention`, `severity`, `verified_progress` and `feedback`. The default
 policy only observes; automatic recovery requires explicit opt-in.
 
-Or wrap the agent and let Microloop drive the loop:
-
-```python
-import microloop
-
-agent = microloop.wrap(agent, policy=policy)
-report = agent.run(task)
-print(report.status, report.interventions, report.recovered)
-```
+You own the agent loop. `Monitor` classifies and advises; it never runs tools,
+calls a model, or stops a process.
 
 ## CLI
 
 ```bash
-microloop inspect trajectory.jsonl
-microloop replay trajectory.jsonl --json
+microloop inspect trajectory.jsonl   # detection only, default observe-only policy
+microloop replay trajectory.jsonl --json  # re-run recorded events through the engine
 microloop monitor trajectory.jsonl --follow
 microloop doctor
 ```
+
+`replay` re-runs *recorded events* through the current engine. It does not
+reproduce the original agent execution. A trajectory with an incompatible
+`schema_version` major version is rejected rather than analyzed.
 
 ## Building
 

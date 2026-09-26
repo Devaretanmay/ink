@@ -28,7 +28,7 @@ static PORT_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r":\b[3-6][0-9]{4}
 static WS_RE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[ \t]+").unwrap());
 
 /// Mask volatile tokens and collapse whitespace. Truncated to 256 bytes.
-pub fn normalize(input: &str) -> String {
+pub(crate) fn normalize(input: &str) -> String {
     let s = ANSI_RE.replace_all(input, "");
     let s = UUID_RE.replace_all(&s, "<UUID>");
     let s = HASH_RE.replace_all(&s, "<HASH>");
@@ -46,7 +46,7 @@ pub fn normalize(input: &str) -> String {
 
 /// Derive a stable error signature from an observation: the first non-empty
 /// line, normalized. Returns an empty string when there is no visible text.
-pub fn error_signature(observation: &str) -> String {
+pub(crate) fn error_signature(observation: &str) -> String {
     let line = observation
         .lines()
         .map(str::trim)

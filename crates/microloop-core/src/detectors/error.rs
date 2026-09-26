@@ -4,7 +4,11 @@ use crate::event::{Evidence, Reason};
 use crate::history::Record;
 
 /// Detect a recurring error signature across failed steps.
-pub fn recurrent(current: &Record, history: &[Record], repetitions: usize) -> Option<Evidence> {
+pub(crate) fn recurrent(
+    current: &Record,
+    history: &[Record],
+    repetitions: usize,
+) -> Option<Evidence> {
     let signature = current.error_sig.as_ref()?;
     let steps: Vec<u64> = history
         .iter()

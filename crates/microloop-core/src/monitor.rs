@@ -1,7 +1,8 @@
 //! Orchestration facade: runs detection, then applies the policy.
 
+use crate::config::MonitorConfig;
 use crate::engine::{Outcome, ProgressEngine};
-use crate::event::{Event, Evidence, MonitorConfig, ProgressState, Reason};
+use crate::event::{Event, Evidence, ProgressState, Reason};
 use crate::policy::{InterventionAction, Policy, PolicyConfig};
 use serde::{Deserialize, Serialize};
 
@@ -16,7 +17,9 @@ pub struct Decision {
     pub evidence: Vec<Evidence>,
     /// The configured intervention for this step.
     pub intervention: InterventionAction,
-    /// Heuristic severity in `0.0..=1.0`, not a calibrated probability.
+    /// Categorical ordering for `status`, as a fixed lookup: `0.0` healthy,
+    /// `0.4` warning, `0.8` stalled, `0.9` regressing. Not a probability, not a
+    /// confidence, and not comparable across runs — use `status` to branch on.
     pub severity: f64,
     /// True when a verifier reported objective improvement.
     pub verified_progress: bool,
@@ -26,6 +29,10 @@ pub struct Decision {
 }
 
 /// Observes events and reports decisions.
+///
+/// With [`Monitor::new`] the attached policy is observation-only, so
+/// [`Decision::intervention`] is always [`InterventionAction::Observe`]. Build a
+/// [`Policy`] with explicit [`PolicyConfig`] to opt in to `Replan` or `Stop`.
 pub struct Monitor {
     engine: ProgressEngine,
     policy: Policy,
@@ -91,8 +98,8 @@ impl Monitor {
     }
 }
 
-/// Heuristic severity for a progress state.
-pub fn severity(status: ProgressState) -> f64 {
+/// Fixed status-to-number lookup backing [`Decision::severity`].
+pub(crate) fn severity(status: ProgressState) -> f64 {
     match status {
         ProgressState::Healthy => 0.0,
         ProgressState::Warning => 0.4,

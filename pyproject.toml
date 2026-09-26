@@ -1,10 +1,38 @@
-# Workspace-level developer tooling configuration.
-# The distributable Python package is configured in python/microloop/pyproject.toml.
+# Workspace-level developer tooling and benchmark dependencies.
+#
+# The distributable runtime package is configured in python/microloop/pyproject.toml
+# and is intentionally NOT installable from here — this project only exists to
+# declare the dev/benchmark extras and to configure shared tooling (ruff, pytest).
+
+[project]
+name = "microloop-workspace"
+version = "0.3.0"
+description = "Development workspace for Microloop. The runtime package lives in python/microloop."
+requires-python = ">=3.10, <3.14"
+dependencies = []
+
+[project.optional-dependencies]
+# Everything `make check` needs.
+dev = [
+    "maturin>=1.5,<2.0",
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+# The benchmark harness in benchmarks/. The runner imports only the standard
+# library plus `microloop`; everything below is required to execute *real* agent
+# runs rather than the deterministic simulation.
+benchmarks = [
+    "jsonschema>=4.20",
+    "litellm>=1.60",
+    "mini-swe-agent>=2.4,<3.0",
+    "swebench>=5.0",
+]
 
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-extend-exclude = ["benchmarks/results", "target"]
+extend-exclude = ["target", "dist", ".venv", ".venv313"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

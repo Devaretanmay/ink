@@ -3,8 +3,6 @@
 ### Keep agents making progress.
 
 [![CI](https://github.com/Devaretanmay/microloop/actions/workflows/ci.yml/badge.svg)](https://github.com/Devaretanmay/microloop/actions)
-[![PyPI](https://img.shields.io/pypi/v/microloop.svg)](https://pypi.org/project/microloop/)
-[![crates.io](https://img.shields.io/crates/v/microloop-core.svg)](https://crates.io/crates/microloop-core)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
 Microloop is a local reliability runtime for autonomous agents. It watches an
@@ -23,16 +21,23 @@ It sits under any harness. It is not an agent framework.
 
 ## Installation
 
-Python (Python 3.10–3.13):
+Not yet on PyPI — the `microloop` name is held by an unrelated project, so the
+distribution name is unresolved. Until it ships, build from source:
 
 ```bash
-pip install microloop
+git clone https://github.com/Devaretanmay/microloop
+cd microloop
+pip install -e '.[dev]'
+maturin develop --manifest-path python/microloop/Cargo.toml
 ```
 
-Rust:
+Rust — not yet on crates.io. The publish job is wired up in the release
+workflow, so this becomes available on the next tag:
 
-```bash
-cargo add microloop-core
+```toml
+# Cargo.toml
+[dependencies]
+microloop-core = "0.3"
 ```
 
 ## Quick start
@@ -54,18 +59,8 @@ for step in agent.steps():
         agent.inject(decision.recovery_context)
 ```
 
-Or let Microloop drive the loop directly:
-
-```python
-import microloop
-from microloop import InterventionAction, Policy
-
-policy = Policy(stalled=InterventionAction.Replan)
-agent = microloop.wrap(agent, policy=policy)
-report = agent.run(task)
-
-print(report.status, report.interventions, report.recovered)
-```
+You own the agent loop. Microloop classifies and advises; it never calls a model,
+runs a tool, or stops a process.
 
 By default the runtime only observes. Automatic recovery requires an explicit
 policy:
@@ -88,6 +83,9 @@ monitor = Monitor(policy=policy)
 Decision(step=31, status="stalled", reasons=["state_stagnation", "repeated_error"],
          intervention="replan", severity=0.8, verified_progress=False, feedback="...")
 ```
+
+`severity` is a fixed lookup over `status` (`0.0`/`0.4`/`0.8`/`0.9`). It is not a
+probability and not a confidence — branch on `status`.
 
 ## What Microloop detects
 
@@ -142,11 +140,18 @@ $ microloop inspect tests/fixtures/sample_trajectory.jsonl
 Microloop trajectory analysis (schema 0.3.0)
 Steps          10
 Status         stalled
-Detected at    step 3
-Reasons        repeated_action_result, repeated_error
-Intervention   replan
+Detected at    step 6
+Reasons        repeated_action_result, repeated_error, state_stagnation
 Evidence       Same action, observation and supplied state recurred
+Action         observe (default policy: observe only)
 ```
+
+`inspect` reports detection under the default observation-only policy, so what it
+shows is what a default runtime would do. `replay` and `monitor` additionally
+show the intervention a host policy *would* choose, labelled as a
+recommendation. Neither command reproduces the original agent execution: no model
+is called and no tools run. A trajectory whose `schema_version` major version
+does not match the runtime is rejected with a compatibility error.
 
 `microloop monitor` prints a live progress view and, with `--follow`, keeps
 reading as a running agent appends steps:
@@ -157,20 +162,22 @@ trajectory run.jsonl (following)
 
    3  STALLED    repeated_action_result repeated_error
       Same action, observation and supplied state recurred
-      -> REPLAN
+      -> REPLAN (recommended)
 
 completed
 Steps             10
 Stalls            3
-Interventions     3
+Recommended       3
 Recovered         yes
 ```
 
-## Integrations
+## Integration
 
-Microloop works underneath OpenAI/Claude-based agents, LangGraph, Temporal,
-Restate, custom loops, browser agents and coding agents. See
-[`examples/coding-agent`](examples/coding-agent) for an end-to-end recovery demo.
+Microloop is a library with no required network calls and no opinions about your
+harness. It sits under any loop that can call `observe(...)` once per step. See
+[`docs/integration.md`](docs/integration.md) for the integration pattern, and
+[`examples/coding-agent`](examples/coding-agent) for a complete offline
+recovery example.
 
 ## Benchmarks
 
@@ -198,12 +205,14 @@ summaries live under `benchmarks/results/published/`.
 ## Development
 
 ```bash
-make check   # fmt, clippy, tests, lint
+pip install -e '.[dev]'
+make check   # fmt, clippy, ruff, cargo test, pytest, the example, and a wheel build
 make test    # cargo test + pytest
-make build   # release build + wheel
+make build   # release build
 ```
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+`make check` is the same gate the release workflow runs before it publishes
+anything. See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 

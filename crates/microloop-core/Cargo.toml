@@ -10,7 +10,7 @@ homepage.workspace = true
 readme = "README.md"
 keywords = ["agent", "llm", "trajectory", "progress", "loop-detection"]
 categories = ["development-tools::debugging"]
-include = ["src/**/*", "Cargo.toml", "README.md"]
+include = ["src/**/*", "tests/**/*", "examples/**/*", "Cargo.toml", "README.md"]
 
 [dependencies]
 regex.workspace = true

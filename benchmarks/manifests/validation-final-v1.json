@@ -5,7 +5,7 @@
   "total_tasks": 100,
   "sampling_strategy": "disjoint_held_out_random_sample",
   "frozen_at": "2026-09-26T18:30:00Z",
-  "note": "Untouched 100-task final held-out validation set for YC investor-grade evaluation. Pinned and frozen; never used for detector tuning.",
+  "note": "Untouched 100-task final held-out validation set. Pinned and frozen; never used for detector tuning.",
   "tasks": [
     {"task_id": "astropy__astropy-14365", "repo": "astropy/astropy", "difficulty": "medium"},
     {"task_id": "astropy__astropy-14995", "repo": "astropy/astropy", "difficulty": "medium"},

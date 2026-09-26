@@ -6,7 +6,7 @@ use crate::event::Event;
 
 /// Signals extracted from one [`Event`], cached for cheap detector comparisons.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Record {
+pub(crate) struct Record {
     pub step: u64,
     pub action: String,
     pub observation: String,
@@ -71,7 +71,7 @@ impl Record {
 }
 
 /// Whether a step counts as a failure, by convention.
-pub fn is_failure(event: &Event) -> bool {
+pub(crate) fn is_failure(event: &Event) -> bool {
     if let Some(metadata) = &event.metadata {
         if let Some(success) = metadata.get("success") {
             let value = success.trim().to_ascii_lowercase();
@@ -90,7 +90,7 @@ pub fn is_failure(event: &Event) -> bool {
 }
 
 /// Read the verifier failure count from `metrics.failures`, if present.
-pub fn failures_from(event: &Event) -> Option<u64> {
+pub(crate) fn failures_from(event: &Event) -> Option<u64> {
     let value = event.metrics.as_ref()?.get("failures")?;
     if !value.is_finite() || *value < 0.0 {
         return None;
@@ -100,7 +100,7 @@ pub fn failures_from(event: &Event) -> Option<u64> {
 
 /// Bounded ring buffer of records.
 #[derive(Debug, Default)]
-pub struct History {
+pub(crate) struct History {
     records: Vec<Record>,
     window: usize,
 }
@@ -130,13 +130,5 @@ impl History {
 
     pub fn iter(&self) -> std::slice::Iter<'_, Record> {
         self.records.iter()
-    }
-
-    pub fn len(&self) -> usize {
-        self.records.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.records.is_empty()
     }
 }

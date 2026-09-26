@@ -1,5 +1,5 @@
 """
-Cross-Model Transfer and Invariance Evaluation Module (Pass 6).
+Cross-Model Transfer and Invariance Evaluation Module.
 
 Evaluates whether Microloop trajectory monitoring and recovery gains transfer
 consistently across different frontier LLMs:
@@ -17,27 +17,27 @@ Usage:
         --model2-dir results_validation_claude \
         --output benchmarks/analysis/cross-model-comparison.json
 """
+
 from __future__ import annotations
 
 import argparse
 import json
 import os
 import sys
-from typing import Any, Dict, List
+from typing import Any
 
 from benchmarks.analysis.stats import (
     analyze_benchmark_results,
     load_runs_from_dir,
-    wilson_score_interval,
 )
 
 
 def compare_cross_model(
     model1_name: str,
-    model1_runs: List[Dict[str, Any]],
+    model1_runs: list[dict[str, Any]],
     model2_name: str,
-    model2_runs: List[Dict[str, Any]],
-) -> Dict[str, Any]:
+    model2_runs: list[dict[str, Any]],
+) -> dict[str, Any]:
     """Computes comparative metrics between Model 1 and Model 2."""
     analysis1 = analyze_benchmark_results(model1_runs)
     analysis2 = analyze_benchmark_results(model2_runs)
@@ -60,8 +60,12 @@ def compare_cross_model(
             "delta_acr_pp": m1_boot.get("observed_delta_pp", 0.0),
             "ci_95_pp": [m1_boot.get("ci_lower_pp", 0.0), m1_boot.get("ci_upper_pp", 0.0)],
             "p_value": m1_boot.get("p_value", 1.0),
-            "cost_per_resolved_vanilla": m1_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 0.0),
-            "cost_per_resolved_microloop": m1_cond.get("microloop", {}).get("cost_per_resolved_task_usd", 0.0),
+            "cost_per_resolved_vanilla": m1_cond.get("vanilla", {}).get(
+                "cost_per_resolved_task_usd", 0.0
+            ),
+            "cost_per_resolved_microloop": m1_cond.get("microloop", {}).get(
+                "cost_per_resolved_task_usd", 0.0
+            ),
         },
         "model2": {
             "name": model2_name,
@@ -71,27 +75,40 @@ def compare_cross_model(
             "delta_acr_pp": m2_boot.get("observed_delta_pp", 0.0),
             "ci_95_pp": [m2_boot.get("ci_lower_pp", 0.0), m2_boot.get("ci_upper_pp", 0.0)],
             "p_value": m2_boot.get("p_value", 1.0),
-            "cost_per_resolved_vanilla": m2_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 0.0),
-            "cost_per_resolved_microloop": m2_cond.get("microloop", {}).get("cost_per_resolved_task_usd", 0.0),
+            "cost_per_resolved_vanilla": m2_cond.get("vanilla", {}).get(
+                "cost_per_resolved_task_usd", 0.0
+            ),
+            "cost_per_resolved_microloop": m2_cond.get("microloop", {}).get(
+                "cost_per_resolved_task_usd", 0.0
+            ),
         },
         "cross_model_invariance": {
             "m1_lift_meets_target": m1_boot.get("observed_delta_pp", 0.0) >= 8.0,
             "m2_lift_meets_target": m2_boot.get("observed_delta_pp", 0.0) >= 8.0,
             "generalization_success": (
-                m1_boot.get("observed_delta_pp", 0.0) >= 8.0 and m2_boot.get("observed_delta_pp", 0.0) >= 8.0
+                m1_boot.get("observed_delta_pp", 0.0) >= 8.0
+                and m2_boot.get("observed_delta_pp", 0.0) >= 8.0
             ),
             "m1_cost_reduction_pct": round(
                 (
-                    (m1_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 1) - m1_cond.get("microloop", {}).get("cost_per_resolved_task_usd", 0))
+                    (
+                        m1_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 1)
+                        - m1_cond.get("microloop", {}).get("cost_per_resolved_task_usd", 0)
+                    )
                     / max(0.001, m1_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 1))
-                ) * 100.0,
+                )
+                * 100.0,
                 1,
             ),
             "m2_cost_reduction_pct": round(
                 (
-                    (m2_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 1) - m2_cond.get("microloop", {}).get("cost_per_resolved_task_usd", 0))
+                    (
+                        m2_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 1)
+                        - m2_cond.get("microloop", {}).get("cost_per_resolved_task_usd", 0)
+                    )
                     / max(0.001, m2_cond.get("vanilla", {}).get("cost_per_resolved_task_usd", 1))
-                ) * 100.0,
+                )
+                * 100.0,
                 1,
             ),
         },
@@ -135,25 +152,56 @@ def main():
     m2 = res["model2"]
     inv = res["cross_model_invariance"]
 
+    def verdict(ok: bool) -> str:
+        return "PASS" if ok else "FAIL"
+
     print("\n" + "=" * 80)
-    print("      MICROLOOP PASS 6: CROSS-MODEL GENERALIZATION & TRANSFER REPORT")
+    print("      MICROLOOP CROSS-MODEL GENERALIZATION & TRANSFER REPORT")
     print("=" * 80)
     print(f"{'Metric':32s} | {m1['name']:20s} | {m2['name']:20s}")
     print("-" * 80)
     print(f"{'Total Validation Runs':32s} | {m1['total_runs']:20d} | {m2['total_runs']:20d}")
-    print(f"{'Vanilla Baseline ACR':32s} | {m1['vanilla_acr_pct']:19.2f}% | {m2['vanilla_acr_pct']:19.2f}%")
-    print(f"{'Microloop Treatment ACR':32s} | {m1['microloop_acr_pct']:19.2f}% | {m2['microloop_acr_pct']:19.2f}%")
-    print(f"{'Empirical Lift (Delta ACR)':32s} | +{m1['delta_acr_pp']:18.2f} pp | +{m2['delta_acr_pp']:18.2f} pp")
-    print(f"{'95% Bootstrap CI':32s} | [{m1['ci_95_pp'][0]:+.1f}, {m1['ci_95_pp'][1]:+.1f}] pp         | [{m2['ci_95_pp'][0]:+.1f}, {m2['ci_95_pp'][1]:+.1f}] pp")
+    print(
+        f"{'Vanilla Baseline ACR':32s} | {m1['vanilla_acr_pct']:19.2f}% "
+        f"| {m2['vanilla_acr_pct']:19.2f}%"
+    )
+    print(
+        f"{'Microloop Treatment ACR':32s} | {m1['microloop_acr_pct']:19.2f}% "
+        f"| {m2['microloop_acr_pct']:19.2f}%"
+    )
+    print(
+        f"{'Empirical Lift (Delta ACR)':32s} | +{m1['delta_acr_pp']:18.2f} pp "
+        f"| +{m2['delta_acr_pp']:18.2f} pp"
+    )
+    print(
+        f"{'95% Bootstrap CI':32s} | [{m1['ci_95_pp'][0]:+.1f}, {m1['ci_95_pp'][1]:+.1f}] pp"
+        f"         | [{m2['ci_95_pp'][0]:+.1f}, {m2['ci_95_pp'][1]:+.1f}] pp"
+    )
     print(f"{'Bootstrap Significance':32s} | p = {m1['p_value']:16.5f} | p = {m2['p_value']:16.5f}")
-    print(f"{'Cost / Resolved Task (Vanilla)':32s} | ${m1['cost_per_resolved_vanilla']:19.3f} | ${m2['cost_per_resolved_vanilla']:19.3f}")
-    print(f"{'Cost / Resolved Task (Microloop)':32s} | ${m1['cost_per_resolved_microloop']:19.3f} | ${m2['cost_per_resolved_microloop']:19.3f}")
-    print(f"{'Economic Cost Savings':32s} | {inv['m1_cost_reduction_pct']:19.1f}% | {inv['m2_cost_reduction_pct']:19.1f}%")
+    print(
+        f"{'Cost / Resolved Task (Vanilla)':32s} | ${m1['cost_per_resolved_vanilla']:19.3f} "
+        f"| ${m2['cost_per_resolved_vanilla']:19.3f}"
+    )
+    print(
+        f"{'Cost / Resolved Task (Microloop)':32s} | ${m1['cost_per_resolved_microloop']:19.3f} "
+        f"| ${m2['cost_per_resolved_microloop']:19.3f}"
+    )
+    print(
+        f"{'Economic Cost Savings':32s} | {inv['m1_cost_reduction_pct']:19.1f}% "
+        f"| {inv['m2_cost_reduction_pct']:19.1f}%"
+    )
     print("-" * 80)
     print("CROSS-MODEL GENERALIZATION TARGET VERIFICATION:")
-    print(f"  • Model 1 Lift >= +8.0 pp: {'PASS' if inv['m1_lift_meets_target'] else 'FAIL'} (+{m1['delta_acr_pp']:.2f} pp)")
-    print(f"  • Model 2 Lift >= +8.0 pp: {'PASS' if inv['m2_lift_meets_target'] else 'FAIL'} (+{m2['delta_acr_pp']:.2f} pp)")
-    print(f"  • OVERALL CROSS-MODEL VERDICT: {'PASS (Robust Generalization)' if inv['generalization_success'] else 'FAIL'}")
+    print(
+        f"  • Model 1 Lift >= +8.0 pp: {verdict(inv['m1_lift_meets_target'])} "
+        f"(+{m1['delta_acr_pp']:.2f} pp)"
+    )
+    print(
+        f"  • Model 2 Lift >= +8.0 pp: {verdict(inv['m2_lift_meets_target'])} "
+        f"(+{m2['delta_acr_pp']:.2f} pp)"
+    )
+    overall = "PASS (Robust Generalization)" if inv["generalization_success"] else "FAIL"
+    print(f"  • OVERALL CROSS-MODEL VERDICT: {overall}")
     print("=" * 80)
     if args.output:
         print(f"Full comparative report written to: {args.output}\n")

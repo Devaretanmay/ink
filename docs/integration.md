@@ -24,29 +24,46 @@ for step in agent.steps():
 The default policy is observation-only, so this is safe to ship before you
 trust any automatic intervention.
 
-## Wrapping an agent
+## Driving the loop
 
-If you would rather not call `observe` yourself, wrap the agent. Microloop then
-drives the loop, forwarding recovery context and honoring `stop`:
+Microloop does not own your agent loop, so you keep control of termination and of
+what "recovered" means for your run. A complete host loop looks like this:
 
 ```python
-import microloop
-from microloop import Policy
+from microloop import InterventionAction, Monitor, Policy
 
-agent = microloop.wrap(agent, policy=Policy(stalled="replan", regressing="stop"))
-report = agent.run(task)
+monitor = Monitor(policy=Policy(stalled=InterventionAction.Replan))
+interventions = []
+stopped = False
+seen_issue = False
+recovered = False
 
-print(report.status)          # final progress state
-print(report.interventions)   # [(step, action), ...]
-print(report.recovered)       # returned to healthy after a stall?
-print(report.stopped)         # did a stop intervention end the run?
+for step in agent.steps():
+    decision = monitor.observe(
+        action=step.action,
+        observation=step.result,
+        metrics={"exit_code": step.exit_code},
+    )
+
+    if decision.status != "healthy":
+        seen_issue = True
+    elif seen_issue:
+        recovered = True
+
+    if not decision.should_intervene:
+        continue
+
+    interventions.append((decision.step, decision.intervention))
+    if decision.intervention == InterventionAction.Stop:
+        stopped = True
+        break
+    agent.inject(decision.recovery_context)
+
+print(interventions, stopped, recovered)
 ```
 
-The wrapped agent must be iterable as steps: either directly, callable with the
-task, or exposing `run(task)` that yields steps. Each step is a mapping or an
-object with `action` and `observation` (plus optional `state`, `metrics`,
-`metadata`, `step`). Pass `adapter=...` to map a custom step type. When the
-agent exposes `inject(...)` or `steer(...)`, the recovery context is forwarded.
+Everything above is ordinary host code: Microloop classifies and advises, and you
+decide what to do about it.
 
 ## Live monitoring
 
@@ -134,3 +151,13 @@ agent:
 microloop inspect run.jsonl
 microloop replay run.jsonl --json
 ```
+
+`inspect` reports detection only, so it reflects the runtime's default
+observation-only policy. `replay` re-runs the *recorded events* through the
+current engine and additionally shows the intervention a host policy would
+choose. Neither one reproduces the original agent execution: no model is called
+and no tools run.
+
+A trajectory whose `schema_version` major version differs from the runtime's is
+rejected with a compatibility error rather than analyzed on a guess. Re-record
+the trajectory, or upgrade Microloop.

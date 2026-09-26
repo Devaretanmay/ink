@@ -1,12 +1,18 @@
-.PHONY: check fmt lint test test-rust test-python build wheel clean
+.PHONY: check fmt fmt-fix lint test test-rust test-python test-examples build wheel clean
 
-check: fmt lint test
+# One command that must pass before anything is published.
+check: fmt lint test test-examples wheel
+	@echo "check: ok"
 
 fmt:
 	cargo fmt --all --check
 
+fmt-fix:
+	cargo fmt --all
+
 lint:
 	cargo clippy --workspace --all-targets -- -D warnings
+	ruff check .
 
 test: test-rust test-python
 
@@ -14,8 +20,12 @@ test-rust:
 	cargo test --workspace
 
 test-python:
-	ruff check python/
 	pytest python/microloop/tests/
+
+# The coding-agent example is a deterministic, scripted recovery demo. Running it
+# in CI keeps the documented public API honest.
+test-examples:
+	python examples/coding-agent/agent.py
 
 build:
 	cargo build --release -p microloop-core
