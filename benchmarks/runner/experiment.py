@@ -38,8 +38,8 @@ def run_experiment(
     task_limit: Optional[int] = None,
     dry_run: bool = False,
     output_dir: str = "results",
-    model: str = "gpt-4o-2024-08-06",
-    provider: str = "openai",
+    model: str = "claude-opus-5-5-20260922",
+    provider: str = "anthropic",
 ) -> List[Dict[str, Any]]:
     """
     Executes a benchmark experiment using randomized block interleaving.
@@ -147,8 +147,8 @@ def main() -> None:
     parser.add_argument("--task", type=str, default=None, help="Execute specific task ID only")
     parser.add_argument("--dry-run", action="store_true", help="Execute deterministic simulation")
     parser.add_argument("--output-dir", type=str, default="results")
-    parser.add_argument("--model", type=str, default="gpt-4o-2024-08-06", help="Pinned model name")
-    parser.add_argument("--provider", type=str, default="openai", help="Provider name (openai, anthropic, mock)")
+    parser.add_argument("--model", type=str, default="claude-opus-5-5-20260922", help="Pinned model name")
+    parser.add_argument("--provider", type=str, default="anthropic", help="Provider name (anthropic, openai, deepseek, mock)")
     args = parser.parse_args()
 
     if args.task:

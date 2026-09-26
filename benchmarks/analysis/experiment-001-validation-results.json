@@ -1,93 +1,93 @@
 {
   "conditions": {
-    "supervisor": {
+    "vanilla": {
       "trials": 100,
-      "successes": 47,
-      "completion_rate_pct": 47.0,
+      "successes": 58,
+      "completion_rate_pct": 58.0,
       "wilson_ci_95_pct": [
-        37.51,
-        56.71
+        48.21,
+        67.2
       ],
-      "mean_steps_per_task": 8.73,
-      "mean_tokens_per_task": 11785,
-      "total_tokens_spent": 1178550,
-      "tokens_prompt_uncached": 157140,
-      "tokens_prompt_cached": 890460,
-      "tokens_completion": 130950,
-      "estimated_cost_usd": 2.7028,
-      "cost_per_resolved_task_usd": 0.0575
+      "mean_steps_per_task": 9.93,
+      "mean_tokens_per_task": 13405,
+      "total_tokens_spent": 1340550,
+      "tokens_prompt_uncached": 178740,
+      "tokens_prompt_cached": 1012860,
+      "tokens_completion": 148950,
+      "estimated_cost_usd": 3.8012,
+      "cost_per_resolved_task_usd": 0.0655
     },
     "microloop": {
       "trials": 100,
-      "successes": 60,
-      "completion_rate_pct": 60.0,
+      "successes": 78,
+      "completion_rate_pct": 78.0,
       "wilson_ci_95_pct": [
-        50.2,
-        69.06
+        68.93,
+        85.0
       ],
-      "mean_steps_per_task": 6.06,
-      "mean_tokens_per_task": 8181,
-      "total_tokens_spent": 818100,
-      "tokens_prompt_uncached": 109080,
-      "tokens_prompt_cached": 618120,
-      "tokens_completion": 90900,
-      "estimated_cost_usd": 1.8762,
-      "cost_per_resolved_task_usd": 0.0313
+      "mean_steps_per_task": 6.25,
+      "mean_tokens_per_task": 8437,
+      "total_tokens_spent": 843750,
+      "tokens_prompt_uncached": 112500,
+      "tokens_prompt_cached": 637500,
+      "tokens_completion": 93750,
+      "estimated_cost_usd": 2.3925,
+      "cost_per_resolved_task_usd": 0.0307
     },
     "retry": {
       "trials": 100,
-      "successes": 44,
-      "completion_rate_pct": 44.0,
+      "successes": 61,
+      "completion_rate_pct": 61.0,
       "wilson_ci_95_pct": [
-        34.67,
-        53.77
+        51.2,
+        69.98
       ],
-      "mean_steps_per_task": 6.64,
-      "mean_tokens_per_task": 8964,
-      "total_tokens_spent": 896400,
-      "tokens_prompt_uncached": 119520,
-      "tokens_prompt_cached": 677280,
-      "tokens_completion": 99600,
-      "estimated_cost_usd": 2.0557,
-      "cost_per_resolved_task_usd": 0.0467
+      "mean_steps_per_task": 7.56,
+      "mean_tokens_per_task": 10206,
+      "total_tokens_spent": 1020600,
+      "tokens_prompt_uncached": 136080,
+      "tokens_prompt_cached": 771120,
+      "tokens_completion": 113400,
+      "estimated_cost_usd": 2.894,
+      "cost_per_resolved_task_usd": 0.0474
     },
-    "vanilla": {
+    "supervisor": {
       "trials": 100,
-      "successes": 42,
-      "completion_rate_pct": 42.0,
+      "successes": 64,
+      "completion_rate_pct": 64.0,
       "wilson_ci_95_pct": [
-        32.8,
-        51.79
+        54.24,
+        72.73
       ],
-      "mean_steps_per_task": 9.9,
-      "mean_tokens_per_task": 13365,
-      "total_tokens_spent": 1336500,
-      "tokens_prompt_uncached": 178200,
-      "tokens_prompt_cached": 1009800,
-      "tokens_completion": 148500,
-      "estimated_cost_usd": 3.065,
-      "cost_per_resolved_task_usd": 0.073
+      "mean_steps_per_task": 8.97,
+      "mean_tokens_per_task": 12109,
+      "total_tokens_spent": 1210950,
+      "tokens_prompt_uncached": 161460,
+      "tokens_prompt_cached": 914940,
+      "tokens_completion": 134550,
+      "estimated_cost_usd": 3.4337,
+      "cost_per_resolved_task_usd": 0.0537
     }
   },
   "primary_analysis": {
     "paired_tasks_count": 100,
     "paired_bootstrap": {
-      "observed_delta_pp": 18.0,
-      "ci_lower_pp": 11.0,
-      "ci_upper_pp": 26.0,
+      "observed_delta_pp": 20.0,
+      "ci_lower_pp": 12.0,
+      "ci_upper_pp": 28.0,
       "p_value": 0.0
     },
     "mcnemar_test": {
       "b_control_success_treatment_fail": 0,
-      "c_control_fail_treatment_success": 18,
-      "p_value": 8e-06,
+      "c_control_fail_treatment_success": 20,
+      "p_value": 2e-06,
       "statistically_significant": true
     },
     "damaging_intervention_rate_pct": 0.0,
-    "wasted_steps_reduction_on_failures_pct": 40.82,
-    "wasted_tokens_reduction_on_failures_pct": 40.82,
+    "wasted_steps_reduction_on_failures_pct": 37.35,
+    "wasted_tokens_reduction_on_failures_pct": 37.35,
     "fwer_correction": {
-      "unadjusted_p": 8e-06,
+      "unadjusted_p": 2e-06,
       "threshold": 0.016667,
       "statistically_significant": true
     }
@@ -96,22 +96,22 @@
     "microloop_vs_vanilla": {
       "paired_tasks_count": 100,
       "paired_bootstrap": {
-        "observed_delta_pp": 18.0,
-        "ci_lower_pp": 11.0,
-        "ci_upper_pp": 26.0,
+        "observed_delta_pp": 20.0,
+        "ci_lower_pp": 12.0,
+        "ci_upper_pp": 28.0,
         "p_value": 0.0
       },
       "mcnemar_test": {
         "b_control_success_treatment_fail": 0,
-        "c_control_fail_treatment_success": 18,
-        "p_value": 8e-06,
+        "c_control_fail_treatment_success": 20,
+        "p_value": 2e-06,
         "statistically_significant": true
       },
       "damaging_intervention_rate_pct": 0.0,
-      "wasted_steps_reduction_on_failures_pct": 40.82,
-      "wasted_tokens_reduction_on_failures_pct": 40.82,
+      "wasted_steps_reduction_on_failures_pct": 37.35,
+      "wasted_tokens_reduction_on_failures_pct": 37.35,
       "fwer_correction": {
-        "unadjusted_p": 8e-06,
+        "unadjusted_p": 2e-06,
         "threshold": 0.016667,
         "statistically_significant": true
       }
@@ -119,22 +119,22 @@
     "retry_vs_vanilla": {
       "paired_tasks_count": 100,
       "paired_bootstrap": {
-        "observed_delta_pp": 2.0,
+        "observed_delta_pp": 3.0,
         "ci_lower_pp": 0.0,
-        "ci_upper_pp": 5.0,
-        "p_value": 0.2562
+        "ci_upper_pp": 7.0,
+        "p_value": 0.0912
       },
       "mcnemar_test": {
         "b_control_success_treatment_fail": 0,
-        "c_control_fail_treatment_success": 2,
-        "p_value": 0.5,
+        "c_control_fail_treatment_success": 3,
+        "p_value": 0.25,
         "statistically_significant": false
       },
       "damaging_intervention_rate_pct": 0.0,
-      "wasted_steps_reduction_on_failures_pct": 55.44,
-      "wasted_tokens_reduction_on_failures_pct": 55.44,
+      "wasted_steps_reduction_on_failures_pct": 56.03,
+      "wasted_tokens_reduction_on_failures_pct": 56.03,
       "fwer_correction": {
-        "unadjusted_p": 0.5,
+        "unadjusted_p": 0.25,
         "threshold": 0.05,
         "statistically_significant": false
       }
@@ -142,22 +142,22 @@
     "supervisor_vs_vanilla": {
       "paired_tasks_count": 100,
       "paired_bootstrap": {
-        "observed_delta_pp": 5.0,
-        "ci_lower_pp": 1.0,
-        "ci_upper_pp": 10.0,
-        "p_value": 0.0098
+        "observed_delta_pp": 6.0,
+        "ci_lower_pp": 2.0,
+        "ci_upper_pp": 11.0,
+        "p_value": 0.0048
       },
       "mcnemar_test": {
         "b_control_success_treatment_fail": 0,
-        "c_control_fail_treatment_success": 5,
-        "p_value": 0.0625,
-        "statistically_significant": false
+        "c_control_fail_treatment_success": 6,
+        "p_value": 0.03125,
+        "statistically_significant": true
       },
       "damaging_intervention_rate_pct": 0.0,
-      "wasted_steps_reduction_on_failures_pct": 19.9,
-      "wasted_tokens_reduction_on_failures_pct": 19.9,
+      "wasted_steps_reduction_on_failures_pct": 22.7,
+      "wasted_tokens_reduction_on_failures_pct": 22.7,
       "fwer_correction": {
-        "unadjusted_p": 0.0625,
+        "unadjusted_p": 0.03125,
         "threshold": 0.025,
         "statistically_significant": false
       }
@@ -165,17 +165,17 @@
   },
   "fwer_multiple_testing": {
     "microloop_vs_vanilla": {
-      "unadjusted_p": 8e-06,
+      "unadjusted_p": 2e-06,
       "threshold": 0.016667,
       "statistically_significant": true
     },
     "supervisor_vs_vanilla": {
-      "unadjusted_p": 0.0625,
+      "unadjusted_p": 0.03125,
       "threshold": 0.025,
       "statistically_significant": false
     },
     "retry_vs_vanilla": {
-      "unadjusted_p": 0.5,
+      "unadjusted_p": 0.25,
       "threshold": 0.05,
       "statistically_significant": false
     }

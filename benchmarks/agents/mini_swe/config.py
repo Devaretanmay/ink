@@ -11,7 +11,7 @@ from typing import Dict, Optional
 @dataclass
 class MiniSWEConfig:
     provider: str = "anthropic"
-    model: str = "claude-3-7-sonnet-20250219"
+    model: str = "claude-opus-5-5-20260922"
     temperature: float = 0.0
     reasoning_effort: str = "medium"
     max_steps: int = 100
@@ -24,17 +24,20 @@ class MiniSWEConfig:
     def get_pricing(self) -> Dict[str, float]:
         """Returns (uncached_prompt, cached_prompt, completion) price in USD per 1M tokens."""
         m = self.model.lower()
-        if "claude" in m:
-            # Anthropic 90% prompt caching discount
-            return {"uncached_prompt": 3.00, "cached_prompt": 0.30, "completion": 15.00}
-        elif "o3-mini" in m:
-            # OpenAI o3-mini 50% automatic caching discount
-            return {"uncached_prompt": 1.10, "cached_prompt": 0.55, "completion": 4.40}
-        elif "o1" in m or "o3" in m:
-            return {"uncached_prompt": 15.00, "cached_prompt": 7.50, "completion": 60.00}
-        elif "deepseek-r1" in m:
-            return {"uncached_prompt": 0.55, "cached_prompt": 0.14, "completion": 2.19}
-        elif "deepseek" in m:
-            return {"uncached_prompt": 0.14, "cached_prompt": 0.014, "completion": 0.28}
-        else: # default gpt-4o
+        if "opus-5" in m:
+            # Anthropic Claude Opus 5.5 (90% prompt caching discount)
+            return {"uncached_prompt": 4.00, "cached_prompt": 0.40, "completion": 18.00}
+        elif "claude" in m or "sonnet-5" in m or "fable-5" in m:
+            # Anthropic Claude 5 Family (90% discount)
+            return {"uncached_prompt": 2.50, "cached_prompt": 0.25, "completion": 12.00}
+        elif "gpt-6-astra" in m:
+            # OpenAI GPT-6 Astra flagship (50% automatic caching discount)
+            return {"uncached_prompt": 3.50, "cached_prompt": 1.75, "completion": 14.00}
+        elif "gpt-6" in m or "sol" in m:
+            # OpenAI GPT-6 Sol / Luna balanced
+            return {"uncached_prompt": 1.50, "cached_prompt": 0.75, "completion": 6.00}
+        elif "deepseek-v4" in m or "deepseek" in m:
+            # DeepSeek V4.1 Flash architecture
+            return {"uncached_prompt": 0.10, "cached_prompt": 0.01, "completion": 0.20}
+        else: # default fallback
             return {"uncached_prompt": 2.50, "cached_prompt": 1.25, "completion": 10.00}
