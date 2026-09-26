@@ -21,9 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # No path argument: `args` is not shell-expanded, so a glob would be passed
+      # through literally. actionlint lints .github/workflows by default.
       - uses: docker://rhysd/actionlint:latest
         with:
-          args: -color .github/workflows/*.yml
+          args: -color
 
   rust:
     name: rust (${{ matrix.os }})
