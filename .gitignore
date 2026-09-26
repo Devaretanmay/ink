@@ -1,45 +1,16 @@
-/target
-Cargo.lock
-microloop.h
-.DS_Store
-_system/
-*.log
-releases/
-
-# Test artifacts & Logs
-.microloop/
-microloop.yaml
-microloop_sim.py
-hello_microloop/
-
-# Python builds
-__pycache__/
-*.so
-
-# Agent skills (third-party, not part of project)
-.agents/
-skills-lock.json
-
-# Environment
-python/microloop-python/.venv/
+/target/
+**/target/
 .venv/
-
-# Embedded LiteLLM checkout (never vendor this here)
-litellm/
-
-# Scratch / draft test files
-python/test_v2.py
-python/test_v2_v3.py
-
-# Internal planning / scratch docs
-FIXES_APPLIED.md
-*.plan.md
-
-# Generated artifacts
-microloop.h
-
-# IDE
+__pycache__/
+*.pyc
+*.so
+*.egg-info/
+.DS_Store
+.env
+.env.*
+!.env.example
+results/
+benchmarks/data/
+.agents/
 .idea/
 .vscode/
-*.swp
-*.swo

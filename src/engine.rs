@@ -57,8 +57,7 @@ impl RuleEngine {
         for rule in configs {
             match rule {
                 RuleConfig::Regex { pattern } => {
-                    let r =
-                        Regex::new(&pattern).map_err(|e| format!("Regex error: {}", e))?;
+                    let r = Regex::new(&pattern).map_err(|e| format!("Regex error: {}", e))?;
                     compiled_rules.push(CompiledRule::Regex(r));
                 }
                 RuleConfig::Exact { value } => {

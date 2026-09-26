@@ -7,8 +7,7 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let config_path = std::path::Path::new(&crate_dir).join("cbindgen.toml");
 
-    let config = cbindgen::Config::from_file(&config_path)
-        .expect("cbindgen.toml not found");
+    let config = cbindgen::Config::from_file(&config_path).expect("cbindgen.toml not found");
 
     cbindgen::Builder::new()
         .with_crate(crate_dir)

@@ -5,14 +5,12 @@ build-backend = "maturin"
 [project]
 name = "microloop"
 version = "0.1.3"
-description = "Ultra-fast runtime safety layer for autonomous agents — detects agent tool call loops before they burn API credits"
+description = "Local trajectory monitoring for autonomous agents"
 authors = [{ name = "Microloop Team" }]
 license = "Apache-2.0"
 readme = "README.md"
 requires-python = ">=3.8"
-homepage = "https://github.com/Devaretanmay/microloop"
-repository = "https://github.com/Devaretanmay/microloop"
-keywords = ["agent", "llm", "guardrail", "safety", "loop-detection"]
+keywords = ["agent", "llm", "trajectory", "progress", "loop-detection"]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
@@ -29,10 +27,9 @@ classifiers = [
     "Development Status :: 4 - Beta",
 ]
 
-[project.optional-dependencies]
-litellm = ["litellm>=1.0.0"]
-crewai  = ["crewai>=0.105.0"]
-aider   = ["aider-chat>=0.50.0"]
+[project.urls]
+Homepage = "https://github.com/Devaretanmay/microloop"
+Repository = "https://github.com/Devaretanmay/microloop"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

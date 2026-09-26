@@ -1,5 +1,3 @@
-
-
 use crate::config::{MicroloopConfig, MicroloopDefaults, Sensitivity, ToolConfig};
 use crate::engine::RuleEngine;
 use crate::history::HistoryTracker;

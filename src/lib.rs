@@ -7,11 +7,10 @@ pub mod canonical;
 pub mod config;
 pub mod engine;
 pub mod history;
-pub mod tool_schemas;
 
-use std::ffi::c_char;
-pub use state::MicroloopState;
 pub use history::LoopVerdict;
+pub use state::MicroloopState;
+use std::ffi::c_char;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn microloop_init(yaml_str: *const u8, yaml_len: usize) -> *mut MicroloopState {
@@ -77,7 +76,8 @@ pub fn verify(state: &mut MicroloopState, tool_slice: &[u8], args_slice: &[u8]) 
     ) {
         history::LoopVerdict::Allow => {}
         history::LoopVerdict::WarnOscillation(msg) => state.set_warning(&msg),
-        history::LoopVerdict::BlockExactMatch(msg) | history::LoopVerdict::BlockOscillation(msg) => {
+        history::LoopVerdict::BlockExactMatch(msg)
+        | history::LoopVerdict::BlockOscillation(msg) => {
             state.set_error(&msg);
             return state.block_result();
         }

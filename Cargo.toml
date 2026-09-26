@@ -3,16 +3,18 @@ name = "microloop"
 version = "0.2.0"
 edition = "2024"
 license = "Apache-2.0"
-description = "Ultra-fast runtime safety layer for autonomous agents — detects agent tool call loops before they burn API credits"
+description = "Local trajectory monitoring for autonomous agents"
 repository = "https://github.com/Devaretanmay/microloop"
 homepage = "https://github.com/Devaretanmay/microloop"
 readme = "README.md"
-keywords = ["agent", "llm", "guardrail", "safety", "loop-detection"]
+keywords = ["agent", "llm", "trajectory", "progress", "loop-detection"]
 categories = ["development-tools::debugging", "web-programming"]
 include = ["src/**/*", "build.rs", "cbindgen.toml", "Cargo.toml", "LICENSE", "README.md"]
 
 [workspace]
-members = ["crates/microloop-proxy", "python/microloop-python", "crates/microloop-wasm", "crates/microloop-compress"]
+members = ["python/microloop-python"]
+default-members = ["."]
+exclude = ["crates/microloop-compress"]
 
 [lib]
 crate-type = ["cdylib", "staticlib", "rlib"]
@@ -22,11 +24,6 @@ regex = { version = "1.12.4", default-features = false }
 serde = { version = "1.0.228", features = ["derive", "alloc"] }
 serde_json = { version = "1.0.150", default-features = false, features = ["alloc"] }
 serde_yaml = "0.9.34"
-microloop-compress = { path = "crates/microloop-compress" }
-
-[[bin]]
-name = "microloop-benchmark"
-path = "src/bin/benchmark.rs"
 
 [build-dependencies]
 cbindgen = "0.29.4"
