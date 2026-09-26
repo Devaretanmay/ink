@@ -1,40 +1,57 @@
 # Microloop Python SDK
 
-Python bindings for the Microloop local trajectory engine.
+Python bindings for the Microloop local reliability runtime.
 
 ```python
-from microloop import Monitor, Policy, Runtime
+from microloop import InterventionAction, Monitor, Policy
 
-# High-level usage
-runtime = Runtime(run_id="run_101", replan=True, cooldown_steps=6)
+policy = Policy(
+    stalled=InterventionAction.Replan,
+    regressing=InterventionAction.Stop,
+    cooldown_steps=5,
+)
+monitor = Monitor(policy=policy)
 
-event = {
-    "schema_version": 1,
-    "run_id": "run_101",
-    "step": 1,
-    "action": {"name": "shell", "fingerprint": "pytest_test_auth"},
-    "observation": {
-        "success": False,
-        "fingerprint": "assertion_error_hash",
-        "error_fingerprint": "AssertionError:auth.py:42"
-    },
-    "verification": {
-        "scope": "pytest:auth",
-        "observation_id": "obs_1",
-        "failures": 4
-    }
-}
-
-result = runtime.step(event)
-print(result["decision"]["state"])       # "healthy", "warning", "stalled", "regressing"
-print(result["intervention"]["kind"])    # "observe", "replan", "stop"
+for step in agent.steps():
+    decision = monitor.observe(
+        action=step.action,
+        observation=step.result,
+        state=step.state,
+        metrics={"exit_code": step.exit_code},
+    )
+    if decision.should_intervene:
+        agent.inject(decision.recovery_context)
 ```
 
-### Installation & Building
+`Monitor.observe(...)` returns a `Decision` with `status`, `reasons`,
+`intervention`, `severity`, `verified_progress` and `feedback`. The default
+policy only observes; automatic recovery requires explicit opt-in.
 
-```sh
+Or wrap the agent and let Microloop drive the loop:
+
+```python
+import microloop
+
+agent = microloop.wrap(agent, policy=policy)
+report = agent.run(task)
+print(report.status, report.interventions, report.recovered)
+```
+
+## CLI
+
+```bash
+microloop inspect trajectory.jsonl
+microloop replay trajectory.jsonl --json
+microloop monitor trajectory.jsonl --follow
+microloop doctor
+```
+
+## Building
+
+```bash
 pip install maturin
-maturin develop
+maturin develop --manifest-path python/microloop/Cargo.toml
 ```
 
-No external credentials or network connections required. All trajectory evaluations run locally in Rust via PyO3.
+No external credentials or network connections are required. All trajectory
+evaluation runs locally in Rust via PyO3.

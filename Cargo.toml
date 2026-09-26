@@ -1,32 +1,21 @@
-[package]
-name = "microloop"
-version = "0.2.0"
-edition = "2024"
-license = "Apache-2.0"
-description = "Local trajectory monitoring for autonomous agents"
-repository = "https://github.com/Devaretanmay/microloop"
-homepage = "https://github.com/Devaretanmay/microloop"
-readme = "README.md"
-keywords = ["agent", "llm", "trajectory", "progress", "loop-detection"]
-categories = ["development-tools::debugging", "web-programming"]
-include = ["src/**/*", "build.rs", "cbindgen.toml", "Cargo.toml", "LICENSE", "README.md"]
-
 [workspace]
-members = ["python/microloop-python"]
-default-members = ["."]
+resolver = "2"
+members = ["crates/microloop-core", "python/microloop"]
+default-members = ["crates/microloop-core"]
 exclude = ["crates/microloop-compress"]
 
-[lib]
-crate-type = ["cdylib", "staticlib", "rlib"]
+[workspace.package]
+version = "0.3.0"
+edition = "2021"
+rust-version = "1.80.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Devaretanmay/microloop"
+homepage = "https://github.com/Devaretanmay/microloop"
 
-[dependencies]
+[workspace.dependencies]
 regex = { version = "1.12.4", features = ["std", "unicode"] }
-serde = { version = "1.0.228", features = ["derive", "alloc"] }
-serde_json = { version = "1.0.150", default-features = false, features = ["alloc"] }
-serde_yaml = "0.9.34"
-
-[build-dependencies]
-cbindgen = "0.29.4"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.150"
 
 [profile.release]
 opt-level = "z"

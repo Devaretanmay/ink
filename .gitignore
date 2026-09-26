@@ -16,3 +16,8 @@ benchmarks/data/
 .agents/
 .idea/
 .vscode/
+
+benchmarks/results/raw/
+*.whl
+/build/
+/dist/

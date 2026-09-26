@@ -1,8 +1,14 @@
-# Microloop Compact Context Representation (CCR)
+# microloop-compress
 
-This crate implements Compact Context Representation (CCR) and compression primitives.
+Compact Context Representation (CCR) and content-compression primitives.
 
-### Status in Microloop v0.3 / Experiment 001
-* **Role:** Excluded from the default v0.3 validation benchmark workspace to eliminate experimental confounders and isolate trajectory recovery dynamics.
-* **Planned Role in v0.4+:** Will serve as the underlying engine for **Checkpoint Compaction**, preserving ground-truth execution history in durable storage while feeding compressed representations to long-horizon agent contexts.
-* See [Repository Scope](../../docs/REPOSITORY-SCOPE.md) and [System Architecture](../../docs/ARCHITECTURE.md).
+**Status:** internal and experimental. This crate is deliberately excluded from
+the Microloop v0.3 Cargo workspace so the released runtime stays focused on
+trajectory progress detection and recovery policy. It is not part of the public
+product surface or the Python SDK.
+
+Its intended future role is trajectory compaction: summarizing long, stalled
+histories while preserving execution ground truth for replay.
+
+See the root [README](../../README.md) and
+[docs/architecture.md](../../docs/architecture.md) for the shipped runtime.

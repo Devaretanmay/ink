@@ -1,51 +1,46 @@
 # Contributing to Microloop
 
-Welcome to Microloop. Before submitting PRs, please review:
-* [Product Requirements Document (PRD)](docs/PRD.md)
-* [System Architecture](docs/ARCHITECTURE.md)
-* [Benchmark Specification](docs/BENCHMARK_SPEC.md)
-* [Repository Scope & Boundaries](docs/REPOSITORY-SCOPE.md)
+Thanks for helping make agents more reliable. Microloop is a small, deliberate
+project. Please keep changes focused.
 
----
+## Getting started
 
-## 1. Engineering Principles
-
-1. **Evidence-Based Evaluation:** Changes to detectors or policies must be validated against deterministic regression tests and the Microloop Dev Benchmark.
-2. **Strict Separation of Concerns:**
-   $$\text{Detector (Analysis)} \longrightarrow \text{Decision} \longrightarrow \text{Policy (Host Action)} \longrightarrow \text{Intervention}$$
-   The detector must never execute tools, mutate environments, or call external models directly.
-3. **Deterministic & Offline:** The core Rust monitor must remain 100% offline, local, and memory-safe, with no cloud telemetry or uncalibrated ML dependencies.
-4. **Understated Precision:** Avoid hyperbolic claims in code comments or documentation. Code should be transparent, robust, and verifiable.
-
----
-
-## 2. Development & Verification Workflow
-
-Microloop requires a stable Rust toolchain supporting edition 2024 (Rust 1.85+).
-
-```sh
-# Format check
-cargo fmt --all --check
-
-# Run Rust unit and integration tests
-cargo test --workspace
-
-# Run Clippy lints
-cargo clippy --workspace --all-targets -- -D warnings
-
-# Build Python bindings
-cargo build -p microloop-python
-
-# Run basic example
-cargo run --example basic
+```bash
+git clone https://github.com/Devaretanmay/microloop
+cd microloop
+make check
 ```
 
----
+Requirements: stable Rust (MSRV 1.80) and Python 3.10–3.13.
 
-## 3. Adding Detectors or Tests
+## Repository layout
 
-* Any new detector must include:
-  1. Unit tests verifying detection on positive failure cases.
-  2. Control tests verifying that healthy exploration or valid retries are **not** flagged (false positive avoidance).
-  3. Bounded-history and run-isolation guarantees.
-* Never tune detectors against the held-out validation manifests (`validation-v1.json`). All tuning must occur against `dev-v1.json`.
+```
+crates/microloop-core   Rust runtime (detection + policy)
+python/microloop        PyO3 bindings, Python SDK and CLI
+tests/fixtures          trajectory fixtures
+benchmarks              reproducible evaluation methodology and runner
+docs                    concepts, integration, architecture
+examples                a runnable coding-agent integration
+```
+
+## Before opening a PR
+
+1. Run `make check` (fmt, clippy, Rust tests, Python lint and tests).
+2. Keep the public API small. New public types need a strong reason.
+3. Add or update a test for behaviour changes. Tests live beside the modules
+   they cover and in `crates/microloop-core/tests/` for integration.
+4. Do not commit raw benchmark outputs; they are git-ignored. Publish only small
+   summaries with explicit provenance under `benchmarks/results/published/`.
+
+## Coding notes
+
+- Detection and intervention stay separated. Detectors report evidence; the
+  engine synthesizes a progress state; the policy maps it to an intervention.
+- The runtime performs no I/O and executes no agent actions.
+- Prefer conservative defaults: observation over intervention, unknown over
+  invented evidence.
+
+## Reporting issues
+
+Use GitHub issues. For security, see [SECURITY.md](SECURITY.md).

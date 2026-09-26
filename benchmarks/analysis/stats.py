@@ -24,7 +24,7 @@ import sys
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
-from benchmarks.agents.mini_swe.config import MiniSWEConfig
+from benchmarks.runner.agents.mini_swe.config import MiniSWEConfig
 
 
 def wilson_score_interval(successes: int, trials: int, confidence: float = 0.95) -> Tuple[float, float]:

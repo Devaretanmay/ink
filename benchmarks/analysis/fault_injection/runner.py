@@ -19,20 +19,19 @@ Compares:
 - Naive Retry (retries on error)
 
 Usage:
-    python -m benchmarks.fault_injection.runner [--manifest benchmarks/manifests/fault-injection-v1.json]
+    python -m benchmarks.analysis.fault_injection.runner [--manifest benchmarks/manifests/fault-injection-v1.json]
 """
 from __future__ import annotations
 
 import argparse
 import json
 import os
-import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-from benchmarks.agents.mini_swe.events import build_canonical_event, hash_text, mask_volatile_noise_py
-from benchmarks.baselines.retry import RetryPolicy
-from benchmarks.baselines.supervisor import LLMSupervisor
-from microloop import Monitor, Policy
+from benchmarks.runner.agents.mini_swe.events import build_canonical_event
+from benchmarks.runner.baselines.retry import RetryPolicy
+from benchmarks.runner.baselines.supervisor import LLMSupervisor
+from benchmarks.runner.bridge import intervention_of, monitor_for, observe_canonical
 
 
 def generate_fault_scenario_events(scenario: Dict[str, Any], category: str) -> List[Dict[str, Any]]:
@@ -257,8 +256,7 @@ def generate_fault_scenario_events(scenario: Dict[str, Any], category: str) -> L
 def test_scenario_microloop(scenario: Dict[str, Any], events: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Tests Microloop Monitor + Policy on the scenario events."""
     trigger_step = scenario.get("trigger_step", 3)
-    monitor = Monitor(run_id=f"fault_{scenario['id']}", window=32, repetitions=3)
-    policy = Policy(replan=True, cooldown_steps=2, max_replans=2)
+    monitor = monitor_for(window=32, repetitions=3, cooldown_steps=2, max_interventions=2)
 
     detected = False
     first_detection_step: Optional[int] = None
@@ -266,51 +264,19 @@ def test_scenario_microloop(scenario: Dict[str, Any], events: List[Dict[str, Any
 
     for event in events:
         step = event["step"]
-        cmd = event["action"]["command"]
-        stdout = event["observation"]["stdout"]
-        stderr = event["observation"]["stderr"]
-        exit_code = event["observation"]["exit_code"]
-        error_class = event["observation"]["error_class"]
-
-        act_hash = hash_text(cmd)
-        norm_act_hash = hash_text(mask_volatile_noise_py(cmd))
-        obs_hash = hash_text(stdout + stderr)
-        norm_obs_hash = hash_text(mask_volatile_noise_py(stdout + stderr))
-        err_fp = f"{error_class}:{act_hash}" if exit_code != 0 and error_class else (
-            f"Exit{exit_code}:{act_hash}" if exit_code != 0 else None
-        )
-
-        rust_event = {
-            "schema_version": 1,
-            "run_id": f"fault_{scenario['id']}",
-            "step": step,
-            "action": {
-                "name": event["action"]["type"],
-                "fingerprint": act_hash,
-                "normalized_fingerprint": norm_act_hash,
-            },
-            "observation": {
-                "success": exit_code == 0,
-                "fingerprint": obs_hash,
-                "error_fingerprint": err_fp,
-                "normalized_fingerprint": norm_obs_hash,
-            },
-            "verification": None,
-            "state_fingerprint": event["workspace"]["diff_hash"],
-        }
 
         try:
-            decision = monitor.observe(rust_event)
-            intervention = policy.apply(decision)
+            decision = observe_canonical(monitor, event)
         except Exception:
             continue
 
-        if decision.get("state") in ("stalled", "warning") and decision.get("evidence"):
+        if decision.status in ("stalled", "warning") and decision.reasons:
             if not detected:
                 detected = True
                 first_detection_step = step
 
-        if intervention.get("kind") in ("replan", "stop"):
+        intervention = intervention_of(decision)
+        if intervention["kind"] in ("replan", "stop"):
             interventions.append(intervention)
 
     latency = max(0, first_detection_step - trigger_step) if first_detection_step is not None else None

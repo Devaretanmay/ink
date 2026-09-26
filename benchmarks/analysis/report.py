@@ -24,7 +24,7 @@ import statistics
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from benchmarks.agents.mini_swe.config import MiniSWEConfig
+from benchmarks.runner.agents.mini_swe.config import MiniSWEConfig
 
 
 def load_manifest(manifest_name: str) -> Dict[str, Any]:

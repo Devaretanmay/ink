@@ -1,31 +1,19 @@
-#![allow(unsafe_op_in_unsafe_fn)]
+//! Thin, dependency-light PyO3 bindings over `microloop-core`.
+//!
+//! The Rust layer deliberately mirrors the core types as JSON in/out and keeps
+//! no policy logic of its own; the Pythonic surface lives in `microloop/__init__.py`.
 
-use microloop::monitor::{Decision, Event, Monitor, MonitorConfig};
-use microloop::policy::{Intervention, Policy, PolicyConfig};
-use microloop::state::MicroloopState;
+use microloop::{
+    Decision, Event, InterventionAction, Monitor, MonitorConfig, Policy, PolicyConfig,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-#[pyclass(name = "Microloop")]
-pub struct PyMicroloop {
-    state: MicroloopState,
-}
-
-#[pymethods]
-impl PyMicroloop {
-    #[new]
-    fn new(yaml_config: &str) -> PyResult<Self> {
-        let state = MicroloopState::new(yaml_config)
-            .map_err(|e| PyValueError::new_err(format!("Failed to parse config: {}", e)))?;
-        Ok(Self { state })
-    }
-
-    fn verify(&mut self, tool_name: &str, tool_args_json: &str) -> u8 {
-        microloop::verify(
-            &mut self.state,
-            tool_name.as_bytes(),
-            tool_args_json.as_bytes(),
-        )
+fn parse_json<T: serde::de::DeserializeOwned + Default>(input: Option<&str>) -> PyResult<T> {
+    match input {
+        Some(text) if !text.trim().is_empty() => serde_json::from_str(text)
+            .map_err(|error| PyValueError::new_err(format!("invalid configuration: {error}"))),
+        _ => Ok(T::default()),
     }
 }
 
@@ -37,26 +25,24 @@ pub struct PyMonitor {
 #[pymethods]
 impl PyMonitor {
     #[new]
-    #[pyo3(signature = (run_id, config_json=None))]
-    fn new(run_id: String, config_json: Option<&str>) -> PyResult<Self> {
-        let config: MonitorConfig = match config_json {
-            Some(s) if !s.trim().is_empty() => serde_json::from_str(s)
-                .map_err(|e| PyValueError::new_err(format!("Invalid MonitorConfig JSON: {e}")))?,
-            _ => MonitorConfig::default(),
-        };
-        let inner = Monitor::new(run_id, config).map_err(PyValueError::new_err)?;
+    #[pyo3(signature = (config_json=None, policy_json=None))]
+    fn new(config_json: Option<&str>, policy_json: Option<&str>) -> PyResult<Self> {
+        let config: MonitorConfig = parse_json(config_json)?;
+        let policy: PolicyConfig = parse_json(policy_json)?;
+        let inner = Monitor::from_policy_config(config, policy)
+            .map_err(|error| PyValueError::new_err(format!("invalid monitor: {error}")))?;
         Ok(Self { inner })
     }
 
     fn observe_json(&mut self, event_json: &str) -> PyResult<String> {
         let event: Event = serde_json::from_str(event_json)
-            .map_err(|e| PyValueError::new_err(format!("Invalid Event JSON: {e}")))?;
+            .map_err(|error| PyValueError::new_err(format!("invalid event: {error}")))?;
         let decision: Decision = self
             .inner
             .observe(event)
-            .map_err(|e| PyValueError::new_err(format!("Monitor observe failed: {e}")))?;
+            .map_err(|error| PyValueError::new_err(format!("observe failed: {error}")))?;
         serde_json::to_string(&decision)
-            .map_err(|e| PyValueError::new_err(format!("Decision serialization failed: {e}")))
+            .map_err(|error| PyValueError::new_err(format!("serialization failed: {error}")))
     }
 }
 
@@ -70,31 +56,30 @@ impl PyPolicy {
     #[new]
     #[pyo3(signature = (config_json=None))]
     fn new(config_json: Option<&str>) -> PyResult<Self> {
-        let config: PolicyConfig = match config_json {
-            Some(s) if !s.trim().is_empty() => serde_json::from_str(s)
-                .map_err(|e| PyValueError::new_err(format!("Invalid PolicyConfig JSON: {e}")))?,
-            _ => PolicyConfig::default(),
-        };
-        let inner = Policy::new(config).map_err(PyValueError::new_err)?;
+        let config: PolicyConfig = parse_json(config_json)?;
+        let inner = Policy::new(config)
+            .map_err(|error| PyValueError::new_err(format!("invalid policy: {error}")))?;
         Ok(Self { inner })
     }
 
-    fn apply_json(&mut self, decision_json: &str) -> PyResult<String> {
+    fn evaluate_json(&mut self, decision_json: &str) -> PyResult<String> {
         let decision: Decision = serde_json::from_str(decision_json)
-            .map_err(|e| PyValueError::new_err(format!("Invalid Decision JSON: {e}")))?;
-        let intervention: Intervention = self
-            .inner
-            .apply(&decision)
-            .map_err(|e| PyValueError::new_err(format!("Policy apply failed: {e}")))?;
-        serde_json::to_string(&intervention)
-            .map_err(|e| PyValueError::new_err(format!("Intervention serialization failed: {e}")))
+            .map_err(|error| PyValueError::new_err(format!("invalid decision: {error}")))?;
+        let action: InterventionAction = self.inner.evaluate(&decision);
+        serde_json::to_string(&action)
+            .map_err(|error| PyValueError::new_err(format!("serialization failed: {error}")))
     }
 }
 
+#[pyfunction]
+fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
+
 #[pymodule]
-fn microloop_core(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_class::<PyMicroloop>()?;
-    m.add_class::<PyMonitor>()?;
-    m.add_class::<PyPolicy>()?;
+fn microloop_core(_py: Python, module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<PyMonitor>()?;
+    module.add_class::<PyPolicy>()?;
+    module.add_function(wrap_pyfunction!(version, module)?)?;
     Ok(())
 }

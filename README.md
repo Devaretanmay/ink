@@ -1,174 +1,211 @@
 # Microloop
 
-### Microloop — Keep agents making progress.
-*Real-time trajectory failure detection and recovery for autonomous agents.*
-
----
+### Keep agents making progress.
 
 [![CI](https://github.com/Devaretanmay/microloop/actions/workflows/ci.yml/badge.svg)](https://github.com/Devaretanmay/microloop/actions)
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Status: Experiment 001](https://img.shields.io/badge/Status-Experiment_001_Active-orange.svg)](docs/PRD.md)
+[![PyPI](https://img.shields.io/pypi/v/microloop.svg)](https://pypi.org/project/microloop/)
+[![crates.io](https://img.shields.io/crates/v/microloop-core.svg)](https://crates.io/crates/microloop-core)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-Autonomous AI agents frequently get stuck in unproductive loops, repeat identical errors, thrash tools without gaining new information, or silently regress on test progress. 
+Microloop is a local reliability runtime for autonomous agents. It watches an
+agent's execution trajectory, detects when the agent is looping, stalled,
+regressing, or operating on stale state, and can trigger a configured
+intervention when progress degrades.
 
-**Microloop detects when autonomous agents stop making useful progress and helps them recover.**
+Workflow engines keep agents *running*. Observability tools show *what agents
+did*. Guardrails decide *what agents may do*. Microloop decides *whether the
+agent is still making useful progress*.
 
-It monitors execution trajectories in real time with an ultra-fast, 100% offline Rust engine. When non-progress is detected, it delivers structured recovery signals so the agent can course-correct before burning out its token budget or failing the task.
-
-```
-┌────────────────────────────────────────────────────────┐
-│                      Agent Host                        │
-│   (mini-SWE-agent v2 / Claude Code / OpenAI / Custom)  │
-└───────────────────────────┬────────────────────────────┘
-                            │ Action & Observation
-┌───────────────────────────▼────────────────────────────┐
-│                    MICROLOOP RUNTIME                   │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │ Trajectory Engine (Fast Local Rust Core)         │  │
-│  │  - Repetition & Masked Normalization             │  │
-│  │  - Error Recurrence Tracking                     │  │
-│  │  - State Stagnation & Regression Detection       │  │
-│  │  - Progress Scoring & Heuristic Severity         │  │
-│  ├──────────────────────────────────────────────────┤  │
-│  │ Policy Engine                                    │  │
-│  │  - Observe (Telemetry & Diagnostics)             │  │
-│  │  - Replan (Structured Context Injection)         │  │
-│  │  - Stop (Budget Governance)                      │  │
-│  └──────────────────────────────────────────────────┘  │
-└───────────────────────────┬────────────────────────────┘
-                            │ Recovery Signal
-┌───────────────────────────▼────────────────────────────┐
-│                  Host Agent Continues                  │
-│       (Informed Course-Correction, Zero Cloud Leak)    │
-└────────────────────────────────────────────────────────┘
-```
+The runtime is **low-overhead and in-process with no required network calls**.
+It sits under any harness. It is not an agent framework.
 
 ---
 
-## Active Milestone: Experiment 001 (Validation Benchmark v1)
+## Installation
 
-We believe claims about agent reliability must be proved with empirical, reproducible benchmarks. The current engineering milestone is **Experiment 001**: testing whether local trajectory monitoring and structured recovery improve end-to-end task completion without altering the base model, prompt, or tool harness.
+Python (Python 3.10–3.13):
 
-* **Target Benchmarks:** [SWE-bench Verified](https://www.swebench.com/) (real GitHub software engineering issues) and [Terminal-Bench](https://github.com/jvpoulos/terminal-bench) (system and CLI workflows).
-* **3-Stage Validation Ladder:**
-  1. *Microloop Dev:* 30 frozen tasks $\times$ 3 seeds $\times$ 4 conditions = 360 runs per model.
-  2. *Microloop Validation:* 100 disjoint held-out tasks $\times$ 3 seeds $\times$ 4 conditions = 1,200 runs per model.
-  3. *Microloop Benchmark:* 300–500 tasks across the full SWE-bench Verified distribution.
-* **4 Experimental Conditions:**
-  * **Condition A (Vanilla):** Base agent with no trajectory monitoring.
-  * **Condition B (Retry Baseline):** Base agent with naive single retry/restart policy.
-  * **Condition C (LLM Supervisor):** Base agent supervised by a separate LLM prompt every $N$ steps.
-  * **Condition D (Microloop):** Identical base agent with Microloop trajectory monitoring and recovery feedback.
-
-### The 8 Trajectory Detectors (v1)
-Microloop evaluates 8 deterministic signals locally in Rust:
-1. **Exact Repetition:** Identical tool calls and outputs recurring in the sliding window.
-2. **Normalized Repetition:** Repetition detected after masking noise (timestamps, UUIDs, PIDs, paths).
-3. **Error Recurrence:** Tracking recurring error signatures across non-consecutive steps.
-4. **State Oscillation:** Detecting cyclical state changes ($A \to B \to A \to B$).
-5. **State Stagnation:** Monitoring active tool execution while objective progress metrics remain stagnant.
-6. **State Regression:** Detecting when agent actions worsen verified progress (e.g., failure counts increase).
-7. **Tool Thrashing:** High tool frequency with collapsing information gain and zero mutations.
-8. **Failure Cascade:** Pinpointing the first unresolved root failure triggering downstream errors.
-
----
-
-## Quickstart
-
-### Rust Engine
-
-```rust
-use microloop::monitor::{Action, Event, Monitor, MonitorConfig, Observation, Verification};
-use microloop::policy::{InterventionKind, Policy, PolicyConfig};
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut monitor = Monitor::new("run_django_101".into(), MonitorConfig::default())?;
-    let mut policy = Policy::new(PolicyConfig {
-        replan: true,
-        cooldown_steps: 4,
-        max_replans: 2,
-        stop_at_step: Some(50),
-    })?;
-
-    let event = Event {
-        schema_version: 1,
-        run_id: "run_django_101".into(),
-        step: 1,
-        action: Action {
-            name: "shell".into(),
-            fingerprint: "pytest_auth_test".into(),
-        },
-        observation: Observation {
-            success: Some(false),
-            fingerprint: Some("err_sig_hash".into()),
-            error_fingerprint: Some("AssertionError:auth.py:42".into()),
-        },
-        verification: Some(Verification {
-            scope: "pytest:auth".into(),
-            observation_id: "obs_1".into(),
-            failures: 3,
-        }),
-        state_fingerprint: None,
-    };
-
-    let decision = monitor.observe(event)?;
-    let intervention = policy.apply(&decision)?;
-
-    if intervention.kind == InterventionKind::Replan {
-        println!("Recovery signal: {}", intervention.feedback.unwrap());
-    }
-    Ok(())
-}
+```bash
+pip install microloop
 ```
 
-### Python SDK
+Rust:
+
+```bash
+cargo add microloop-core
+```
+
+## Quick start
 
 ```python
-from microloop import Runtime
+from microloop import Monitor
 
-runtime = Runtime(run_id="run_django_101", replan=True, cooldown_steps=4)
+monitor = Monitor()
 
-result = runtime.step({
-    "schema_version": 1,
-    "run_id": "run_django_101",
-    "step": 1,
-    "action": {"name": "shell", "fingerprint": "pytest_auth_test"},
-    "observation": {
-        "success": False,
-        "fingerprint": "err_hash",
-        "error_fingerprint": "AssertionError:auth.py:42"
-    },
-    "verification": {
-        "scope": "pytest:auth",
-        "observation_id": "obs_1",
-        "failures": 3
-    }
-})
+for step in agent.steps():
+    decision = monitor.observe(
+        action=step.action,
+        observation=step.result,
+        state=step.state,
+        metrics={"exit_code": step.exit_code},
+    )
 
-print(result["decision"]["state"])     # "healthy", "warning", "stalled", "regressing"
-print(result["intervention"]["kind"])  # "observe", "replan", "stop"
+    if decision.should_intervene:
+        agent.inject(decision.recovery_context)
 ```
 
----
+Or let Microloop drive the loop directly:
 
-## Offline Privacy & In-Process Execution
+```python
+import microloop
+from microloop import InterventionAction, Policy
 
-* **100% In-Process:** Microloop runs entirely inside your host process via native Rust or Python (PyO3).
-* **Zero Network Traffic:** The core monitor has no network dependencies and sends zero data to external servers.
-* **No Raw Prompts or Proprietary Code Ingested:** Microloop operates over normalized action names, opaque content hashes, exit codes, and numerical verifier metrics. Sensitive source code and user prompts remain private to the host agent.
+policy = Policy(stalled=InterventionAction.Replan)
+agent = microloop.wrap(agent, policy=policy)
+report = agent.run(task)
 
----
+print(report.status, report.interventions, report.recovered)
+```
 
-## Documentation
+By default the runtime only observes. Automatic recovery requires an explicit
+policy:
 
-* [Product Requirements Document (PRD)](docs/PRD.md)
-* [System Architecture & Transaction Specification](docs/ARCHITECTURE.md)
-* [Validation Benchmark Protocol (Experiment 001)](docs/BENCHMARK_SPEC.md)
-* [Repository Scope & Boundaries](docs/REPOSITORY-SCOPE.md)
-* [Contributing Guidelines](CONTRIBUTING.md)
+```python
+from microloop import InterventionAction, Monitor, Policy
 
----
+policy = Policy(
+    stalled=InterventionAction.Replan,
+    regressing=InterventionAction.Stop,
+    cooldown_steps=5,
+)
+monitor = Monitor(policy=policy)
+```
+
+`Monitor.observe(...)` returns a `Decision` with `status`, `reasons`,
+`intervention` and `severity`:
+
+```python
+Decision(step=31, status="stalled", reasons=["state_stagnation", "repeated_error"],
+         intervention="replan", severity=0.8, verified_progress=False, feedback="...")
+```
+
+## What Microloop detects
+
+The public API exposes four progress states:
+
+| Status       | Meaning                                                        |
+|--------------|----------------------------------------------------------------|
+| `healthy`    | Progress, or no evidence of non-progress.                      |
+| `warning`    | Suspicious signal that is not enough to claim failure.         |
+| `stalled`    | Recurring failed actions, errors, or a verified plateau.       |
+| `regressing` | A verifier got objectively worse than the best prior result.   |
+
+Individual detectors (`repeated_action_result`, `normalized_repetition`,
+`repeated_error`, `state_stagnation`, `state_oscillation`, `regression`) are
+internal implementations surfaced in `decision.reasons` for debugging. They are
+not the product surface.
+
+## How it works
+
+```
+EVENT -> TRAJECTORY -> PROGRESS ENGINE -> DECISION -> POLICY -> INTERVENTION
+```
+
+`Monitor.observe(event)` performs detection; the attached `Policy` maps a
+progress state to an intervention (`observe`, `replan`, `stop`). The runtime
+returns instructions only. The host decides whether to act.
+
+Signals are read by convention from each event:
+
+| Key                          | Meaning                              |
+|------------------------------|--------------------------------------|
+| `metadata.success`           | `"false"`/`"0"` marks a failed step  |
+| `metadata.error`             | stable error signature               |
+| `metadata.verifier`          | verifier scope name                  |
+| `metadata.verification_id`   | unique id of one fresh verification  |
+| `metrics.exit_code`          | non-zero marks a failed step         |
+| `metrics.failures`           | verifier failure count               |
+
+Missing signals are treated as unknown. The runtime never invents evidence.
+
+## CLI
+
+```bash
+microloop inspect trajectory.jsonl
+microloop replay trajectory.jsonl --json
+microloop monitor trajectory.jsonl --follow
+microloop doctor
+```
+
+```
+$ microloop inspect tests/fixtures/sample_trajectory.jsonl
+Microloop trajectory analysis (schema 0.3.0)
+Steps          10
+Status         stalled
+Detected at    step 3
+Reasons        repeated_action_result, repeated_error
+Intervention   replan
+Evidence       Same action, observation and supplied state recurred
+```
+
+`microloop monitor` prints a live progress view and, with `--follow`, keeps
+reading as a running agent appends steps:
+
+```
+Microloop
+trajectory run.jsonl (following)
+
+   3  STALLED    repeated_action_result repeated_error
+      Same action, observation and supplied state recurred
+      -> REPLAN
+
+completed
+Steps             10
+Stalls            3
+Interventions     3
+Recovered         yes
+```
+
+## Integrations
+
+Microloop works underneath OpenAI/Claude-based agents, LangGraph, Temporal,
+Restate, custom loops, browser agents and coding agents. See
+[`examples/coding-agent`](examples/coding-agent) for an end-to-end recovery demo.
+
+## Benchmarks
+
+On a held-out SWE-bench Verified evaluation (`validation-final-v1`, 100 paired
+tasks, frozen manifest, `gpt-6-astra`, mini-swe-agent v2.4.6), adding Microloop
+to the same agent improved completion from 51/100 to 63/100 while reducing
+median tool calls by 21.3%:
+
+| Metric            | Vanilla | Microloop | Difference   |
+|-------------------|---------|-----------|--------------|
+| Tasks solved      | 51/100  | 63/100    | +12          |
+| 95% paired CI     | —       | —         | [+5.0,+20.0] pp |
+| Median tool calls | 61      | 48        | −21.3%       |
+
+`benchmarks/` contains the reproducible methodology and runner. Published
+summaries live under `benchmarks/results/published/`.
+[Methodology →](benchmarks/README.md)
+
+## Architecture
+
+- [`docs/concepts.md`](docs/concepts.md) — trajectory, progress, decisions, interventions
+- [`docs/integration.md`](docs/integration.md) — integrating Microloop
+- [`docs/architecture.md`](docs/architecture.md) — engine internals, normalization, bindings
+
+## Development
+
+```bash
+make check   # fmt, clippy, tests, lint
+make test    # cargo test + pytest
+make build   # release build + wheel
+```
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 
-Apache-2.0. See [LICENSE](LICENSE) for details.
+Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
+option.

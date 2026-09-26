@@ -5,18 +5,20 @@ Microloop operates in observation-only mode for baseline runs.
 """
 from __future__ import annotations
 
-import json
-import logging
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from microloop import Monitor, Policy
-from .config import MiniSWEConfig
-from .events import build_canonical_event, hash_text
+from benchmarks.runner.bridge import (
+    decision_to_dict,
+    intervention_of,
+    monitor_for,
+    observe_canonical,
+)
+from .events import build_canonical_event
 
 try:
     from minisweagent.agents.default import DefaultAgent, AgentConfig
-    from minisweagent.exceptions import Submitted, LimitsExceeded, TimeExceeded
+    from minisweagent.exceptions import Submitted, LimitsExceeded, TimeExceeded  # noqa: F401
     HAS_MINISWE = True
 except ImportError:
     HAS_MINISWE = False
@@ -46,12 +48,11 @@ class MiniSWEAdapter:
         self.max_replans = max_replans
         self.step_counter = 0
 
-        # Initialize Microloop monitor and policy
-        self.monitor = Monitor(run_id=run_id, window=32, repetitions=3)
-        self.policy = Policy(
-            replan=not observer_mode,
+        # Initialize the Microloop monitor (recovery disabled in observer mode).
+        self.monitor = monitor_for(
+            observer_mode=observer_mode,
             cooldown_steps=cooldown_steps,
-            max_replans=max_replans,
+            max_interventions=max_replans,
         )
         self.trajectory_events: List[Dict[str, Any]] = []
         self.microloop_decisions: List[Dict[str, Any]] = []
@@ -94,70 +95,22 @@ class MiniSWEAdapter:
         )
         self.trajectory_events.append(event)
 
-        # 2. Map to Rust monitor Event schema
-        action_hash = hash_text(command)
-        from benchmarks.agents.mini_swe.events import mask_volatile_noise_py
-        norm_action_hash = hash_text(mask_volatile_noise_py(command))
-        obs_hash = hash_text(stdout + stderr)
-        norm_obs_hash = hash_text(mask_volatile_noise_py(stdout + stderr))
-        err_fp = f"{error_class}:{action_hash}" if exit_code != 0 and error_class else (
-            f"Exit{exit_code}:{action_hash}" if exit_code != 0 else None
-        )
+        # 2. Observe via Microloop (observation-only in observer mode).
+        decision = observe_canonical(self.monitor, event)
+        intervention = intervention_of(decision)
+        decision_dict = decision_to_dict(decision)
 
-        rust_event = {
-            "schema_version": 1,
-            "run_id": self.run_id,
-            "step": self.step_counter,
-            "action": {
-                "name": "shell",
-                "fingerprint": action_hash,
-                "normalized_fingerprint": norm_action_hash,
-            },
-            "observation": {
-                "success": exit_code == 0,
-                "fingerprint": obs_hash,
-                "error_fingerprint": err_fp,
-                "normalized_fingerprint": norm_obs_hash,
-            },
-            "verification": (
-                {
-                    "scope": event["metrics"]["verification_scope"] or "test",
-                    "observation_id": f"obs_{self.step_counter}_{obs_hash[:8]}",
-                    "failures": event["metrics"]["tests_failed"],
-                }
-                if event["metrics"]["tests_failed"] is not None
-                else None
-            ),
-            "state_fingerprint": event["workspace"]["diff_hash"] if event["workspace"]["dirty"] else None,
-        }
-
-        # 3. Observe via Microloop
-        try:
-            decision = self.monitor.observe(rust_event)
-            intervention = self.policy.apply(decision)
-        except Exception as e:
-            decision = {
-                "schema_version": 1,
-                "run_id": self.run_id,
+        self.microloop_decisions.append(
+            {
                 "step": self.step_counter,
-                "state": "healthy",
-                "score": 0.0,
-                "evidence": [],
-                "verified_progress": False,
-                "error": str(e),
+                "decision": decision_dict,
+                "intervention": intervention,
             }
-            intervention = {"kind": "observe", "feedback": None}
-
-        feature_record = {
-            "step": self.step_counter,
-            "decision": decision,
-            "intervention": intervention,
-        }
-        self.microloop_decisions.append(feature_record)
+        )
 
         return {
             "event": event,
-            "decision": decision,
+            "decision": decision_dict,
             "intervention": intervention,
         }
 

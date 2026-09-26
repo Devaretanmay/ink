@@ -17,16 +17,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import statistics
-import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from benchmarks.analysis.classify import analyze_single_trajectory
-from benchmarks.agents.mini_swe.events import hash_text, mask_volatile_noise_py
-from microloop import Monitor, Policy
-
-mask_noise_py = mask_volatile_noise_py
+from benchmarks.runner.bridge import (
+    intervention_of,
+    monitor_for,
+    observe_canonical,
+)
 
 
 def evaluate_trajectory_run(
@@ -54,17 +53,12 @@ def evaluate_trajectory_run(
         }
 
     # 2. Replay through Monitor
-    config_dict = {
-        "window": window,
-        "repetitions": repetitions,
-        "stagnation_steps": stagnation_steps,
-        "verification_samples": 3,
-        "normalize_actions": True,
-    }
-    config_json = json.dumps(config_dict)
     run_id = traj_analysis["run_id"]
-    monitor = Monitor(run_id=run_id, config_json=config_json)
-    policy = Policy(config_json=json.dumps({"replan": True, "cooldown_steps": 3, "max_replans": 3}))
+    monitor = monitor_for(
+        window=window,
+        repetitions=repetitions,
+        stagnation_steps=stagnation_steps,
+    )
 
     events: List[Dict[str, Any]] = []
     with open(traj_path, "r", encoding="utf-8") as f:
@@ -92,77 +86,26 @@ def evaluate_trajectory_run(
 
     for event in events:
         step = event.get("step", 0)
-        action_data = event.get("action", {})
-        command = action_data.get("command", "")
-        obs_data = event.get("observation", {})
-        exit_code = obs_data.get("exit_code", 0)
-        stdout = obs_data.get("stdout", "")
-        stderr = obs_data.get("stderr", "")
-        combined_obs = stdout + stderr
-        error_class = obs_data.get("error_class")
-
-        action_hash = hash_text(command)
-        norm_action_hash = hash_text(mask_noise_py(command))
-        obs_hash = hash_text(combined_obs)
-        norm_obs_hash = hash_text(mask_noise_py(combined_obs))
-
-        err_fp = f"{error_class}:{action_hash}" if exit_code != 0 and error_class else (
-            f"Exit{exit_code}:{action_hash}" if exit_code != 0 else None
-        )
-
-        metrics = event.get("metrics", {})
-        failures = metrics.get("tests_failed")
-        scope = metrics.get("verification_scope") or "pytest"
-
-        rust_event = {
-            "schema_version": 1,
-            "run_id": run_id,
-            "step": step,
-            "action": {
-                "name": action_data.get("type", "shell"),
-                "fingerprint": action_hash,
-                "normalized_fingerprint": norm_action_hash,
-            },
-            "observation": {
-                "success": exit_code == 0,
-                "fingerprint": obs_hash,
-                "error_fingerprint": err_fp,
-                "normalized_fingerprint": norm_obs_hash,
-            },
-            "verification": (
-                {
-                    "scope": scope,
-                    "observation_id": f"obs_{step}_{obs_hash[:8]}",
-                    "failures": failures,
-                }
-                if failures is not None
-                else None
-            ),
-            "state_fingerprint": event.get("workspace", {}).get("diff_hash"),
-        }
 
         try:
-            decision = monitor.observe(rust_event)
-            intervention = policy.apply(decision)
+            decision = observe_canonical(monitor, event)
         except Exception:
             continue
 
-        state = decision.get("state", "healthy").lower()
-        evidence_list = decision.get("evidence", [])
-
-        if evidence_list:
-            for ev in evidence_list:
-                reason = ev.get("reason", "")
+        state = decision.status
+        if decision.reasons:
+            for reason in decision.reasons:
                 if reason in detector_activations:
                     detector_activations[reason] += 1
 
-        if state in ("stalled", "warning") and evidence_list:
+        if state in ("stalled", "warning") and decision.reasons:
             if first_detection_step is None:
                 first_detection_step = step
             if state == "stalled" and first_stalled_step is None:
                 first_stalled_step = step
 
-        if intervention.get("kind") in ("replan", "stop"):
+        intervention = intervention_of(decision)
+        if intervention["kind"] in ("replan", "stop"):
             interventions_count += 1
             if ground_truth_outcome == "successful-efficient":
                 false_alarms += 1

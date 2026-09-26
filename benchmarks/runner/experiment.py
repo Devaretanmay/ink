@@ -15,8 +15,8 @@ import os
 import random
 from typing import Any, Dict, List, Optional
 
-from benchmarks.agents.mini_swe.config import MiniSWEConfig
-from benchmarks.agents.mini_swe.runner import run_single_task
+from benchmarks.runner.agents.mini_swe.config import MiniSWEConfig
+from benchmarks.runner.agents.mini_swe.runner import run_single_task
 from benchmarks.runner.metadata import create_run_metadata
 from benchmarks.runner.result_writer import ResultWriter
 from benchmarks.runner.run_id import generate_run_id

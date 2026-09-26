@@ -12,10 +12,14 @@ import argparse
 import json
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from microloop import Monitor, Policy
-from benchmarks.agents.mini_swe.events import hash_text
+from benchmarks.runner.bridge import (
+    decision_to_dict,
+    intervention_of,
+    monitor_for,
+    observe_canonical,
+)
 
 
 def replay_trajectory(
@@ -48,8 +52,7 @@ def replay_trajectory(
         return {"total_steps": 0, "decisions": []}
 
     run_id = events[0].get("run_id", "replay_run")
-    monitor = Monitor(run_id=run_id, window=window, repetitions=repetitions)
-    policy = Policy(replan=True)
+    monitor = monitor_for(window=window, repetitions=repetitions)
 
     decisions_log = []
     stalls = 0
@@ -65,60 +68,15 @@ def replay_trajectory(
 
     for event in events:
         step = event.get("step", 0)
-        action_data = event.get("action", {})
-        command = action_data.get("command", "")
-        obs_data = event.get("observation", {})
-        exit_code = obs_data.get("exit_code", 0)
-        stdout = obs_data.get("stdout", "")
-        stderr = obs_data.get("stderr", "")
-        error_class = obs_data.get("error_class")
+        command = (event.get("action") or {}).get("command", "")
 
-        action_hash = hash_text(command)
-        obs_hash = hash_text(stdout + stderr)
-        err_fp = f"{error_class}:{action_hash}" if exit_code != 0 and error_class else (
-            f"Exit{exit_code}:{action_hash}" if exit_code != 0 else None
-        )
+        decision = observe_canonical(monitor, event)
+        decisions_log.append(decision_to_dict(decision))
+        intervention = intervention_of(decision)
 
-        metrics = event.get("metrics", {})
-        failures = metrics.get("tests_failed")
-        scope = metrics.get("verification_scope") or "test"
-
-        rust_event = {
-            "schema_version": 1,
-            "run_id": run_id,
-            "step": step,
-            "action": {
-                "name": action_data.get("type", "shell"),
-                "fingerprint": action_hash,
-            },
-            "observation": {
-                "success": exit_code == 0,
-                "fingerprint": obs_hash,
-                "error_fingerprint": err_fp,
-            },
-            "verification": (
-                {
-                    "scope": scope,
-                    "observation_id": f"obs_{step}_{obs_hash[:8]}",
-                    "failures": failures,
-                }
-                if failures is not None
-                else None
-            ),
-            "state_fingerprint": event.get("workspace", {}).get("diff_hash"),
-        }
-
-        decision = monitor.observe(rust_event)
-        intervention = policy.apply(decision)
-        decisions_log.append(decision)
-
-        state = decision.get("state", "healthy").upper()
-        score = decision.get("score", 0.0)
-        evidence_list = decision.get("evidence", [])
-        evidence_str = ""
-        if evidence_list:
-            reasons = [e.get("reason", "") for e in evidence_list]
-            evidence_str = f" [{', '.join(reasons)}]"
+        state = decision.status.upper()
+        score = decision.severity
+        evidence_str = f" [{', '.join(decision.reasons)}]" if decision.reasons else ""
 
         if state == "WARNING":
             warnings += 1

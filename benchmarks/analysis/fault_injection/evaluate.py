@@ -13,7 +13,7 @@ Measures:
 - Granular Category-by-Category Detection Matrix
 
 Usage:
-    python -m benchmarks.fault_injection.evaluate [--output benchmarks/analysis/fault-injection-evaluation-v1.json]
+    python -m benchmarks.analysis.fault_injection.evaluate [--output benchmarks/analysis/fault-injection-evaluation-v1.json]
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ import sys
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
-from benchmarks.fault_injection.runner import run_fault_injection_suite
+from benchmarks.analysis.fault_injection.runner import run_fault_injection_suite
 
 
 def evaluate_fault_injection(manifest_path: str = "benchmarks/manifests/fault-injection-v1.json") -> Dict[str, Any]:
