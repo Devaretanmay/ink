@@ -1,0 +1,851 @@
+{
+  "dataset_summary": {
+    "total_runs_evaluated": 34,
+    "ground_truth_positives": 15,
+    "ground_truth_negatives": 19,
+    "total_clean_steps": 73
+  },
+  "confusion_matrix": {
+    "true_positives": 15,
+    "false_positives": 0,
+    "true_negatives": 19,
+    "false_negatives": 0
+  },
+  "performance_metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "median_detection_delay_steps": 4.0,
+    "false_alarm_rate_per_100_steps": 0.0
+  },
+  "detector_activations": {
+    "D1_repeated_action_result": 33,
+    "D2_normalized_repetition": 0,
+    "D3_repeated_error": 48,
+    "D5_state_stagnation": 30,
+    "D4_state_oscillation": 0,
+    "D6_regression": 0
+  },
+  "runs": [
+    {
+      "run_id": "run_20260926_151543_astropy_astropy-1290_vanilla_s1_f2bb25",
+      "task_id": "astropy__astropy-12907",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 3,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_151543_astropy_astropy-1418_vanilla_s1_7866b1",
+      "task_id": "astropy__astropy-14182",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 3,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_151543_django_django-11039_vanilla_s1_604853",
+      "task_id": "django__django-11039",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 3,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_152249_django_django-11099_vanilla_s1_3e14ae",
+      "task_id": "django__django-11099",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 4,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165049_astropy_astropy-1290_vanilla_s1_2edbad",
+      "task_id": "astropy__astropy-12907",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_astropy_astropy-1418_vanilla_s1_c375e6",
+      "task_id": "astropy__astropy-14182",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-10914_vanilla_s1_b52740",
+      "task_id": "django__django-10914",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-11039_vanilla_s1_022227",
+      "task_id": "django__django-11039",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-11099_vanilla_s1_23d239",
+      "task_id": "django__django-11099",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-11583_vanilla_s1_968e86",
+      "task_id": "django__django-11583",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-11815_vanilla_s1_f31fff",
+      "task_id": "django__django-11815",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-11999_vanilla_s1_4b012a",
+      "task_id": "django__django-11999",
+      "ground_truth_outcome": "successful-wasteful",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 14,
+      "detected": true,
+      "first_detection_step": 10,
+      "first_stalled_step": 10,
+      "detection_delay": 8,
+      "detector_activations": {
+        "repeated_action_result": 1,
+        "normalized_repetition": 0,
+        "repeated_error": 2,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 1,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-12497_vanilla_s1_ab6e76",
+      "task_id": "django__django-12497",
+      "ground_truth_outcome": "successful-wasteful",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 14,
+      "detected": true,
+      "first_detection_step": 10,
+      "first_stalled_step": 10,
+      "detection_delay": 8,
+      "detector_activations": {
+        "repeated_action_result": 1,
+        "normalized_repetition": 0,
+        "repeated_error": 2,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 1,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-13230_vanilla_s1_b8246b",
+      "task_id": "django__django-13230",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_django_django-13710_vanilla_s1_8cdee1",
+      "task_id": "django__django-13710",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_matplotlib_matplotli_vanilla_s1_1354b3",
+      "task_id": "matplotlib__matplotlib-23913",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_matplotlib_matplotli_vanilla_s1_41205c",
+      "task_id": "matplotlib__matplotlib-24149",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_matplotlib_matplotli_vanilla_s1_f1432f",
+      "task_id": "matplotlib__matplotlib-26011",
+      "ground_truth_outcome": "failed-irrecoverable",
+      "is_positive": false,
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ],
+      "total_steps": 3,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_mwaskom_seaborn-3190_vanilla_s1_b895e0",
+      "task_id": "mwaskom__seaborn-3190",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_psf_requests-2674_vanilla_s1_943083",
+      "task_id": "psf__requests-2674",
+      "ground_truth_outcome": "successful-wasteful",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 14,
+      "detected": true,
+      "first_detection_step": 10,
+      "first_stalled_step": 10,
+      "detection_delay": 8,
+      "detector_activations": {
+        "repeated_action_result": 1,
+        "normalized_repetition": 0,
+        "repeated_error": 2,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 1,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_pytest-dev_pytest-52_vanilla_s1_daf521",
+      "task_id": "pytest-dev__pytest-5221",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_pytest-dev_pytest-54_vanilla_s1_f25215",
+      "task_id": "pytest-dev__pytest-5495",
+      "ground_truth_outcome": "successful-wasteful",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 14,
+      "detected": true,
+      "first_detection_step": 10,
+      "first_stalled_step": 10,
+      "detection_delay": 8,
+      "detector_activations": {
+        "repeated_action_result": 1,
+        "normalized_repetition": 0,
+        "repeated_error": 2,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 1,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_scikit-learn_scikit-_vanilla_s1_034fbb",
+      "task_id": "scikit-learn__scikit-learn-13439",
+      "ground_truth_outcome": "successful-efficient",
+      "is_positive": false,
+      "failure_modes": [],
+      "total_steps": 5,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_scikit-learn_scikit-_vanilla_s1_5eb731",
+      "task_id": "scikit-learn__scikit-learn-10508",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_scikit-learn_scikit-_vanilla_s1_6d5544",
+      "task_id": "scikit-learn__scikit-learn-14092",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_sphinx-doc_sphinx-87_vanilla_s1_bd0d2a",
+      "task_id": "sphinx-doc__sphinx-8721",
+      "ground_truth_outcome": "successful-wasteful",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 14,
+      "detected": true,
+      "first_detection_step": 10,
+      "first_stalled_step": 10,
+      "detection_delay": 8,
+      "detector_activations": {
+        "repeated_action_result": 1,
+        "normalized_repetition": 0,
+        "repeated_error": 2,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 1,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_sympy_sympy-13043_vanilla_s1_54cfb0",
+      "task_id": "sympy__sympy-13043",
+      "ground_truth_outcome": "failed-irrecoverable",
+      "is_positive": false,
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ],
+      "total_steps": 3,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165051_sympy_sympy-13480_vanilla_s1_acf2eb",
+      "task_id": "sympy__sympy-13480",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165052_pydata_xarray-4094_vanilla_s1_a33caf",
+      "task_id": "pydata__xarray-4094",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165052_pytest-dev_pytest-71_vanilla_s1_fa94a9",
+      "task_id": "pytest-dev__pytest-7168",
+      "ground_truth_outcome": "successful-wasteful",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "exact_repetition",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 14,
+      "detected": true,
+      "first_detection_step": 10,
+      "first_stalled_step": 10,
+      "detection_delay": 8,
+      "detector_activations": {
+        "repeated_action_result": 1,
+        "normalized_repetition": 0,
+        "repeated_error": 2,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 1,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165052_scikit-learn_scikit-_vanilla_s1_62b4aa",
+      "task_id": "scikit-learn__scikit-learn-14894",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165052_sphinx-doc_sphinx-82_vanilla_s1_93d777",
+      "task_id": "sphinx-doc__sphinx-8273",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165052_sympy_sympy-14396_vanilla_s1_3134ec",
+      "task_id": "sympy__sympy-14396",
+      "ground_truth_outcome": "failed-recoverable",
+      "is_positive": true,
+      "failure_modes": [
+        "error_recurrence",
+        "normalized_repetition",
+        "state_stagnation"
+      ],
+      "total_steps": 12,
+      "detected": true,
+      "first_detection_step": 6,
+      "first_stalled_step": 6,
+      "detection_delay": 4,
+      "detector_activations": {
+        "repeated_action_result": 3,
+        "normalized_repetition": 0,
+        "repeated_error": 4,
+        "state_stagnation": 2,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 2,
+      "false_alarms": 0
+    },
+    {
+      "run_id": "run_20260926_165052_sympy_sympy-18057_vanilla_s1_109bc0",
+      "task_id": "sympy__sympy-18057",
+      "ground_truth_outcome": "failed-irrecoverable",
+      "is_positive": false,
+      "failure_modes": [
+        "irrecoverable_reasoning_error"
+      ],
+      "total_steps": 3,
+      "detected": false,
+      "first_detection_step": null,
+      "first_stalled_step": null,
+      "detection_delay": null,
+      "detector_activations": {
+        "repeated_action_result": 0,
+        "normalized_repetition": 0,
+        "repeated_error": 0,
+        "state_stagnation": 0,
+        "state_oscillation": 0,
+        "regression": 0
+      },
+      "interventions_count": 0,
+      "false_alarms": 0
+    }
+  ]
+}

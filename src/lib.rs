@@ -1,7 +1,11 @@
 #![allow(clippy::not_unsafe_ptr_arg_deref)]
 #![allow(clippy::missing_safety_doc)]
 
+pub mod monitor;
+pub mod policy;
 pub mod state;
+pub use monitor::{Decision, Event, Monitor, MonitorConfig};
+pub use policy::{Policy, PolicyConfig};
 
 pub mod canonical;
 pub mod config;

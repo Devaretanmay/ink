@@ -20,7 +20,7 @@ exclude = ["crates/microloop-compress"]
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-regex = { version = "1.12.4", default-features = false }
+regex = { version = "1.12.4", features = ["std", "unicode"] }
 serde = { version = "1.0.228", features = ["derive", "alloc"] }
 serde_json = { version = "1.0.150", default-features = false, features = ["alloc"] }
 serde_yaml = "0.9.34"

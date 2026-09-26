@@ -1,0 +1,109 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MicroloopCanonicalEvent",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "task_id",
+    "step",
+    "timestamp_ms",
+    "action",
+    "observation",
+    "workspace",
+    "metrics"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["0.1", "1.0"]
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique run identifier (ULID or UUID)"
+    },
+    "task_id": {
+      "type": "string",
+      "description": "Benchmark task identifier, e.g. django__django-11099"
+    },
+    "step": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "timestamp_ms": {
+      "type": "integer"
+    },
+    "action": {
+      "type": "object",
+      "required": ["type", "command"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["shell", "read_file", "write_file", "search_files", "submit"]
+        },
+        "command": {
+          "type": "string"
+        },
+        "path": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "observation": {
+      "type": "object",
+      "required": ["exit_code", "duration_ms", "stdout", "stderr"],
+      "properties": {
+        "exit_code": {
+          "type": "integer"
+        },
+        "duration_ms": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stdout": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        },
+        "error_class": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "workspace": {
+      "type": "object",
+      "required": ["git_head", "dirty", "changed_files", "diff_hash"],
+      "properties": {
+        "git_head": {
+          "type": "string"
+        },
+        "dirty": {
+          "type": "boolean"
+        },
+        "changed_files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "diff_hash": {
+          "type": "string"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["tests_passed", "tests_failed"],
+      "properties": {
+        "tests_passed": {
+          "type": ["integer", "null"]
+        },
+        "tests_failed": {
+          "type": ["integer", "null"]
+        },
+        "verification_scope": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}

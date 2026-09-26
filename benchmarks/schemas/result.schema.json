@@ -1,0 +1,99 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MicroloopRunMetadataAndResult",
+  "type": "object",
+  "required": [
+    "experiment",
+    "run_id",
+    "task_id",
+    "condition",
+    "microloop_commit",
+    "harness_commit",
+    "provider",
+    "model",
+    "temperature",
+    "reasoning",
+    "max_steps",
+    "max_tokens",
+    "started_at",
+    "docker_image",
+    "seed"
+  ],
+  "properties": {
+    "experiment": {
+      "type": "string",
+      "example": "experiment-001"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "condition": {
+      "type": "string",
+      "enum": ["vanilla", "retry", "supervisor", "microloop"]
+    },
+    "microloop_commit": {
+      "type": "string"
+    },
+    "harness_commit": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["openai", "anthropic", "litellm", "mock", "offline"]
+    },
+    "model": {
+      "type": "string"
+    },
+    "temperature": {
+      "type": "number"
+    },
+    "reasoning": {
+      "type": "string"
+    },
+    "max_steps": {
+      "type": "integer"
+    },
+    "max_tokens": {
+      "type": "integer"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "ended_at": {
+      "type": ["string", "null"]
+    },
+    "docker_image": {
+      "type": "string"
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "success": {
+      "type": ["boolean", "null"]
+    },
+    "resolved_by_evaluator": {
+      "type": ["boolean", "null"]
+    },
+    "total_steps": {
+      "type": ["integer", "null"]
+    },
+    "total_tool_calls": {
+      "type": ["integer", "null"]
+    },
+    "tokens_prompt": {
+      "type": ["integer", "null"]
+    },
+    "tokens_completion": {
+      "type": ["integer", "null"]
+    },
+    "cost_usd": {
+      "type": ["number", "null"]
+    },
+    "duration_seconds": {
+      "type": ["number", "null"]
+    }
+  }
+}

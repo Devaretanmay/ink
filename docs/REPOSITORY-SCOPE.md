@@ -1,25 +1,26 @@
-# Repository reset for Experiment 001
+# Repository Scope & Boundaries: Version 0.3 / Experiment 001
 
-Baseline: `a9977bde807ac04d6e2e1c3fb370be9285288f75`.
-The removed implementation remains recoverable from Git history.
+## 1. Architectural Scope & Focus
 
-| Component | Decision | Reason |
+Microloop has narrowed its primary engineering focus to **Agent Reliability and Trajectory Validation**.
+
+| Subsystem | Scope Decision | Rationale |
 |---|---|---|
-| Rust call-loop API and C exports | Keep for compatibility | Existing integrations can migrate incrementally |
-| Rust trajectory monitor | Build | New product primitive |
-| Python binding | Keep and extend | First experiment integration |
-| Compression / CCR crate | Retain, exclude from workspace | Useful prior work; not this experiment's treatment |
-| Reverse proxy | Remove | Owns interception and compression beyond current scope |
-| WASM packaging | Remove | Extra platform without a validation user |
-| MCP, LangGraph, LiteLLM adapters/extras | Remove | Premature integration breadth |
-| Compression tool schemas/Python wrappers | Remove | No active consumer after proxy removal |
-| Mock upstream, Ollama scripts, promotional demos | Remove | Do not establish real task completion |
-| Combined compression/loop timing binary | Remove | Not evidence for recovery lift |
-| Landing page, assets, Pages deployment | Remove | Old positioning and unsupported outcome/performance claims |
-| README and contributor instructions | Rewrite | Describe actual support and experimental status |
+| **Rust Trajectory Monitor (`src/monitor.rs`)** | **Core Primitive** | Implements the 8 non-progress detectors and evidence collector in memory-safe, zero-overhead Rust. |
+| **Policy State Machine (`src/policy.rs`)** | **Core Primitive** | Decouples detection from host intervention (Observe, Replan, Stop). |
+| **Python SDK (`python/microloop-python`)** | **Primary SDK** | High-performance PyO3 binding enabling direct integration with Python agent loops (SWE-bench, LangGraph, custom). |
+| **Validation Benchmark Suite (`benchmarks/`)** | **Active Priority** | Complete benchmark harness (SWE-bench Verified, Terminal-Bench, 50 fault scenarios, baseline runners). |
+| **Context Compression / CCR (`crates/microloop-compress`)** | **Retained (Excluded from default build)** | Retained as the underlying engine for long-horizon Checkpoint Compaction in v0.4. Excluded from v0.3 benchmarks to eliminate experimental confounders. |
+| **Legacy `Microloop.verify` API (`src/state.rs`)** | **Deprecated / Maintained for Compatibility** | Simple tool-call repeat counter. Preserved for backward compatibility, but marked as non-progress detector. |
+| **Reverse Proxy (`crates/microloop-proxy`)** | **Pruned** | Premature network infrastructure layer. Proxies obscure trajectory observability and add latency. |
+| **WASM / C++ / Go Bindings** | **Pruned / Deferred** | Removed to focus 100% of engineering bandwidth on Rust engine + Python benchmark harness. |
+| **External Agent Framework Wrappers** | **Pruned / Inverted** | Rather than maintaining 10 brittle wrappers (LangChain, CrewAI, AutoGen), Microloop exposes an adapter-friendly canonical Event API. |
 
-This is a breaking source-tree cleanup on an experimental branch, not a package
-release. Previously published packages are unchanged. The old `Microloop.verify`
-API still counts call repetition without environment evidence; do not use it as
-the new experiment's progress monitor. No migration of deleted proxy settings is
-provided. Legacy compression has no active CI support until deliberately restored.
+---
+
+## 2. Hard Invariants
+
+1. **No External Network Dependencies:** The core monitor compiles without network sockets, telemetry endpoints, or cloud dependencies.
+2. **No Prompts Sent to Cloud:** State fingerprints, errors, and actions are evaluated locally.
+3. **No Uncalibrated Marketing Metrics:** Claims such as "100% deterministic safety", "zero measurable overhead", or "$500 loop of death" are retired. Microloop measures and reports empirical metrics: Autonomous Completion Rate (ACR), Recovery Rate, and Damaging Intervention Rate.
+4. **Deterministic Testing:** All detectors and state transitions must pass deterministic regression suites before being used in benchmark runs.

@@ -1,11 +1,40 @@
-# Microloop Python
+# Microloop Python SDK
 
-Python bindings to the local Rust trajectory engine. This source branch is
-experimental; published packages may not contain the new monitor API.
-See the repository's docs/PRD.md for scope and evidence requirements.
+Python bindings for the Microloop local trajectory engine.
 
-The existing `Microloop(yaml_config).verify(tool_name, arguments_json)` remains
-available for compatibility. It checks call repetition, not task completion.
+```python
+from microloop import Monitor, Policy, Runtime
 
-Build from this repository with maturin. No provider credentials are needed for
-local monitoring or detector tests.
+# High-level usage
+runtime = Runtime(run_id="run_101", replan=True, cooldown_steps=6)
+
+event = {
+    "schema_version": 1,
+    "run_id": "run_101",
+    "step": 1,
+    "action": {"name": "shell", "fingerprint": "pytest_test_auth"},
+    "observation": {
+        "success": False,
+        "fingerprint": "assertion_error_hash",
+        "error_fingerprint": "AssertionError:auth.py:42"
+    },
+    "verification": {
+        "scope": "pytest:auth",
+        "observation_id": "obs_1",
+        "failures": 4
+    }
+}
+
+result = runtime.step(event)
+print(result["decision"]["state"])       # "healthy", "warning", "stalled", "regressing"
+print(result["intervention"]["kind"])    # "observe", "replan", "stop"
+```
+
+### Installation & Building
+
+```sh
+pip install maturin
+maturin develop
+```
+
+No external credentials or network connections required. All trajectory evaluations run locally in Rust via PyO3.

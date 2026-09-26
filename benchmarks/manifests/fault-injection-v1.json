@@ -1,0 +1,117 @@
+{
+  "manifest_version": "1.0.0",
+  "suite": "deterministic-fault-injection",
+  "total_scenarios": 50,
+  "categories": [
+    {
+      "category": "tool_timeout",
+      "count": 5,
+      "scenarios": [
+        {"id": "timeout_01", "name": "long_running_pytest_hang", "trigger_step": 3, "timeout_ms": 5000},
+        {"id": "timeout_02", "name": "git_clone_network_stall", "trigger_step": 2, "timeout_ms": 3000},
+        {"id": "timeout_03", "name": "infinite_subprocess_spawn", "trigger_step": 5, "timeout_ms": 4000},
+        {"id": "timeout_04", "name": "socket_connect_deadlock", "trigger_step": 4, "timeout_ms": 2500},
+        {"id": "timeout_05", "name": "compiler_macro_recursion_hang", "trigger_step": 6, "timeout_ms": 5000}
+      ]
+    },
+    {
+      "category": "duplicate_observation",
+      "count": 5,
+      "scenarios": [
+        {"id": "duplicate_01", "name": "stale_pytest_cache_post_patch", "trigger_step": 4},
+        {"id": "duplicate_02", "name": "compiler_error_replayed_verbatim", "trigger_step": 3},
+        {"id": "duplicate_03", "name": "git_status_stale_index_reflection", "trigger_step": 5},
+        {"id": "duplicate_04", "name": "ls_directory_unchanged_after_touch", "trigger_step": 2},
+        {"id": "duplicate_05", "name": "http_get_stale_etags_cached_body", "trigger_step": 4}
+      ]
+    },
+    {
+      "category": "corrupt_observation",
+      "count": 5,
+      "scenarios": [
+        {"id": "corrupt_01", "name": "zero_exit_code_on_stacktrace", "trigger_step": 3},
+        {"id": "corrupt_02", "name": "nonzero_exit_code_on_valid_output", "trigger_step": 4},
+        {"id": "corrupt_03", "name": "truncated_output_preceding_assertion", "trigger_step": 2},
+        {"id": "corrupt_04", "name": "binary_garbage_interspersed_in_stderr", "trigger_step": 5},
+        {"id": "corrupt_05", "name": "json_truncated_at_buffer_limit", "trigger_step": 3}
+      ]
+    },
+    {
+      "category": "stale_filesystem",
+      "count": 5,
+      "scenarios": [
+        {"id": "stale_fs_01", "name": "file_read_yields_pre_write_content", "trigger_step": 4},
+        {"id": "stale_fs_02", "name": "missing_newly_created_test_file", "trigger_step": 3},
+        {"id": "stale_fs_03", "name": "mtime_preserved_despite_modification", "trigger_step": 5},
+        {"id": "stale_fs_04", "name": "symlink_points_to_unlinked_inode", "trigger_step": 2},
+        {"id": "stale_fs_05", "name": "git_diff_reports_no_changes_post_edit", "trigger_step": 4}
+      ]
+    },
+    {
+      "category": "dependency_failure",
+      "count": 5,
+      "scenarios": [
+        {"id": "dep_01", "name": "pip_install_fails_agent_continues", "trigger_step": 2},
+        {"id": "dep_02", "name": "wheel_compilation_missing_c_header", "trigger_step": 3},
+        {"id": "dep_03", "name": "transitive_dependency_conflict_ignored", "trigger_step": 4},
+        {"id": "dep_04", "name": "virtualenv_path_desync_global_fallback", "trigger_step": 2},
+        {"id": "dep_05", "name": "shared_library_so_missing_on_import", "trigger_step": 5}
+      ]
+    },
+    {
+      "category": "process_restart",
+      "count": 5,
+      "scenarios": [
+        {"id": "restart_01", "name": "sigkill_agent_during_pytest", "trigger_step": 7},
+        {"id": "restart_02", "name": "host_oom_killed_mid_edit", "trigger_step": 10},
+        {"id": "restart_03", "name": "container_eviction_and_relaunch", "trigger_step": 6},
+        {"id": "restart_04", "name": "network_partition_reconnect_fresh_pid", "trigger_step": 8},
+        {"id": "restart_05", "name": "worker_crash_with_git_lockfile_left", "trigger_step": 5}
+      ]
+    },
+    {
+      "category": "exact_loop",
+      "count": 5,
+      "scenarios": [
+        {"id": "exact_loop_01", "name": "identical_pytest_run_x3", "trigger_step": 3},
+        {"id": "exact_loop_02", "name": "repeated_cat_same_file_x4", "trigger_step": 4},
+        {"id": "exact_loop_03", "name": "git_status_polling_loop_x5", "trigger_step": 5},
+        {"id": "exact_loop_04", "name": "repeated_curl_local_endpoint_x3", "trigger_step": 3},
+        {"id": "exact_loop_05", "name": "echo_into_config_repeated_identically", "trigger_step": 4}
+      ]
+    },
+    {
+      "category": "state_oscillation",
+      "count": 5,
+      "scenarios": [
+        {"id": "osc_01", "name": "toggle_auth_token_expiration_ab_cycle", "trigger_step": 6},
+        {"id": "osc_02", "name": "install_and_uninstall_package_x3", "trigger_step": 6},
+        {"id": "osc_03", "name": "toggle_bool_flag_in_settings_py", "trigger_step": 6},
+        {"id": "osc_04", "name": "swap_import_order_back_and_forth", "trigger_step": 6},
+        {"id": "osc_05", "name": "git_stash_pop_and_reapply_loop", "trigger_step": 6}
+      ]
+    },
+    {
+      "category": "semantic_loop",
+      "count": 5,
+      "scenarios": [
+        {"id": "sem_loop_01", "name": "grep_rg_find_seeking_same_missing_symbol", "trigger_step": 5},
+        {"id": "sem_loop_02", "name": "python_eval_bash_which_locating_binary", "trigger_step": 4},
+        {"id": "sem_loop_03", "name": "different_flag_mutations_on_same_failing_script", "trigger_step": 4},
+        {"id": "sem_loop_04", "name": "alternate_test_runner_syntaxes_failing_identically", "trigger_step": 4},
+        {"id": "sem_loop_05", "name": "sed_awk_perl_one_liner_string_replacement_loop", "trigger_step": 5}
+      ]
+    },
+    {
+      "category": "parameter_mutation_loop",
+      "count": 5,
+      "scenarios": [
+        {"id": "param_01", "name": "increasing_timeout_10_20_30_on_deadlock", "trigger_step": 4},
+        {"id": "param_02", "name": "tweaking_max_retries_parameter_without_fixing_root", "trigger_step": 4},
+        {"id": "param_03", "name": "incrementing_port_numbers_on_unconfigured_host", "trigger_step": 5},
+        {"id": "param_04", "name": "adjusting_sleep_interval_1_2_5_on_race_condition", "trigger_step": 4},
+        {"id": "param_05", "name": "tuning_memory_limits_on_logic_infinite_loop", "trigger_step": 4}
+      ]
+    }
+  ]
+}
