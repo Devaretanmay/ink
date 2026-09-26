@@ -4,6 +4,16 @@
 # and is intentionally NOT installable from here — this project only exists to
 # declare the dev/benchmark extras and to configure shared tooling (ruff, pytest).
 
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Tooling-only workspace stub: it ships no importable package. Without this
+# explicit empty list, setuptools auto-discovery treats the Rust `crates/`
+# directory and `target/` as top-level packages and `pip install -e .` fails.
+packages = []
+
 [project]
 name = "microloop-workspace"
 version = "0.3.0"
