@@ -63,6 +63,16 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          # Windows puts venv executables in Scripts/, not bin/. Every step below
+          # runs under bash, so interpreter and console-script paths must be
+          # OS-aware or the Windows job dies with exit 127.
+          - os: ubuntu-latest
+            venv: .wheeltest/bin
+          - os: macos-latest
+            venv: .wheeltest/bin
+          - os: windows-latest
+            venv: .wheeltest/Scripts
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -79,27 +89,28 @@ jobs:
       - name: Install the wheel into a clean environment
         run: |
           python -m venv .wheeltest
-          .wheeltest/bin/python -m pip install --upgrade pip
-          .wheeltest/bin/python -m pip install dist/*.whl
-          .wheeltest/bin/python -m pip install pytest
+          "${{ matrix.venv }}/python" -m pip install --upgrade pip
+          "${{ matrix.venv }}/python" -m pip install dist/*.whl
+          "${{ matrix.venv }}/python" -m pip install pytest
       # Exercise the installed console script, not just `python -m`, so a broken
       # entry point in packaging metadata is caught here rather than by a user.
       - name: Installed console script runs
         run: |
-          .wheeltest/bin/microloop --version
-          .wheeltest/bin/microloop doctor
+          "${{ matrix.venv }}/microloop" --version
+          "${{ matrix.venv }}/microloop" doctor
       - name: Public API imports from the installed package
         run: |
-          .wheeltest/bin/python -c "import microloop; print(microloop.__version__, microloop.__all__)"
+          "${{ matrix.venv }}/python" -c "import microloop; print(microloop.__version__)"
       - name: CLI subcommands run against the installed wheel
         run: |
-          .wheeltest/bin/microloop inspect python/microloop/tests/fixtures/sample_trajectory.jsonl
-          .wheeltest/bin/microloop replay python/microloop/tests/fixtures/sample_trajectory.jsonl --json
+          "${{ matrix.venv }}/microloop" inspect python/microloop/tests/fixtures/sample_trajectory.jsonl
+          "${{ matrix.venv }}/microloop" replay python/microloop/tests/fixtures/sample_trajectory.jsonl --json
       - name: Test suite passes against the installed wheel
         run: |
-          .wheeltest/bin/python -m pytest python/microloop/tests/
+          "${{ matrix.venv }}/python" -m pytest python/microloop/tests/
       - name: The documented example runs
-        run: .wheeltest/bin/python examples/coding-agent/agent.py
+        run: |
+          "${{ matrix.venv }}/python" examples/coding-agent/agent.py
 
   python:
     name: python (${{ matrix.python-version }})
