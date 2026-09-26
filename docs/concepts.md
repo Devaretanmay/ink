@@ -1,60 +1,89 @@
 # Concepts
 
-Microloop has six concepts. Everything else is implementation detail.
+Microloop observes a sequence of agent steps and reduces it to one question: is
+the run still making progress?
 
-## Trajectory
+```text
+Event  ->  Trajectory  ->  Progress state  ->  Decision
+```
 
-The ordered sequence of steps an agent takes: what it did, what it observed,
-and whatever structured context the host attaches. Microloop keeps a bounded
-window of the most recent steps and never stores prompts or source code unless
-the host puts them in an observation.
+Everything else is implementation detail.
 
 ## Event
 
-One step. See the [README](../README.md#how-it-works) for the signal
-conventions (`metadata.success`, `metrics.exit_code`, `metrics.failures`,
-`metadata.verifier`, and so on). Missing signals are treated as unknown.
+One agent step. It carries what the agent did, what it observed, and whatever
+structured context you attach:
+
+```python
+Event(
+    step=12,
+    action="pytest tests/",
+    observation="4 failed, 2 passed",
+    state={"git_head": "1a2b3c4"},        # environment snapshot
+    metrics={"exit_code": 1, "failures": 4},
+    metadata={"verifier": "pytest", "verification_id": "run-12"},
+)
+```
+
+Only `step`, `action` and `observation` are required. The rest is optional, and
+the more you supply the sharper the estimate. See
+[integration](integration.md#4-attach-stronger-signals-when-you-have-them) for the full set of
+conventions.
+
+## Trajectory
+
+The recent sequence of events. Microloop keeps a bounded window of the most
+recent steps and forgets the rest, so memory use is bounded regardless of how
+long a run gets.
+
+It stores what you give it. Microloop does not read your prompts, your source
+files, or anything else you did not put in an event.
 
 ## Progress
 
-`ProgressState` is the public classification:
+Microloop's current view of whether execution is advancing, as one of four
+states:
 
-- `healthy`: progress, or no evidence of non-progress.
-- `warning`: a suspicious signal that does not justify claiming failure.
-- `stalled`: recurring failed actions, recurring errors, or a verified plateau.
-- `regressing`: a verifier got objectively worse than the best prior result.
+| State | |
+|---|---|
+| `healthy` | Progress, or no evidence otherwise. |
+| `warning` | A signal worth noticing that does not yet justify a stronger read. |
+| `stalled` | Recurring failures, recurring errors, or a verification result that has stopped moving. |
+| `regressing` | A verifier got worse than the best result seen so far in the same scope. |
 
-The classification is conservative: without evidence, the state stays `healthy`.
+The classification is conservative. Without evidence, the state stays `healthy`.
 
-## Failure signals
+### Progress signals
 
-Failure signals are internal detectors. They appear in `decision.reasons` for
-debugging but are not the product surface:
+State is derived from four things an agent already produces:
 
-| Reason                     | Meaning                                             |
-|----------------------------|-----------------------------------------------------|
-| `repeated_action_result`   | Same action, observation, outcome and state recurred |
-| `normalized_repetition`    | The above, after masking volatile tokens            |
-| `repeated_error`           | Same error signature across failed steps            |
-| `state_stagnation`         | Fresh verifications report the same failure count   |
-| `state_oscillation`        | Supplied environment state alternates A/B           |
-| `regression`               | Failures increased versus the best prior measurement |
+- **Recurrence.** The same action, observation and environment state repeating,
+  either exactly or after volatile tokens such as paths, hashes, timestamps and
+  PIDs are masked out.
+- **Verification movement.** Whether a verifier's result is improving, flat or
+  worse than its own best, compared within one scope.
+- **Environment state.** Whether supplied state is holding still or oscillating.
+- **Errors.** Whether the same error signature keeps coming back.
+
+Each of these is an internal detector, surfaced in `decision.reasons` for
+debugging. They are not the product surface, and they may change between
+releases. The abstraction that matters is the progress state they add up to.
 
 ## Decision
 
-`Decision` is what `Monitor.observe(...)` returns: `step`, `status`, `reasons`,
-`evidence`, `intervention`, `severity`, `verified_progress` and `feedback`.
+What `Monitor.observe(...)` returns:
 
-`severity` is a categorical ordering for `status`, produced by a fixed lookup:
-`0.0` healthy, `0.4` warning, `0.8` stalled, `0.9` regressing. It is **not** a
-probability and **not** a confidence. It carries no information beyond `status`
-and must not be compared across runs. Branch on `status`.
+```python
+decision.status            # the state
+decision.evidence          # which steps it came from, and why
+decision.reasons           # which detectors fired, for debugging
+decision.intervention      # "observe" | "replan" | "stop"
+decision.verified_progress # a verifier reported an improvement
+decision.feedback          # prompt to inject, set only when recommending action
+```
 
-## Intervention
+`evidence` is the part worth reading. Every entry names the steps behind it, so
+a decision can be traced back to the trajectory that produced it.
 
-`InterventionAction` is what the policy advises: `observe`, `replan` or `stop`.
-The default policy only observes. Automatic `replan` or `stop` requires explicit
-opt-in, a cooldown and a cap.
-
-Microloop returns instructions. The host executes them. Microloop never edits
-files, retries tools, or stops a process on its own.
+Branch on `status`. Do not branch on the numeric `severity` field: it is a fixed
+lookup over `status` and carries no information beyond it.

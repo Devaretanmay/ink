@@ -1,59 +1,42 @@
 # Microloop
 
-### Keep agents making progress.
+### Runtime progress for autonomous agents.
+
+Agents can keep running long after they stop getting anywhere.
+
+Microloop watches an execution trajectory and reduces it to one question: is this
+run still advancing?
+
+```text
+healthy  ->  warning  ->  stalled  ->  regressing
+```
+
+Feed it the actions, observations and state your agent already produces.
+Microloop runs in process and returns the current progress state, the evidence
+behind it, and, if you enable it, a recommendation for what the host should do
+next.
 
 [![CI](https://github.com/Devaretanmay/microloop/actions/workflows/ci.yml/badge.svg)](https://github.com/Devaretanmay/microloop/actions)
 [![PyPI](https://img.shields.io/pypi/v/microloop.svg)](https://pypi.org/project/microloop/)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
-Microloop is a local reliability runtime for autonomous agents. It watches an
-agent's execution trajectory, detects when the agent is looping, stalled,
-regressing, or operating on stale state, and can trigger a configured
-intervention when progress degrades.
-
-Workflow engines keep agents *running*. Observability tools show *what agents
-did*. Permission and policy layers decide *what agents may do*. Microloop
-decides *whether the agent is still making useful progress*.
-
-The runtime is **in-process and makes no network calls**. It sits under any
-harness. It is not an agent framework.
-
----
-
-## Installation
-
-Python 3.10–3.13:
+## Install
 
 ```bash
 pip install microloop
 ```
 
-**Rust:** not published yet. There is no `cargo add microloop-core` line here on
-purpose, because the crate does not exist on crates.io and adding it would fail
-to resolve. Build it from this repository in the meantime:
+Python 3.10 to 3.13. Wheels for Linux, macOS and Windows.
+
+The Rust crate is not on crates.io yet, so there is no `cargo add` line. Build it
+from a checkout with a path dependency:
 
 ```toml
-# Cargo.toml
 [dependencies]
 microloop-core = { path = "../microloop/crates/microloop-core" }
 ```
 
-The release workflow already has a crates.io publish job, disabled until a
-registry token is configured.
-
-Building the Python package from source:
-
-```bash
-git clone https://github.com/Devaretanmay/microloop
-cd microloop
-pip install -e '.[dev]'
-maturin develop --manifest-path python/microloop/Cargo.toml
-```
-
-## Quick start
-
-Pseudocode: `agent` below stands for your own loop. For a complete runnable
-version see [`examples/coding-agent`](examples/coding-agent).
+## Use
 
 ```python
 from microloop import Monitor
@@ -68,106 +51,53 @@ for step in agent.steps():
         metrics={"exit_code": step.exit_code},
     )
 
+    print(decision.status, decision.reasons)
+
     if decision.should_intervene:
         agent.inject(decision.recovery_context)
 ```
 
-You own the agent loop. Microloop classifies and advises; it never calls a model,
-runs a tool, or stops a process.
+`agent` stands for whatever loop you already have. For a runnable version see
+[`examples/coding-agent`](examples/coding-agent).
 
-By default the runtime only observes. Automatic recovery requires an explicit
+## What you get back
+
+Every call returns a `Decision`:
+
+| Field | |
+|---|---|
+| `status` | `healthy`, `warning`, `stalled` or `regressing` |
+| `evidence` | which steps the state came from, and why |
+| `reasons` | which detectors fired, for debugging |
+| `intervention` | `observe`, `replan` or `stop` |
+| `verified_progress` | a verifier reported an improvement |
+| `feedback` | a prompt to inject, set only when recommending action |
+
+Progress state is derived from recurrence between steps, movement in
+verification results, environment state, and repeated errors. The internal
+detectors are an implementation detail; see
+[architecture](docs/architecture.md) if you want them.
+
+By default the runtime only observes. Recommendations require an explicit
 policy:
 
 ```python
 from microloop import InterventionAction, Monitor, Policy
 
-policy = Policy(
+monitor = Monitor(policy=Policy(
     stalled=InterventionAction.Replan,
     regressing=InterventionAction.Stop,
     cooldown_steps=5,
-)
-monitor = Monitor(policy=policy)
+))
 ```
-
-`Monitor.observe(...)` returns a `Decision`. The fields you normally read:
-
-```python
-decision.status            # "healthy" | "warning" | "stalled" | "regressing"
-decision.reasons           # which detectors fired, for debugging
-decision.evidence          # what they saw: the step numbers and a detail string
-decision.intervention      # "observe" | "replan" | "stop"
-decision.severity          # fixed lookup over status, see below
-decision.verified_progress # a verifier reported an improvement
-decision.feedback          # recovery prompt, set only when intervening
-```
-
-A real one, trimmed for width:
-
-```python
-Decision(step=31, status="stalled",
-         reasons=["repeated_action_result", "repeated_error"],
-         evidence=[{"reason": "repeated_action_result", "steps": [29, 30, 31],
-                    "detail": "Same action, observation and supplied state recurred"},
-                   ...],
-         intervention="replan", severity=0.8, verified_progress=False,
-         feedback="MICROLOOP RECOVERY SIGNAL\n...")
-```
-
-`evidence` is where the reasoning lives: every entry names the steps that
-triggered it. `severity` is only a fixed lookup over `status`
-(`0.0`/`0.4`/`0.8`/`0.9`). It is not a probability and not a confidence, so branch
-on `status`.
-
-## What Microloop detects
-
-The public API exposes four progress states:
-
-| Status       | Meaning                                                        |
-|--------------|----------------------------------------------------------------|
-| `healthy`    | Progress, or no evidence of non-progress.                      |
-| `warning`    | Suspicious signal that is not enough to claim failure.         |
-| `stalled`    | Recurring failed actions, errors, or a verified plateau.       |
-| `regressing` | A verifier got objectively worse than the best prior result.   |
-
-Individual detectors (`repeated_action_result`, `normalized_repetition`,
-`repeated_error`, `state_stagnation`, `state_oscillation`, `regression`) are
-internal implementations surfaced in `decision.reasons` for debugging. They are
-not the product surface.
-
-## How it works
-
-```
-EVENT -> TRAJECTORY -> PROGRESS ENGINE -> DECISION -> POLICY -> INTERVENTION
-```
-
-`Monitor.observe(event)` performs detection; the attached `Policy` maps a
-progress state to an intervention (`observe`, `replan`, `stop`). The runtime
-returns instructions only. The host decides whether to act.
-
-Signals are read by convention from each event:
-
-| Key                          | Meaning                              |
-|------------------------------|--------------------------------------|
-| `metadata.success`           | `"false"`/`"0"` marks a failed step  |
-| `metadata.error`             | stable error signature               |
-| `metadata.verifier`          | verifier scope name                  |
-| `metadata.verification_id`   | unique id of one fresh verification  |
-| `metrics.exit_code`          | non-zero marks a failed step         |
-| `metrics.failures`           | verifier failure count               |
-
-Missing signals are treated as unknown. The runtime never invents evidence.
 
 ## CLI
 
 ```bash
-microloop inspect trajectory.jsonl
-microloop replay trajectory.jsonl --json
-microloop monitor trajectory.jsonl --follow
-microloop doctor
+microloop inspect run.jsonl
 ```
 
 ```
-$ microloop inspect python/microloop/tests/fixtures/sample_trajectory.jsonl
 Microloop trajectory analysis (schema 0.3.0)
 Steps          10
 Status         stalled
@@ -177,89 +107,41 @@ Evidence       Same action, observation and supplied state recurred
 Action         observe (default policy: observe only)
 ```
 
-`inspect` reports detection under the default observation-only policy, so what it
-shows is what a default runtime would do. `replay` and `monitor` additionally
-show the intervention a host policy *would* choose, labelled as a
-recommendation. Neither command reproduces the original agent execution: no model
-is called and no tools run. A trajectory whose `schema_version` major version
-does not match the runtime is rejected with a compatibility error.
+`replay`, `monitor` and `doctor` cover offline replay, live inspection and
+runtime checks. See [docs/cli.md](docs/cli.md).
 
-`microloop monitor` prints a live progress view and, with `--follow`, keeps
-reading as a running agent appends steps:
+## How it fits
 
-```
-Microloop
-trajectory run.jsonl (following)
+Microloop is an in-process library. It observes execution and returns progress
+state plus a recommendation. Your agent stays in control: the runtime never calls
+a model, runs a tool, or ends a run on its own, and makes no network requests.
 
-   3  STALLED    repeated_action_result repeated_error
-      Same action, observation and supplied state recurred
-      -> REPLAN (recommended)
+The more signals you attach, the sharper the estimate. A one-line integration
+works; [`docs/integration.md`](docs/integration.md) shows how to add verifier
+scope, failure counts and environment state when you have them.
 
-completed
-Steps             10
-Stalls            3
-Warnings          0
-Regressions       0
-Recommended       3
-Recovered         yes
-```
+## Docs
 
-## Integration
+- [concepts](docs/concepts.md): the mental model
+- [integration](docs/integration.md): wiring it into a host loop
+- [cli](docs/cli.md): command reference
+- [architecture](docs/architecture.md): engine internals
 
-Microloop is a library with no required network calls and no opinions about your
-harness. It sits under any loop that can call `observe(...)` once per step. See
-[`docs/integration.md`](docs/integration.md) for the integration pattern, and
-[`examples/coding-agent`](examples/coding-agent) for a complete offline
-recovery example.
+## Evaluation
 
-## Benchmarks
-
-The evaluation harness in `benchmarks/` is committed and reproducible, but **no
-benchmark result is currently published as verified evidence.** A previous
-100-task SWE-bench Verified run is recorded in
-[`benchmarks/results/published/`](benchmarks/results/published/), however its raw
-run bundles are git-ignored and predate the provenance field, so the report
-generator now rejects them. The figures in that file are a historical record,
-not a claim this repository can currently substantiate.
-
-We would rather say that than publish a number nobody can regenerate.
-
-To reproduce a result, run the harness yourself. It requires provider
-credentials, Docker and `mini-swe-agent`:
-
-```bash
-pip install -e '.[benchmarks]'
-python -m benchmarks.runner.experiment --manifest validation-final-v1 \
-    --provider openai --model gpt-6-astra
-python -m benchmarks.analysis.report --results benchmarks/results/raw \
-    --manifest validation-final-v1
-```
-
-Every run bundle declares `run_mode` (`real` or `simulated`). Simulated runs are
-written to a separate directory and the report generator rejects them unless you
-pass `--allow-simulated`, which stamps the output `SIMULATED - NOT EVIDENCE`.
-[Methodology →](benchmarks/README.md)
-
-## Architecture
-
-- [`docs/concepts.md`](docs/concepts.md): trajectory, progress, decisions, interventions
-- [`docs/integration.md`](docs/integration.md): integrating Microloop
-- [`docs/architecture.md`](docs/architecture.md): engine internals, normalization, bindings
+The reproducible evaluation harness lives in [`benchmarks/`](benchmarks/).
+Published results will only include runs carrying real-provider provenance.
 
 ## Development
 
 ```bash
 pip install -e '.[dev]'
-make check   # fmt, clippy, ruff, cargo test, pytest, the example, and a wheel build
-make test    # cargo test + pytest
-make build   # release build
+make check
 ```
 
-`make check` mirrors the release workflow's verify job, which runs the same
-steps and then installs the built wheel before anything is published. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
+Dual licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
 option.

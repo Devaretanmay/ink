@@ -2,24 +2,33 @@
 
 ```
 microloop-core (Rust)
-├── config.rs         MonitorConfig: detection bounds and their validation
 ├── event.rs          canonical Event, ProgressState, Reason, Evidence
 ├── canonical.rs      volatile-token masking + error signatures
 ├── history.rs        bounded window of derived Record signals
-├── detectors/        pure detector functions
-│   ├── repetition.rs   exact + normalized recurrence
-│   ├── error.rs        recurrent error signatures
-│   ├── stagnation.rs   verified plateau
+├── detectors/        pure functions over the window
+│   ├── repetition.rs   recurrence, exact and normalized
+│   ├── error.rs        repeated error signatures
+│   ├── stagnation.rs   verification results that stopped moving
 │   ├── oscillation.rs  A/B environment state cycles
 │   └── verification.rs verifier progress/regression comparison
-├── engine.rs         ProgressEngine: validation + detector synthesis
-├── policy.rs         Policy: state -> intervention state machine
-└── monitor.rs        Monitor: facade returning Decision
+├── engine.rs         ProgressEngine: features -> progress state
+├── policy.rs         Policy: progress state -> recommendation
+├── monitor.rs        Monitor: facade returning Decision
+└── config.rs         MonitorConfig: detection bounds and their validation
 ```
 
 The Python package `python/microloop` wraps the core through a thin PyO3 layer
 (`python/microloop/src/lib.rs`) that marshals events and decisions as JSON. No
 detection or policy logic lives in the bindings.
+
+## Pipeline
+
+```text
+events
+  -> trajectory features
+  -> progress state
+  -> recommendation
+```
 
 ## Data flow
 
@@ -34,7 +43,8 @@ detection or policy logic lives in the bindings.
 4. `ProgressState` is synthesized: `regressing` dominates, then `stalled`, then
    `warning`, defaulting to `healthy`.
 5. `Policy::evaluate` maps the state to an `InterventionAction`, applying the
-   cooldown and cap. `Monitor` attaches the recovery feedback.
+   cooldown and cap. `Monitor` attaches the feedback text. Detectors have no say
+   in this step, and the policy never sees them.
 6. The `Decision` is returned. The runtime performs no I/O and executes nothing.
 
 ## Normalization

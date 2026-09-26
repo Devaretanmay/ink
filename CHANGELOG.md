@@ -67,6 +67,24 @@ runtime rather than a benchmark harness.
   host-owned loop over `Monitor` is the supported integration. See
   `docs/integration.md`.
 
+## Unreleased (targeting 0.4.0)
+
+Vocabulary only. No behaviour change is planned, and no public identifier is
+being renamed in 0.3.
+
+- `ProgressState.healthy` and `ProgressState.warning` are likely to become
+  `progressing` and `uncertain`. Both current names are monitoring vocabulary;
+  the replacements describe trajectory dynamics instead. `healthy` in
+  particular implies a health check rather than observed forward movement.
+  `ProgressState` is part of the public API, so this will be a breaking change
+  when it lands.
+- `Decision.severity` is soft-deprecated. It is a fixed lookup over `status`
+  and carries no information beyond it. It stays in 0.3 for compatibility and
+  will be removed in 0.4.
+- Documentation reframed around progress and recommendation rather than
+  detection and intervention. The detectors, the policy and the API surface are
+  unchanged.
+
 ## [0.2.0] (2026-07-01)
 
 - Experimental trajectory monitoring and policy engine.

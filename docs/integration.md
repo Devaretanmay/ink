@@ -1,8 +1,10 @@
 # Integration
 
-Microloop is a library. You call it from your agent loop; it never calls you.
+Four steps. The first is enough to get value; the rest make it sharper.
 
-## Minimal integration
+## 1. Send steps
+
+Call `observe` once per step, with whatever the step gives you.
 
 ```python
 from microloop import Monitor
@@ -13,118 +15,107 @@ for step in agent.steps():
     decision = monitor.observe(
         action=step.action,
         observation=step.result,
-        state=step.state,
-        metrics={"exit_code": step.exit_code},
     )
-
-    if decision.should_intervene:
-        agent.inject(decision.recovery_context)
 ```
 
-The default policy is observation-only, so this is safe to ship before you
-trust any automatic intervention.
+Nothing else is required. A monitor with no configuration only observes.
 
-## Driving the loop
+## 2. Read progress
 
-Microloop does not own your agent loop, so you keep control of termination and of
-what "recovered" means for your run. A complete host loop looks like this:
+```python
+print(decision.status)     # healthy | warning | stalled | regressing
+print(decision.evidence)    # which steps, and why
+```
+
+`status` is the signal. `evidence` explains it: each entry names the steps that
+contributed, so you can log or surface a trace of how a run got where it is.
+
+## 3. Act on recommendations, if you want to
+
+The default monitor is read-only. Enable recommendations explicitly when you want
+the host agent to act on them:
 
 ```python
 from microloop import InterventionAction, Monitor, Policy
 
-monitor = Monitor(policy=Policy(stalled=InterventionAction.Replan))
-interventions = []
-stopped = False
+monitor = Monitor(policy=Policy(
+    stalled=InterventionAction.Replan,
+    regressing=InterventionAction.Stop,
+))
+```
+
+When a recommendation is not `observe`, `decision.feedback` holds a prompt you
+can inject into the agent's context. It lists the evidence and asks the agent to
+re-evaluate.
+
+You keep control of termination. Nothing ends a run unless your code does:
+
+```python
+if decision.intervention == InterventionAction.Stop:
+    break
+```
+
+## 4. Attach stronger signals when you have them
+
+Progress state is only as sharp as the signals behind it. All optional.
+
+| Key | |
+|---|---|
+| `metrics.exit_code` | marks a failed step |
+| `metadata.error` | a stable error signature, so repeated errors are recognised as one error |
+| `metadata.verifier` | scope name, e.g. `"pytest:auth"`, so results are only compared within one scope |
+| `metadata.verification_id` | unique per run of that verifier, so a cached result is not mistaken for a fresh one |
+| `metrics.failures` | failure count, which is what makes plateau and regression detection possible |
+| `state` | environment snapshot (git head, file hashes), which enables holding-still and oscillation detection |
+
+```python
+decision = monitor.observe(
+    action="pytest tests/ -x",
+    observation=output,
+    state={"git_head": head},
+    metrics={"exit_code": 1, "failures": 4},
+    metadata={
+        "verifier": "pytest",
+        "verification_id": f"run-{n}",
+        "error": "AssertionError: test_admin.py:42",
+    },
+)
+```
+
+Two conventions worth knowing. A `verification_id` must identify one *fresh*
+run: reusing an id marks the sample as cached, and cached samples do not count
+toward a plateau. And signals Microloop does not recognise are treated as
+unknown, never as evidence of anything.
+
+## Advanced configuration
+
+A `Policy` bounds how often the host can be steered:
+
+| Option | Default | |
+|---|---|---|
+| `cooldown_steps` | `5` | minimum steps between recommendations |
+| `max_interventions` | `2` | cap per run |
+| `stop_at_step` | `None` | hard step budget, always yields `stop` |
+| `healthy` / `warning` / `stalled` / `regressing` | `observe` | per-state recommendation |
+
+`Monitor(...)` tunes the estimate itself: `window` (32), `repetitions` (3),
+`stagnation_steps` (8), `verification_samples` (3), `normalization` (`True`).
+
+## Host bookkeeping
+
+Tracking recovery is ordinary host code, and you decide what it means for your
+run:
+
+```python
 seen_issue = False
-recovered = False
-
 for step in agent.steps():
-    decision = monitor.observe(
-        action=step.action,
-        observation=step.result,
-        metrics={"exit_code": step.exit_code},
-    )
-
+    decision = monitor.observe(action=step.action, observation=step.result)
     if decision.status != "healthy":
         seen_issue = True
     elif seen_issue:
-        recovered = True
-
-    if not decision.should_intervene:
-        continue
-
-    interventions.append((decision.step, decision.intervention))
-    if decision.intervention == InterventionAction.Stop:
-        stopped = True
-        break
-    agent.inject(decision.recovery_context)
-
-print(interventions, stopped, recovered)
+        print("recovered")
+        seen_issue = False
 ```
-
-Everything above is ordinary host code: Microloop classifies and advises, and you
-decide what to do about it.
-
-## Live monitoring
-
-Point `monitor` at a trajectory JSONL an agent is writing and follow it:
-
-```bash
-microloop monitor run.jsonl --follow
-```
-
-It prints each step's progress state, evidence, and any intervention, then a
-run summary.
-
-## Opting into recovery
-
-```python
-from microloop import InterventionAction, Monitor, Policy
-
-policy = Policy(
-    warning=InterventionAction.Observe,
-    stalled=InterventionAction.Replan,
-    regressing=InterventionAction.Stop,
-    cooldown_steps=5,
-    max_interventions=2,
-)
-monitor = Monitor(policy=policy)
-```
-
-- `cooldown_steps` is the minimum number of steps between interventions.
-- `max_interventions` caps how many times a run can be steered.
-- `stop_at_step` is a hard step budget that always yields `stop`.
-
-## Providing good signals
-
-Detection quality depends on the signals you attach. Prefer:
-
-- `metrics.exit_code` for shell/tool steps.
-- `metadata.error` with a stable error signature (strip volatile noise yourself
-  if you already have a canonical location).
-- `metadata.verifier` + `metadata.verification_id` + `metrics.failures` for
-  test/verify steps. A `verification_id` must identify one *fresh* run; reusing
-  an id marks the sample as cached and it will not count toward stagnation.
-- `state` for an environment snapshot (git head, file hashes) to enable
-  stagnation and oscillation detection.
-
-## Reading decisions
-
-```python
-decision.status      # "healthy" | "warning" | "stalled" | "regressing"
-decision.reasons     # internal detector names, for debugging
-decision.intervention# "observe" | "replan" | "stop"
-decision.feedback    # recovery prompt when intervening
-```
-
-When `decision.intervention` is not `observe`, `decision.feedback` contains a
-formatted recovery signal you can inject directly into the agent context.
-
-## Handling `replan` and `stop`
-
-- `replan`: inject `decision.recovery_context` and let the agent change
-  strategy. Do not re-run the same failing action unless new evidence exists.
-- `stop`: end the run or escalate to a human. Microloop never stops a process.
 
 ## Rust
 
@@ -136,38 +127,19 @@ for step in agent_steps {
     let mut event = Event::new(step.step, step.action, step.result);
     event.metrics = Some([("exit_code".to_string(), step.exit_code)].into_iter().collect());
     let decision = monitor.observe(event)?;
-    if decision.intervention != InterventionAction::Observe {
+    if decision.intervention != InterventionAction.Observe {
         // steer the agent
     }
 }
 ```
 
-## Offline analysis
+## Offline
 
-Record a trajectory as schema `0.3.0` JSONL and analyze it without rerunning the
-agent:
-
-```bash
-microloop inspect run.jsonl
-microloop replay run.jsonl --json
-```
-
-`inspect` reports detection only, so it reflects the runtime's default
-observation-only policy. `replay` re-runs the *recorded events* through the
-current engine and additionally shows the intervention a host policy would
-choose. Neither one reproduces the original agent execution: no model is called
-and no tools run.
+Record a trajectory as schema `0.3.0` JSONL and analyze it later, without
+rerunning the agent. See [cli](cli.md).
 
 A trajectory whose `schema_version` major version differs from the runtime's is
-rejected with a compatibility error rather than analyzed on a guess. Re-record
-the trajectory, or upgrade Microloop.
-
-Scope: this check happens in the CLI, when a file is read. `schema_version` is
-not a field of the runtime `Event` and is not validated by `Monitor.observe()`,
-so a trajectory you build yourself is your responsibility to keep compatible.
-The runtime is version-agnostic by design and will happily consume a payload
-whose fields have changed meaning; the guard exists to catch that at the file
-boundary, not inside the library.
-
-`Event` also ignores unknown keys rather than rejecting them, so extra fields in
-a trajectory record are dropped silently.
+rejected with a compatibility error rather than analyzed on a guess. That check
+happens in the CLI, when a file is read: `schema_version` is not a field of the
+runtime `Event`, and `Monitor.observe()` is version-agnostic by design. A
+trajectory you build yourself is yours to keep compatible.
