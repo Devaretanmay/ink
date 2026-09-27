@@ -13,6 +13,8 @@ pub(crate) struct Outcome {
     pub(crate) reasons: Vec<Reason>,
     pub(crate) evidence: Vec<Evidence>,
     pub(crate) verified_progress: bool,
+    /// Change in verifier failure count against the best previous fresh sample.
+    pub(crate) verification_delta: Option<i64>,
 }
 
 /// Deterministic progress runtime. Holds the bounded trajectory history and the
@@ -48,6 +50,7 @@ impl ProgressEngine {
         let mut reasons: Vec<Reason> = Vec::new();
         let mut status = ProgressState::Healthy;
         let mut verified_progress = false;
+        let mut verification_delta: Option<i64> = None;
 
         // Verifier handling: scope switches reset history; only fresh samples
         // count; a lower failure count is verified progress.
@@ -75,6 +78,9 @@ impl ProgressEngine {
                     .filter_map(|previous| previous.failures.map(|f| (previous.step, f)))
                     .collect();
                 let (progress, regression) = verification::compare(&previous, failures);
+                if let Some(best) = previous.iter().map(|(_, failures)| *failures).min() {
+                    verification_delta = Some(failures as i64 - best as i64);
+                }
                 if progress {
                     verified_progress = true;
                 }
@@ -151,6 +157,7 @@ impl ProgressEngine {
             reasons,
             evidence,
             verified_progress,
+            verification_delta,
         })
     }
 

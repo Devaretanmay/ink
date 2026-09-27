@@ -1,12 +1,21 @@
-//! Orchestration facade: runs detection, then applies the policy.
+//! Orchestration facade: runs detection, then derives a runtime recommendation.
+
+use std::collections::BTreeSet;
 
 use crate::config::MonitorConfig;
 use crate::engine::{Outcome, ProgressEngine};
 use crate::event::{Event, Evidence, ProgressState, Reason};
 use crate::policy::{InterventionAction, Policy, PolicyConfig};
+use crate::runtime::action::RuntimeAction;
+use crate::runtime::capabilities::Capabilities;
+use crate::runtime::controller::{ControllerConfig, RuntimeController};
+use crate::runtime::decision::{ProgressSnapshot, RuntimeDecision};
+use crate::runtime::state::{Budget, RuntimeState};
 use serde::{Deserialize, Serialize};
 
-/// The primary developer API surface: status, reasons and intervention.
+/// The primary developer API surface: progress, runtime conditions and the
+/// runtime recommendation, with the legacy status/intervention fields kept in
+/// sync for compatibility.
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct Decision {
     pub step: u64,
@@ -26,16 +35,30 @@ pub struct Decision {
     /// Recovery context to inject when the intervention is not `Observe`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feedback: Option<String>,
+    /// A clean read of progress for this step. The forward-facing progress API.
+    #[serde(default)]
+    pub progress: ProgressSnapshot,
+    /// The runtime conditions reported with this step, or empty when the host
+    /// supplied none.
+    #[serde(default)]
+    pub runtime: RuntimeState,
+    /// What the runtime controller recommends. `action` mirrors `intervention`
+    /// for the three actions enabled in this pass.
+    #[serde(default)]
+    pub recommendation: RuntimeDecision,
 }
 
 /// Observes events and reports decisions.
 ///
-/// With [`Monitor::new`] the attached policy is observation-only, so
+/// With [`Monitor::new`] the attached controller is observation-only, so
+/// [`Decision::recommendation`] is always `continue` and
 /// [`Decision::intervention`] is always [`InterventionAction::Observe`]. Build a
 /// [`Policy`] with explicit [`PolicyConfig`] to opt in to `Replan` or `Stop`.
 pub struct Monitor {
     engine: ProgressEngine,
-    policy: Policy,
+    controller: RuntimeController,
+    last_status: Option<ProgressState>,
+    since_step: u64,
 }
 
 impl Default for Monitor {
@@ -45,7 +68,7 @@ impl Default for Monitor {
 }
 
 impl Monitor {
-    /// Monitor with default config and observation-only policy.
+    /// Monitor with default config and observation-only controller.
     pub fn new() -> Self {
         Self::with_config(MonitorConfig::default()).expect("default monitor config is valid")
     }
@@ -55,12 +78,15 @@ impl Monitor {
         Self::with_policy(config, Policy::default())
     }
 
-    /// Monitor with explicit detection config and policy.
+    /// Monitor with explicit detection config and policy, default capabilities
+    /// and no budget.
     pub fn with_policy(config: MonitorConfig, policy: Policy) -> Result<Self, String> {
-        Ok(Self {
-            engine: ProgressEngine::new(config)?,
-            policy,
-        })
+        Self::from_controller_config(
+            config,
+            ControllerConfig::from(policy.config().clone()),
+            Capabilities::default(),
+            Budget::default(),
+        )
     }
 
     /// Convenience constructor from a policy config.
@@ -68,17 +94,91 @@ impl Monitor {
         Self::with_policy(config, Policy::new(policy)?)
     }
 
+    /// Monitor with explicit policy, adapter capabilities and budget.
+    pub fn with_runtime(
+        config: MonitorConfig,
+        policy: Policy,
+        capabilities: Capabilities,
+        budget: Budget,
+    ) -> Result<Self, String> {
+        Self::from_controller_config(
+            config,
+            ControllerConfig::from(policy.config().clone()),
+            capabilities,
+            budget,
+        )
+    }
+
+    /// Convenience constructor from a policy config, capabilities and budget.
+    pub fn from_runtime_config(
+        config: MonitorConfig,
+        policy: PolicyConfig,
+        capabilities: Capabilities,
+        budget: Budget,
+    ) -> Result<Self, String> {
+        Self::with_runtime(config, Policy::new(policy)?, capabilities, budget)
+    }
+
+    /// Monitor from an explicit controller configuration, capabilities and
+    /// budget. This is the constructor the Python bindings use.
+    pub fn from_controller_config(
+        config: MonitorConfig,
+        controller_config: ControllerConfig,
+        capabilities: Capabilities,
+        budget: Budget,
+    ) -> Result<Self, String> {
+        Ok(Self {
+            engine: ProgressEngine::new(config)?,
+            controller: RuntimeController::with_config(controller_config, capabilities, budget)?,
+            last_status: None,
+            since_step: 0,
+        })
+    }
+
     pub fn config(&self) -> &MonitorConfig {
         self.engine.config()
     }
 
-    /// Observe a step and return the decision for it.
-    pub fn observe(&mut self, event: Event) -> Result<Decision, String> {
-        let outcome = self.engine.observe(event)?;
-        Ok(self.decide(outcome))
+    /// The controller currently attached, for introspection.
+    pub fn controller(&self) -> &RuntimeController {
+        &self.controller
     }
 
-    fn decide(&mut self, outcome: Outcome) -> Decision {
+    /// Observe a step and return the decision for it.
+    pub fn observe(&mut self, event: Event) -> Result<Decision, String> {
+        self.observe_with_available(event, None)
+    }
+
+    /// Observe a step, telling the controller which actuator actions the adapter
+    /// can perform right now. Availability gates actuators only.
+    pub fn observe_with_available(
+        &mut self,
+        event: Event,
+        available: Option<Vec<RuntimeAction>>,
+    ) -> Result<Decision, String> {
+        let runtime = event.runtime.clone().unwrap_or_default();
+        let outcome = self.engine.observe(event)?;
+        Ok(self.decide(outcome, runtime, available))
+    }
+
+    fn decide(
+        &mut self,
+        outcome: Outcome,
+        mut runtime: RuntimeState,
+        available: Option<Vec<RuntimeAction>>,
+    ) -> Decision {
+        if self.last_status != Some(outcome.status) {
+            self.last_status = Some(outcome.status);
+            self.since_step = outcome.step;
+        }
+        runtime.fill_budget(self.controller.budget());
+        let progress = ProgressSnapshot {
+            state: outcome.status,
+            signals: outcome.reasons.clone(),
+            step: outcome.step,
+            since_step: self.since_step,
+            verification_delta: outcome.verification_delta,
+        };
         let mut decision = Decision {
             step: outcome.step,
             status: outcome.status,
@@ -88,12 +188,24 @@ impl Monitor {
             severity: severity(outcome.status),
             verified_progress: outcome.verified_progress,
             feedback: None,
+            progress,
+            runtime: runtime.clone(),
+            recommendation: RuntimeDecision::default(),
         };
-        let action = self.policy.evaluate(&decision);
-        decision.intervention = action;
-        if action != InterventionAction::Observe {
+        let available: Option<BTreeSet<RuntimeAction>> =
+            available.map(|actions| actions.into_iter().collect());
+        let recommendation =
+            self.controller
+                .decide_with_available(&decision, &runtime, available.as_ref());
+        decision.intervention = match recommendation.action {
+            RuntimeAction::Replan => InterventionAction::Replan,
+            RuntimeAction::Stop => InterventionAction::Stop,
+            _ => InterventionAction::Observe,
+        };
+        if decision.intervention != InterventionAction::Observe {
             decision.feedback = Some(recovery_context(&decision));
         }
+        decision.recommendation = recommendation;
         decision
     }
 }

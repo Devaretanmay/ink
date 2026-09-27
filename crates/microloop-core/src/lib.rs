@@ -42,8 +42,14 @@ mod event;
 mod history;
 mod monitor;
 mod policy;
+mod runtime;
 
 pub use config::MonitorConfig;
 pub use event::{Event, Evidence, MetricMap, ProgressState, Reason, StringMap};
 pub use monitor::{Decision, Monitor};
 pub use policy::{InterventionAction, Policy, PolicyConfig};
+pub use runtime::{
+    ActionOutcome, ActionScore, Budget, Capabilities, CapabilityLevel, ControllerConfig,
+    ControllerTrace, ProgressSnapshot, RecommendationReason, RuntimeAction, RuntimeController,
+    RuntimeDecision, RuntimeState, ScoringConfig, Strategy, Usage,
+};

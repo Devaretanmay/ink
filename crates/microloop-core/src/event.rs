@@ -5,6 +5,8 @@
 //! in [`crate::config::MonitorConfig`]; this module describes runtime events
 //! only.
 
+use crate::runtime::capabilities::CapabilityLevel;
+use crate::runtime::state::RuntimeState;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -45,6 +47,10 @@ pub struct Event {
     /// String attributes for this step.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<StringMap>,
+    /// Optional runtime snapshot: model, context, tokens, cost. Absent for
+    /// integrations that expose only actions and observations.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<RuntimeState>,
 }
 
 impl Event {
@@ -57,12 +63,26 @@ impl Event {
             ..Default::default()
         }
     }
+
+    /// How much runtime data this step exposes. `Runtime` when a runtime
+    /// snapshot is attached, `Progress` when state, metrics or metadata are, and
+    /// `Signals` when only action and observation are.
+    pub fn capability_level(&self) -> CapabilityLevel {
+        if self.runtime.is_some() {
+            CapabilityLevel::Runtime
+        } else if self.state.is_some() || self.metrics.is_some() || self.metadata.is_some() {
+            CapabilityLevel::Progress
+        } else {
+            CapabilityLevel::Signals
+        }
+    }
 }
 
 /// Public progress classification returned by the runtime.
-#[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ProgressState {
+    #[default]
     Healthy,
     Warning,
     Stalled,
@@ -77,6 +97,17 @@ impl ProgressState {
             ProgressState::Warning => "warning",
             ProgressState::Stalled => "stalled",
             ProgressState::Regressing => "regressing",
+        }
+    }
+
+    /// Categorical ordering, lower is better. Used to judge whether an
+    /// adaptation improved progress, not as a probability.
+    pub fn rank(self) -> u8 {
+        match self {
+            ProgressState::Healthy => 0,
+            ProgressState::Warning => 1,
+            ProgressState::Stalled => 2,
+            ProgressState::Regressing => 3,
         }
     }
 }
@@ -112,5 +143,16 @@ mod tests {
         assert!(event.state.is_none());
         assert!(event.metrics.is_none());
         assert!(event.metadata.is_none());
+        assert!(event.runtime.is_none());
+        assert_eq!(event.capability_level(), CapabilityLevel::Signals);
+    }
+
+    #[test]
+    fn capability_level_tracks_exposed_signals() {
+        let mut event = Event::new(1, "shell", "out");
+        event.state = Some(StringMap::new());
+        assert_eq!(event.capability_level(), CapabilityLevel::Progress);
+        event.runtime = Some(RuntimeState::default());
+        assert_eq!(event.capability_level(), CapabilityLevel::Runtime);
     }
 }
