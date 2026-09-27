@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -43,6 +44,92 @@ def test_inspect_reports_detection_without_an_intervention_policy(capsys) -> Non
     output = capsys.readouterr().out
     assert "replan" not in output.lower()
     assert "observe" in output
+
+
+def _fields(output: str) -> dict[str, str]:
+    """Parse the fixed-width `label   value` block `inspect` prints."""
+    return {
+        match.group(1).strip(): match.group(2).strip()
+        for match in re.finditer(r"^(\w[\w ]*?)\s{2,}(.*)$", output, re.M)
+    }
+
+
+def test_inspect_reports_the_worst_step_not_the_last(tmp_path, capsys) -> None:
+    """A run that loops and then recovers must not summarise as healthy.
+
+    Reporting only the final step made a recovered loop print
+    "healthy / none / none" while also naming the step it had detected a
+    problem on.
+    """
+    repeat = {"action": "run tests", "observation": "alpha", "metrics": {"exit_code": 0}}
+    path = _trajectory(
+        tmp_path,
+        {**repeat, "step": 1},
+        {**repeat, "step": 2},
+        {**repeat, "step": 3},
+        {"step": 4, "action": "edit file", "observation": "patched", "metrics": {"exit_code": 0}},
+    )
+    assert main(["inspect", str(path)]) == 0
+    fields = _fields(capsys.readouterr().out)
+    assert fields["Status"] == "warning (worst observed)"
+    assert fields["Worst at"] == "step 3"
+    assert fields["Reasons"] == "repeated_action_result"
+    assert fields["Recovered"] == "yes, healthy from step 4"
+
+
+def test_inspect_reports_not_recovered_when_the_run_ends_unhealthy(tmp_path, capsys) -> None:
+    repeat = {"action": "run tests", "observation": "alpha", "metrics": {"exit_code": 0}}
+    path = _trajectory(
+        tmp_path,
+        {**repeat, "step": 1},
+        {**repeat, "step": 2},
+        {**repeat, "step": 3},
+        {**repeat, "step": 4},
+    )
+    assert main(["inspect", str(path)]) == 0
+    assert _fields(capsys.readouterr().out)["Recovered"] == "no"
+
+
+def test_inspect_on_a_clean_run_reports_no_problem(tmp_path, capsys) -> None:
+    path = _trajectory(tmp_path, _step(step=1))
+    assert main(["inspect", str(path)]) == 0
+    fields = _fields(capsys.readouterr().out)
+    assert fields["Status"] == "healthy (worst observed)"
+    assert fields["Worst at"] == "n/a"
+    assert fields["Recovered"] == "n/a"
+
+
+def test_inspect_reports_a_regression_that_later_recovers(tmp_path, capsys) -> None:
+    def verified(step: int, failures: int) -> dict:
+        return _step(
+            step=step,
+            action="pytest",
+            observation=f"{failures} failed",
+            metrics={"exit_code": 1, "failures": failures},
+            metadata={"verifier": "pytest", "verification_id": f"r{step}"},
+        )
+
+    path = _trajectory(
+        tmp_path,
+        _step(step=1, metrics={"exit_code": 0}),
+        verified(2, 3),
+        verified(3, 1),
+        verified(4, 1),
+        verified(5, 4),
+        _step(
+            step=6,
+            action="pytest",
+            observation="0 failed",
+            metrics={"exit_code": 0, "failures": 0},
+            metadata={"verifier": "pytest", "verification_id": "r6"},
+        ),
+    )
+    assert main(["inspect", str(path)]) == 0
+    fields = _fields(capsys.readouterr().out)
+    assert fields["Status"] == "regressing (worst observed)"
+    assert fields["Worst at"] == "step 5"
+    assert fields["Reasons"] == "regression"
+    assert fields["Recovered"] == "yes, healthy from step 6"
 
 
 def test_monitor_prints_summary(capsys) -> None:

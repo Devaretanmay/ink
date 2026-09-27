@@ -149,29 +149,55 @@ def commands() -> dict[str, Any]:
     }
 
 
+#: Progress states ordered by how much attention they warrant, least first.
+_STATE_RANK = {
+    ProgressState.Healthy: 0,
+    ProgressState.Warning: 1,
+    ProgressState.Stalled: 2,
+    ProgressState.Regressing: 3,
+}
+
+
 def _inspect(args: argparse.Namespace) -> int:
     schema, records = _read_trajectory(args.trajectory)
     # Detection only: `inspect` reports what the detectors found, so it runs the
     # default observation-only policy and never shows a host's replan/stop choice.
     monitor = _observing()
-    first_detected: int | None = None
-    last = None
+    # Report the worst moment in the run, not the final step. A run that loops and
+    # then recovers ends healthy, and summarising on the last step would report
+    # "healthy / none / none" for a run that demonstrably looped.
+    worst = None
+    worst_rank = -1
+    last_unhealthy: int | None = None
     for index, record in enumerate(records, start=1):
         decision = monitor.observe_event(_event_from_record(record, index))
-        if decision.status != ProgressState.Healthy and first_detected is None:
-            first_detected = decision.step
-        last = decision
-    assert last is not None
+        if decision.status != ProgressState.Healthy:
+            last_unhealthy = decision.step
+        rank = _STATE_RANK[decision.status]
+        if rank > worst_rank:
+            worst, worst_rank = decision, rank
+    assert worst is not None
 
-    reasons = ", ".join(last.reasons) if last.reasons else "none"
-    evidence = last.evidence[0]["detail"] if last.evidence else "none"
+    if worst.status == ProgressState.Healthy:
+        recovered = "n/a"
+    elif last_unhealthy is not None and last_unhealthy < len(records):
+        recovered = f"yes, healthy from step {last_unhealthy + 1}"
+    else:
+        recovered = "no"
+
+    reasons = ", ".join(worst.reasons) if worst.reasons else "none"
+    evidence = worst.evidence[0]["detail"] if worst.evidence else "none"
     print(f"Microloop trajectory analysis (schema {schema})")
     print(f"{'Steps':<15}{len(records)}")
-    print(f"{'Status':<15}{last.status}")
-    print(f"{'Detected at':<15}{'step ' + str(first_detected) if first_detected else 'none'}")
+    print(f"{'Status':<15}{worst.status} (worst observed)")
+    print(
+        f"{'Worst at':<15}"
+        f"{'step ' + str(worst.step) if worst.status != ProgressState.Healthy else 'n/a'}"
+    )
     print(f"{'Reasons':<15}{reasons}")
     print(f"{'Evidence':<15}{evidence}")
-    print(f"{'Action':<15}{last.intervention} (default policy: observe only)")
+    print(f"{'Recovered':<15}{recovered}")
+    print(f"{'Action':<15}{worst.intervention} (default policy: observe only)")
     return 0
 
 

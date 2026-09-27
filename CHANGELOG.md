@@ -92,6 +92,10 @@ being renamed in 0.3.
   line separating Microloop from the agent it observes.
 - Doc titles are now verb phrases naming what the reader gets, and llms.txt is a
   machine-readable index of the documentation.
+- Fixed `microloop inspect`, which summarised on the final step. A run that looped
+  and then recovered was reported as `healthy` with no reasons, while also naming
+  the step it had detected a problem on. It now reports the worst state in the
+  run, the step that produced it, and whether the run recovered afterwards.
 
 ## [0.2.0] (2026-07-01)
 

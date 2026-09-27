@@ -15,15 +15,23 @@ microloop inspect run.jsonl
 ```
 Microloop trajectory analysis (schema 0.3.0)
 Steps          10
-Status         stalled
-Detected at    step 6
-Reasons        repeated_action_result, repeated_error, state_stagnation
+Status         stalled (worst observed)
+Worst at       step 6
+Reasons        repeated_action_result, repeated_error
 Evidence       Same action, observation and supplied state recurred
+Recovered      no
 Action         observe (default policy: observe only)
 ```
 
-`Status` and `Reasons` describe the final step. `Detected at` is the first step
-whose state was not `healthy`.
+The summary describes the **worst step in the run**, not the last one. A run that
+loops and then recovers ends healthy, so summarising on the final step would call
+a run that demonstrably looped `healthy` with no reasons.
+
+- `Status` is the worst state observed anywhere in the run.
+- `Worst at` is the step that produced it.
+- `Reasons` and `Evidence` come from that same step, so they always agree.
+- `Recovered` says whether the run went back to `healthy` afterwards, and from
+  which step. `n/a` when it never left `healthy`.
 
 ## replay
 

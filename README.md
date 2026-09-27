@@ -125,10 +125,11 @@ microloop inspect run.jsonl
 ```
 Microloop trajectory analysis (schema 0.3.0)
 Steps          10
-Status         stalled
-Detected at    step 6
-Reasons        repeated_action_result, repeated_error, state_stagnation
+Status         stalled (worst observed)
+Worst at       step 6
+Reasons        repeated_action_result, repeated_error
 Evidence       Same action, observation and supplied state recurred
+Recovered      no
 Action         observe (default policy: observe only)
 ```
 
