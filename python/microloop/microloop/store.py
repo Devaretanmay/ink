@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS episodes (
     input_tokens INTEGER,
     output_tokens INTEGER,
     elapsed_seconds REAL,
+    model_calls INTEGER,
     created_at TEXT,
     summary_json TEXT
 );
@@ -81,7 +82,19 @@ class EpisodeStore:
         self._conn = sqlite3.connect(self.path)
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._migrate()
         self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Add columns introduced after a database was first created.
+
+        ``CREATE TABLE IF NOT EXISTS`` silently leaves an older file without the
+        new columns, and the failure then surfaces as an opaque "no such column"
+        at insert time. A few lines here beat that.
+        """
+        existing = {row["name"] for row in self._conn.execute("PRAGMA table_info(episodes)")}
+        if "model_calls" not in existing:
+            self._conn.execute("ALTER TABLE episodes ADD COLUMN model_calls INTEGER")
 
     # -- writes ---------------------------------------------------------------
     def record(
@@ -108,9 +121,9 @@ class EpisodeStore:
             """
             INSERT INTO episodes (
                 run_id, task, arm, run_mode, goal, outcome, success, verifier, score,
-                steps, cost, input_tokens, output_tokens, elapsed_seconds, created_at,
-                summary_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                steps, cost, input_tokens, output_tokens, elapsed_seconds, model_calls,
+                created_at, summary_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run_id,
@@ -127,6 +140,7 @@ class EpisodeStore:
                 usage.get("input_tokens"),
                 usage.get("output_tokens"),
                 usage.get("elapsed_seconds"),
+                usage.get("model_calls"),
                 datetime.now(timezone.utc).isoformat(),
                 json.dumps(summary),
             ),

@@ -358,3 +358,53 @@ rejected with a compatibility error rather than analyzed on a guess. That check
 happens in the CLI, when a file is read: `schema_version` is not a field of the
 runtime `Event`, and `Monitor.observe()` is version-agnostic by design. A
 trajectory you build yourself is yours to keep compatible.
+
+### The close-call band
+
+The first real-model run was null because the tasks were too easy, not because
+the controller was wrong. The fix is the task distribution.
+
+`integrations/coding_harness/close_tasks.py` holds 24 tasks across six families:
+multi-file regression, edge-case refactor, stateful across modules, API behaviour
+mismatch, API migration, and partial test suite. Each has the property that makes
+it able to distinguish a helpful intervention from a harmful one:
+
+> the obvious first fix does not finish the task
+
+That is checked, not asserted. Every task carries a `naive` variant -- the fix a
+competent engineer writes after reading the first failing assertion -- and
+`validate()` verifies that the naive variant clears the reported case and still
+fails a later one, alongside the buggy source failing and the correct source
+passing. 24/24 currently satisfy all four conditions. A task whose obvious fix
+already finishes is rejected rather than shipped.
+
+```bash
+python -m integrations.experiment --validate            # offline, spends nothing
+python -m integrations.experiment --task-set close --calibrate --real \
+  --provider groq --model openai/gpt-oss-120b --max-calls 400
+```
+
+`--calibrate` runs the static arm only and reports where its success rate lands
+against the 40-70% band worth measuring at. Below the band both arms fail and the
+comparison is about noise; above it the controller never fires; at either extreme
+the number means nothing, and the report says so instead of printing it.
+
+**The band is not calibrated.** The close-call property is a necessary condition
+for usefulness, not evidence that `gpt-oss-120b` lands in the band. Only
+`--calibrate --real` can show that, and it needs a budget in the hundreds of
+calls. Until that has been run, the correct statement is "24 tasks whose obvious
+first fix is provably incomplete", not "a band of 24 close-call tasks".
+
+The band cannot be exercised offline. Its tasks carry no simulated behaviour, so
+the scripted agent fixes each on its first attempt and the controller never
+fires; the runner says so rather than printing four identical rows. The offline
+agent exists to test the plumbing, and this is a case where it has nothing to
+say.
+
+## Metrics recorded per episode
+
+`episodes` rows carry success, steps, `model_calls`, tokens, cost,
+`elapsed_seconds`, adaptations and the run outcome, including `budget_exhausted`
+for a run stopped by the call ceiling. Calls are counted separately from steps on
+purpose: a step is an observation and a call is a metered request, and a budget
+written in one is not a budget written in the other.

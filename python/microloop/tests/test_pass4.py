@@ -690,3 +690,109 @@ def test_tool_declaration_is_declared_once_and_translated() -> None:
     rendered = AnthropicProvider._tools(TOOL_SCHEMAS)
     assert {t["name"] for t in rendered} == names
     assert all(set(t) == {"name", "description", "input_schema"} for t in rendered)
+
+
+def test_runtime_fields_survive_the_native_round_trip() -> None:
+    """Every field a host reports must come back out of the core.
+
+    The core is a PyO3 extension that round-trips state through JSON, so a field
+    added on the Python side but not mirrored in Rust is silently dropped rather
+    than rejected. ``model_calls`` was lost exactly this way, and the only
+    symptom was a null column in the episode database.
+    """
+    from microloop import Monitor, RuntimeState
+
+    state = RuntimeState(
+        model="m",
+        input_tokens=10,
+        output_tokens=5,
+        cost=0.25,
+        elapsed_seconds=1.5,
+        tool_calls=3,
+        model_calls=4,
+        remaining_budget=1.0,
+    )
+    decision = Monitor().observe("act", "obs", runtime=state)
+    assert decision.runtime is not None
+    assert decision.runtime.model_calls == 4
+    assert decision.runtime.tool_calls == 3
+    assert decision.runtime.elapsed_seconds == 1.5
+
+
+def test_harness_records_calls_and_wall_time() -> None:
+    from microloop.store import EpisodeStore
+
+    store = EpisodeStore(":memory:")
+    try:
+        report = run_experiment(build_tasks(2), store=store, run_mode="simulated")
+        rows = store.episodes()
+        assert rows
+        for row in rows:
+            # A metered run is priced in calls; without these the dataset cannot
+            # answer what a task cost.
+            assert row["model_calls"], "model calls were never recorded"
+            assert row["elapsed_seconds"] is not None
+        assert report.arms["static"].episodes == 2
+    finally:
+        store.close()
+
+
+# --- close-call band ----------------------------------------------------------
+#
+# The band is the whole experiment, so its properties are checked mechanically
+# rather than described. These tests fail if a task stops being a close call.
+
+
+def test_every_close_call_task_is_a_genuine_close_call() -> None:
+    from integrations.coding_harness.close_tasks import build_close_tasks, validate
+
+    reports = validate()
+    assert reports, "no tasks were validated"
+    for report in reports:
+        assert report.is_close_call, f"{report.name}: {report.problem()}"
+    assert len(build_close_tasks(24)) == 24
+
+
+def test_close_call_band_covers_the_documented_families() -> None:
+    from integrations.coding_harness.close_tasks import FAMILIES, validate
+
+    families = {report.family for report in validate()}
+    assert len(families) == len(FAMILIES)
+
+
+def test_close_call_tasks_span_more_than_one_file() -> None:
+    """Single-file tasks cannot produce the multi-file faults they model."""
+    from integrations.coding_harness.close_tasks import build_close_tasks
+
+    multi = [t for t in build_close_tasks(24) if t.support_files]
+    assert len(multi) >= 8
+
+
+def test_close_call_tasks_do_not_leak_the_answer() -> None:
+    """The agent must not be handed the naive or correct variant.
+
+    A task that ships its own solution is a demonstration, and the band is the
+    one place that must not quietly become one.
+    """
+    from integrations.coding_harness.close_tasks import build_close_tasks
+
+    for task in build_close_tasks(24):
+        assert task.correct_source not in task.prompt
+        for source in task.support_files.values():
+            # The buggy files are given to the agent; the solution is not.
+            assert "def unique" not in source or "seen = set()" in source
+
+
+def test_band_summary_says_when_the_rate_is_unusable() -> None:
+    from integrations.coding_harness.close_tasks import summarise
+
+    assert "inside" in summarise(12, 24)
+    assert "above" in summarise(24, 24)
+    assert "below" in summarise(1, 24)
+    assert "cannot be assessed" in summarise(0, 0)
+
+
+def test_calibrate_runs_the_static_arm_only() -> None:
+    from integrations.experiment.__main__ import main
+
+    assert main(["--task-set", "close", "--tasks", "6", "--calibrate", "--db", ":memory:"]) == 0

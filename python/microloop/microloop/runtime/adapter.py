@@ -169,6 +169,16 @@ class TieredAdapter:
         self.tool_calls = 0
         self._elapsed = 0.0
 
+    @property
+    def model_calls(self) -> int:
+        """Inference calls the host has made.
+
+        Counted at the point the cost is, and read from :attr:`usage` rather than
+        tracked separately -- two counters for one quantity drift. Distinct from
+        steps: a step is an observation, and a metered request is a call.
+        """
+        return self.usage.model_calls or 0
+
     # -- ladder ---------------------------------------------------------------
     @property
     def tier(self) -> str:
@@ -207,6 +217,8 @@ class TieredAdapter:
             cost=(self.usage.cost or 0.0) + cost,
             input_tokens=(self.usage.input_tokens or 0) + input_tokens,
             output_tokens=(self.usage.output_tokens or 0) + output_tokens,
+            elapsed_seconds=round((self.usage.elapsed_seconds or 0.0) + elapsed_seconds, 4),
+            model_calls=(self.usage.model_calls or 0) + 1,
         )
         self._elapsed += elapsed_seconds
 
@@ -228,6 +240,7 @@ class TieredAdapter:
             cost=self.usage.cost,
             elapsed_seconds=self._elapsed or None,
             tool_calls=self.tool_calls or None,
+            model_calls=self.model_calls or None,
         )
 
     def can_apply(self, action: str) -> bool:

@@ -69,6 +69,11 @@ pub struct RuntimeState {
     pub elapsed_seconds: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<u64>,
+    /// Inference calls the host made, kept apart from the step count. A budget
+    /// written in calls is not a budget written in steps, and a dataset that
+    /// cannot tell them apart cannot price a run.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_calls: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub remaining_budget: Option<f64>,
 }

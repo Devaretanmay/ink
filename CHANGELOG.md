@@ -220,8 +220,37 @@ runtime rather than a benchmark harness.
   escalation is a no-op, so a difference between arms is attributable to the
   controller rather than to a better model.
 
+### Added
+
+- A close-call task band (`integrations/coding_harness/close_tasks.py`): 24 tasks
+  across six families that model how real regressions arrive -- multi-file
+  regression, edge-case refactor, stateful across modules, API behaviour
+  mismatch, API migration, partial test suite. Each task carries a `naive`
+  variant, the fix a competent engineer writes after reading the first failing
+  assertion, and `validate()` checks mechanically that the naive variant clears
+  the reported case and *still fails* a later one. A task whose obvious fix
+  already finishes is rejected rather than shipped. 24/24 currently pass.
+- `--task-set close`, `--calibrate` and `--validate`. `--validate` checks the
+  band offline and spends nothing. `--calibrate` runs the static arm only and
+  reports where its success rate lands against the 40-70% band, so a task set can
+  be sized before calls are spent on a paired comparison.
+- `Task.support_files`, so a task is a small project rather than one file. The
+  verifier reads the workspace, so an agent has to go and look.
+- `model_calls` on `RuntimeState` and `Usage`, on the Python and Rust sides, and
+  a `model_calls` column on the episode store. Counted at the point the cost is.
+  A metered run is priced in calls, and a dataset that cannot tell calls from
+  steps cannot answer what a task cost.
+- Wall time is now measured around the model call and recorded per episode. It
+  was previously collected by the adapter and never fed, so every stored
+  `elapsed_seconds` was null.
+
 ### Fixed
 
+- `model_calls` added to the Python runtime types but not mirrored in the Rust
+  `RuntimeState` was silently dropped by the PyO3 round trip rather than
+  rejected. The only symptom was a null column. A field added on one side of a
+  JSON boundary without the other has to fail loudly somewhere; this did not, and
+  there is now a test that every reported field survives the round trip.
 - Tool identity was lost after the first turn of any real run. Both providers
   rebuilt the wire format from a queue holding only the most recent turn's
   identifiers, so every earlier turn's `tool_calls` and tool results were

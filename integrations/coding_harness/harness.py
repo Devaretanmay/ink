@@ -12,6 +12,7 @@ and dry runs, or against Anthropic for the real experiment.
 from __future__ import annotations
 
 import tempfile
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -41,11 +42,15 @@ SYSTEM_PROMPT = (
 
 @dataclass
 class Task:
-    """One coding task: a prompt, a buggy starting file, and a verifier.
+    """One coding task: a prompt, a buggy starting project, and a verifier.
 
     ``behaviour`` describes the agent that will attempt it, not the task's
     difficulty alone. It is fixed before the run and identical in both
     experiment arms, which is what makes the comparison mean anything.
+
+    ``support_files`` lets a task be a small project rather than one file. They
+    are written before ``wrong_source``, and the verifier reads the workspace, so
+    an agent has to go and look at them.
     """
 
     name: str
@@ -56,10 +61,15 @@ class Task:
     verify: Callable[[Path], tuple[bool, str]]
     behaviour: AgentBehaviour | None = None
     setup: Callable[[Path], None] | None = None
+    support_files: dict[str, str] = field(default_factory=dict)
 
     def prepare(self, workspace: Path) -> None:
         if self.setup is not None:
             self.setup(workspace)
+        for path, source in self.support_files.items():
+            target = workspace / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source, encoding="utf-8")
         (workspace / self.filename).write_text(self.wrong_source, encoding="utf-8")
 
 
@@ -207,6 +217,7 @@ class CodingHarness:
 
         while step < self.max_steps:
             step += 1
+            call_started = time.perf_counter()
             try:
                 reply: ModelReply = self.provider.complete(
                     model=adapter.model, messages=messages, tools=TOOL_SCHEMAS
@@ -223,6 +234,10 @@ class CodingHarness:
                 input_tokens=reply.input_tokens,
                 output_tokens=reply.output_tokens,
                 cost=reply.cost,
+                # Wall time is measured around the model call, so the number in
+                # the dataset is the time the run actually spent thinking rather
+                # than the time the harness spent writing files.
+                elapsed_seconds=time.perf_counter() - call_started,
             )
             if reply.text:
                 adapter.record_segment("note", reply.text, step=step)

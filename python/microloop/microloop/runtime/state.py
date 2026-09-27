@@ -30,6 +30,11 @@ class Usage:
     output_tokens: int | None = None
     steps: int | None = None
     elapsed_seconds: float | None = None
+    #: Inference calls the host made, counted at the point the cost is. Kept
+    #: apart from ``steps`` because a step is an observation and a call is a
+    #: metered request; a host may batch several observations into one call, or
+    #: spend three calls on one step.
+    model_calls: int | None = None
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any] | None) -> Usage:
@@ -41,6 +46,7 @@ class Usage:
             output_tokens=_int(payload.get("output_tokens")),
             steps=_int(payload.get("steps")),
             elapsed_seconds=_float(payload.get("elapsed_seconds")),
+            model_calls=_int(payload.get("model_calls")),
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -50,6 +56,7 @@ class Usage:
             "output_tokens": self.output_tokens,
             "steps": self.steps,
             "elapsed_seconds": self.elapsed_seconds,
+            "model_calls": self.model_calls,
         }
         return {key: value for key, value in payload.items() if value is not None}
 
@@ -102,6 +109,9 @@ class RuntimeState:
     cost: float | None = None
     elapsed_seconds: float | None = None
     tool_calls: int | None = None
+    #: Inference calls the host made, distinct from ``steps``. A budget written
+    #: in calls is not a budget written in steps.
+    model_calls: int | None = None
     remaining_budget: float | None = None
 
     @classmethod
@@ -118,6 +128,7 @@ class RuntimeState:
             cost=_float(cost),
             elapsed_seconds=_float(payload.get("elapsed_seconds")),
             tool_calls=_int(payload.get("tool_calls")),
+            model_calls=_int(payload.get("model_calls")),
             remaining_budget=_float(payload.get("remaining_budget")),
         )
 
@@ -131,6 +142,7 @@ class RuntimeState:
             "cost": self.cost,
             "elapsed_seconds": self.elapsed_seconds,
             "tool_calls": self.tool_calls,
+            "model_calls": self.model_calls,
             "remaining_budget": self.remaining_budget,
         }
         return {key: value for key, value in payload.items() if value is not None}
@@ -158,4 +170,5 @@ class RuntimeState:
             input_tokens=self.input_tokens,
             output_tokens=self.output_tokens,
             elapsed_seconds=self.elapsed_seconds,
+            model_calls=self.model_calls,
         )

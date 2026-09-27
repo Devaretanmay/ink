@@ -77,12 +77,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--tasks", type=int, default=32, help="how many tasks to run")
     parser.add_argument(
         "--task-set",
-        choices=("generated", "real"),
+        choices=("generated", "real", "close"),
         default="generated",
         help=(
             "generated: one-line arithmetic, solved in one attempt by a capable "
-            "model; real: Python bugs with a hidden verifier, where the obvious "
-            "first fix can be wrong"
+            "model; real: Python bugs with a hidden verifier; close: the "
+            "close-call band, where the obvious first fix does not finish the task"
         ),
     )
     parser.add_argument(
@@ -105,6 +105,20 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--validate",
+        action="store_true",
+        help="check the close-call band offline and exit, without spending a call",
+    )
+    parser.add_argument(
+        "--calibrate",
+        action="store_true",
+        help=(
+            "run the static arm only and report where its success rate lands in "
+            "the band; use this to size a task set before spending calls on a "
+            "paired comparison"
+        ),
+    )
+    parser.add_argument(
         "--max-calls",
         type=int,
         default=None,
@@ -124,7 +138,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.task_set == "real":
+    if args.task_set == "close":
+        from integrations.coding_harness.close_tasks import build_close_tasks
+
+        tasks = build_close_tasks(args.tasks)
+    elif args.task_set == "real":
         from integrations.coding_harness.real_tasks import build_real_tasks
 
         tasks = build_real_tasks()[: args.tasks]
@@ -162,11 +180,25 @@ def main(argv: list[str] | None = None) -> int:
         provider_name, run_mode = "simulated-agent", "simulated"
         provider_factory = _simulated_factory(_tier_by_model(tiers))
 
+    if args.validate:
+        from integrations.coding_harness.close_tasks import close_call_report
+
+        print(close_call_report())
+        return 0
+
+    if args.calibrate:
+        args.sweep = False
+        arms: tuple[str, ...] = ("static",)
+    else:
+        arms = ("static", "adaptive")
+
     store = EpisodeStore(args.db)
     try:
         runner = run_sweep if args.sweep else run_experiment
+        extra = {} if args.sweep else {"arms": arms}
         report = runner(
             tasks,
+            **extra,
             store=store,
             run_mode=run_mode,
             provider=provider_name,
@@ -182,12 +214,27 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report.to_dict(), indent=2))
     else:
         print(report.render())
+        if args.calibrate:
+            from integrations.coding_harness.close_tasks import summarise
+
+            summary = report.arms["static"]
+            print()
+            print(summarise(summary.successes, summary.episodes))
         if run_mode == "simulated":
             print()
             print(
                 "run mode is simulated: this measures the controller against a "
                 "model of an agent, not against a real model."
             )
+            if args.task_set == "close":
+                print()
+                print(
+                    "The close-call band cannot be exercised offline. Its tasks "
+                    "carry no simulated behaviour, so the scripted agent fixes "
+                    "each one on its first attempt and the controller never fires. "
+                    "Every row above is identical because nothing was measured. "
+                    "Use --real."
+                )
     return 0
 
 
