@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -200,6 +201,71 @@ def test_every_step_is_evaluated_against_the_whole_run(tmp_path, capsys) -> None
     verbose = capsys.readouterr().out
     assert "status=healthy" in verbose
     assert "status=warning" in verbose
+
+
+def test_all_three_views_agree_on_the_same_history(tmp_path, capsys) -> None:
+    """One trajectory, three renderers, one history.
+
+    Guards the class of bug where a renderer builds its own Monitor and resets
+    the history window, making every step read as healthy. The run below is
+    progressing, progressing, stalled, stalled, progressing: the two consecutive
+    stalled steps must coalesce into a single story event, and every view must
+    name the same steps.
+    """
+    stuck = {
+        "action": "pytest tests/",
+        "observation": "2 failed",
+        "metrics": {"exit_code": 1},
+        "metadata": {"verifier": "pytest", "error": "AssertionError: expected 1"},
+    }
+    path = _trajectory(
+        tmp_path,
+        *[
+            _step(
+                step=n,
+                **{
+                    **stuck,
+                    "metadata": {**stuck["metadata"], "verification_id": f"r{n}"},
+                },
+            )
+            for n in range(1, 5)
+        ],
+        _step(step=5, action="edit src/auth.py", observation="patched",
+              metrics={"exit_code": 0}),
+    )
+
+    # The story: one stall event and one resume event, not one per stalled step.
+    assert main(["inspect", str(path)]) == 0
+    story = capsys.readouterr().out
+    stalls = [line for line in story.splitlines() if "stall detected" in line]
+    resumes = [line for line in story.splitlines() if "progress resumed" in line]
+    assert len(stalls) == 1, story
+    assert len(resumes) == 1, story
+    stall_step = int(stalls[0].split("step ")[1].split()[0])
+    resume_step = int(resumes[0].split("step ")[1].split()[0])
+    assert "Trajectory ended progressing after 5 steps." in story
+
+    # Verbose: the real state of every step.
+    assert main(["inspect", "--verbose", str(path)]) == 0
+    verbose_states = re.findall(r"status=(\w+)", capsys.readouterr().out)
+    assert verbose_states == ["healthy", "healthy", "stalled", "stalled", "healthy"]
+
+    # JSON: same per-step states, same transitions, same ending.
+    assert main(["inspect", "--json", str(path)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    decisions = report["decisions"]
+    assert [d["status"] for d in decisions] == verbose_states
+    assert report["final_state"] == "healthy"
+    assert report["worst_state"] == "stalled"
+
+    # The step the story called a stall is the first non-healthy step json knows
+    # about, and the step it called a resume is the first healthy step after it.
+    unhealthy = [d["step"] for d in decisions if d["status"] != "healthy"]
+    assert unhealthy == [3, 4]
+    assert stall_step == unhealthy[0]
+    assert resume_step == next(
+        d["step"] for d in decisions if d["step"] > stall_step and d["status"] == "healthy"
+    )
 
 
 def test_replay_keeps_recommendations_separate_from_inspect(capsys) -> None:
