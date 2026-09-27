@@ -5,49 +5,78 @@ in-process runtime.
 
 ## inspect
 
-Summarise a trajectory. Detection only, so what you see is what a default
-observe-only runtime would report.
+Tell the trajectory as a story. Default output is for a person: only meaningful
+transitions, in plain language, then one outcome line.
 
 ```bash
 microloop inspect run.jsonl
 ```
 
 ```
-Microloop trajectory analysis (schema 0.3.0)
-Steps          10
-Status         stalled (worst observed)
-Worst at       step 6
-Reasons        repeated_action_result, repeated_error
-Evidence       Same action, observation and supplied state recurred
-Recovered      no
-Action         observe (default policy: observe only)
+Microloop
+
+
+  step 4   stall detected
+           repeated action 3 times
+           same error repeated 3 times
+
+  step 5   progress resumed
+           verification improved
+
+Trajectory ended progressing after 5 steps.
 ```
 
-The summary describes the **worst step in the run**, not the last one. A run that
-loops and then recovers ends healthy, so summarising on the final step would call
-a run that demonstrably looped `healthy` with no reasons.
+An event is a transition, not a state. Entering a problem reports it, getting
+worse reports it, and the first healthy step afterwards reports that progress
+resumed. A problem that simply persists stays one event rather than one per step.
+A run with nothing to report says so in one line.
 
-- `Status` is the worst state observed anywhere in the run.
-- `Worst at` is the step that produced it.
-- `Reasons` and `Evidence` come from that same step, so they always agree.
-- `Recovered` says whether the run went back to `healthy` afterwards, and from
-  which step. `n/a` when it never left `healthy`.
+`inspect` runs the observe-only policy and never prints a recommendation. It is
+answering what happened, not what a host would have done about it.
+
+The wording is presentation only. `healthy` reads as `progressing`, `warning` as
+`uncertain`, and the reason enums are never shown. The API keeps the enum names.
+
+### Layers
+
+```bash
+microloop inspect run.jsonl            # the story, for a person
+microloop inspect run.jsonl --verbose  # every step, plus the advised intervention
+microloop inspect run.jsonl --json     # exact enums, evidence structures, severity
+```
+
+`--json` returns the full representation, including `final_state`, `worst_state`,
+per-step `evidence` with the step numbers behind it, `severity` and the policy.
+
+Note that `inspect` never says a run "recovered", because in observe-only mode
+Microloop did not cause the recovery. It says progress resumed, which is only an
+observation.
 
 ## replay
 
-Re-run *recorded events* through the current engine, one decision per step.
+The same trajectory as a timeline. `inspect` tells you what happened, `replay`
+shows you how.
 
 ```bash
 microloop replay run.jsonl
-microloop replay run.jsonl --json
 ```
 
-`replay` does not reproduce the original agent execution. No model is called and
-no tools run. A trajectory recorded by an older engine may classify differently
-today, which is why `replay` is useful for checking engine changes.
+```
+  1  progressing
+  2  progressing
 
-Unlike `inspect`, `replay` also shows the recommendation a host policy would
-receive, since it is showing per-step output rather than a summary.
+  3  stalled
+     repeated action 3 times
+     same error repeated 3 times
+     -> replan
+  4  progressing
+     verification improved
+```
+
+`replay` uses the recommendation policy, so it shows what a host would be told,
+marked with `->`. It re-runs recorded events through the current engine; it does
+not reproduce the original agent execution. `--json` emits one decision per line
+as JSONL.
 
 ## monitor
 

@@ -19,6 +19,7 @@ from typing import Any
 
 from . import (
     SCHEMA_VERSION,
+    Decision,
     Event,
     InterventionAction,
     Monitor,
@@ -150,79 +151,220 @@ def commands() -> dict[str, Any]:
 
 
 #: Progress states ordered by how much attention they warrant, least first.
-_STATE_RANK = {
-    ProgressState.Healthy: 0,
-    ProgressState.Warning: 1,
-    ProgressState.Stalled: 2,
-    ProgressState.Regressing: 3,
+_STATE_RANK = {"healthy": 0, "warning": 1, "stalled": 2, "regressing": 3}
+
+#: How the internal states read to a person. The API keeps the enum names;
+#: this is presentation only. `healthy` is never shown, because in a trajectory
+#: "progressing" says what actually happened.
+_STATE_WORD = {
+    "healthy": "progressing",
+    "warning": "uncertain",
+    "stalled": "stalled",
+    "regressing": "regressing",
 }
+
+#: Headline for a step that is not progressing. Phrased whole, so it does not
+#: read as "pattern detected detected".
+_ISSUE_PHRASE = {
+    "warning": "pattern detected",
+    "stalled": "stall detected",
+    "regressing": "regression detected",
+}
+
+#: One line per reason, in plain language. The enum names are for --json.
+_REASON_PHRASE = {
+    "repeated_action_result": "repeated action",
+    "normalized_repetition": "repeated action, ignoring volatile values",
+    "repeated_error": "same error repeated",
+    "state_stagnation": "test failures unchanged",
+    "state_oscillation": "state oscillating",
+    "regression": "verifier got worse",
+}
+
+#: Reasons where a count reads naturally. Oscillation and regression do not
+#: take one: their numbers are in the evidence detail instead.
+_COUNTABLE = {
+    "repeated_action_result",
+    "normalized_repetition",
+    "repeated_error",
+    "state_stagnation",
+}
+
+
+def _describe(decision: Decision) -> list[str]:
+    """Render one decision's evidence as plain-language lines."""
+    lines: list[str] = []
+    for item in decision.evidence:
+        phrase = _REASON_PHRASE.get(item["reason"], item["reason"])
+        steps = item.get("steps") or []
+        if item["reason"] in _COUNTABLE and len(steps) > 1:
+            lines.append(f"{phrase} {len(steps)} times")
+        elif item["reason"] == "regression" and item.get("detail"):
+            lines.append(f"{phrase}: {item['detail'].split(': ', 1)[-1]}")
+        else:
+            lines.append(phrase)
+    if decision.verified_progress:
+        lines.append("verification improved")
+    return lines
+
+
+def _interesting(decision: Decision) -> bool:
+    """True when a step is worth a human seeing: a problem, or a recovery."""
+    return bool(decision.evidence) or decision.verified_progress
+
+
+def _steps(count: int) -> str:
+    return "1 step" if count == 1 else f"{count} steps"
+
+
+def _outcome(decision: Decision, total: int, with_count: bool) -> str:
+    ended = _STATE_WORD.get(decision.status, decision.status)
+    if not with_count:
+        return f"Trajectory ended {ended}."
+    return f"Trajectory ended {ended} after {_steps(total)}."
+
+
+def _report(records: list[dict[str, Any]], monitor: Monitor, verbose: bool) -> None:
+    """Print the timeline of meaningful steps, then the outcome.
+
+    Only transitions are shown by default: a step that is progressing and adds
+    nothing is skipped. That is the whole point of the command, and it is why
+    this is not a rendering of the final Decision.
+    """
+    print("Microloop")
+    print()
+    decisions: list[Decision] = []
+    for index, record in enumerate(records, start=1):
+        decisions.append(monitor.observe_event(_event_from_record(record, index)))
+
+    # An event is a *transition*, not a state. Entering a problem reports it,
+    # getting worse reports it, and the first healthy step afterwards reports
+    # that progress resumed. A problem that simply persists stays one event
+    # rather than one per step.
+    shown = 0
+    previous: str | None = None
+    for decision in decisions:
+        issue = decision.status != ProgressState.Healthy
+        entered = issue and decision.status != previous
+        resumed = (
+            not issue and previous is not None and previous != ProgressState.Healthy
+        )
+        headline = (
+            _ISSUE_PHRASE.get(decision.status, decision.status)
+            if entered
+            else "progress resumed" if resumed else None
+        )
+        if headline is not None:
+            shown += 1
+            print()
+        if headline is not None or verbose:
+            label = headline or _STATE_WORD.get(decision.status, decision.status)
+            print(f"  step {decision.step}   {label}")
+            for line in _describe(decision):
+                print(f"           {line}")
+        previous = decision.status
+
+    final = decisions[-1]
+    if shown == 0:
+        print(f"No progress issues across {_steps(len(decisions))}.")
+        print()
+        print(_outcome(final, len(decisions), with_count=False))
+    else:
+        print()
+        print(_outcome(final, len(decisions), with_count=True))
 
 
 def _inspect(args: argparse.Namespace) -> int:
     schema, records = _read_trajectory(args.trajectory)
-    # Detection only: `inspect` reports what the detectors found, so it runs the
-    # default observation-only policy and never shows a host's replan/stop choice.
-    monitor = _observing()
-    # Report the worst moment in the run, not the final step. A run that loops and
-    # then recovers ends healthy, and summarising on the last step would report
-    # "healthy / none / none" for a run that demonstrably looped.
-    worst = None
-    worst_rank = -1
-    last_unhealthy: int | None = None
-    for index, record in enumerate(records, start=1):
-        decision = monitor.observe_event(_event_from_record(record, index))
-        if decision.status != ProgressState.Healthy:
-            last_unhealthy = decision.step
-        rank = _STATE_RANK[decision.status]
-        if rank > worst_rank:
-            worst, worst_rank = decision, rank
-    assert worst is not None
-
-    if worst.status == ProgressState.Healthy:
-        recovered = "n/a"
-    elif last_unhealthy is not None and last_unhealthy < len(records):
-        recovered = f"yes, healthy from step {last_unhealthy + 1}"
-    else:
-        recovered = "no"
-
-    reasons = ", ".join(worst.reasons) if worst.reasons else "none"
-    evidence = worst.evidence[0]["detail"] if worst.evidence else "none"
-    print(f"Microloop trajectory analysis (schema {schema})")
-    print(f"{'Steps':<15}{len(records)}")
-    print(f"{'Status':<15}{worst.status} (worst observed)")
-    print(
-        f"{'Worst at':<15}"
-        f"{'step ' + str(worst.step) if worst.status != ProgressState.Healthy else 'n/a'}"
-    )
-    print(f"{'Reasons':<15}{reasons}")
-    print(f"{'Evidence':<15}{evidence}")
-    print(f"{'Recovered':<15}{recovered}")
-    print(f"{'Action':<15}{worst.intervention} (default policy: observe only)")
+    if args.json:
+        print(json.dumps(_machine_report(schema, records), indent=2))
+        return 0
+    # Detection only. A human reading a trajectory wants to know what happened,
+    # not what a host policy would have done about it, so the default render
+    # carries no policy line at all.
+    _report(records, _observing(), args.verbose)
+    if args.verbose:
+        _print_verbose(records)
     return 0
 
 
-def _replay(args: argparse.Namespace) -> int:
-    schema, records = _read_trajectory(args.trajectory)
+def _print_verbose(records: list[dict[str, Any]]) -> None:
+    print()
+    print("Every step, and what a host policy would be advised:")
+    # One monitor for the whole run. A fresh Monitor per step would reset the
+    # history window and make every step look healthy.
     monitor = _recommending()
     for index, record in enumerate(records, start=1):
         decision = monitor.observe_event(_event_from_record(record, index))
-        payload = {
-            "schema_version": schema,
-            "step": decision.step,
-            "status": decision.status,
-            "reasons": decision.reasons,
-            "intervention": decision.intervention,
-            "severity": decision.severity,
-            "verified_progress": decision.verified_progress,
-        }
-        if args.json:
-            print(json.dumps(payload))
-        else:
-            reasons = ",".join(decision.reasons) or "-"
+        print(
+            f"  step {decision.step}  status={decision.status}  "
+            f"intervention={decision.intervention}  severity={decision.severity:.1f}"
+        )
+        for item in decision.evidence:
+            print(f"           {item['reason']}: {item['detail']} (steps {item['steps']})")
+    print()
+    print("Policy is observe-only for this report; no action was taken.")
+
+
+def _machine_report(schema: str, records: list[dict[str, Any]]) -> dict[str, Any]:
+    """Exact representation: enums, evidence structures and steps, unchanged."""
+    decisions: list[dict[str, Any]] = []
+    # One monitor for the whole run, for the same reason as _print_verbose.
+    monitor = _recommending()
+    for index, record in enumerate(records, start=1):
+        decisions.append(monitor.observe_event(_event_from_record(record, index)).__dict__)
+    states = [d["status"] for d in decisions]
+    worst = max(states, key=lambda s: _STATE_RANK.get(s, 0)) if states else "healthy"
+    return {
+        "schema_version": schema,
+        "steps": len(records),
+        "final_state": states[-1] if states else "healthy",
+        "worst_state": worst,
+        "policy": "observe-only",
+        "interventions": sum(
+            1 for d in decisions if d["intervention"] != InterventionAction.Observe
+        ),
+        "decisions": decisions,
+    }
+
+
+def _replay(args: argparse.Namespace) -> int:
+    """The timeline. `inspect` says what happened, this shows how."""
+    schema, records = _read_trajectory(args.trajectory)
+    monitor = _recommending()
+    if args.json:
+        for index, record in enumerate(records, start=1):
+            decision = monitor.observe_event(_event_from_record(record, index))
             print(
-                f"{decision.step:>4}  {decision.status:<10} "
-                f"{decision.intervention:<8} {reasons}"
+                json.dumps(
+                    {
+                        "schema_version": schema,
+                        "step": decision.step,
+                        "status": decision.status,
+                        "reasons": decision.reasons,
+                        "evidence": decision.evidence,
+                        "intervention": decision.intervention,
+                        "severity": decision.severity,
+                        "verified_progress": decision.verified_progress,
+                    }
+                )
             )
+        return 0
+
+    print()
+    for index, record in enumerate(records, start=1):
+        decision = monitor.observe_event(_event_from_record(record, index))
+        lines = _describe(decision)
+        intervening = decision.intervention != InterventionAction.Observe
+        if lines or intervening or args.verbose:
+            print()
+        print(f"  {decision.step}  {_STATE_WORD.get(decision.status, decision.status)}")
+        for line in lines:
+            print(f"     {line}")
+        if intervening:
+            print(f"     -> {decision.intervention}")
+        if args.verbose and not lines and decision.status == ProgressState.Healthy:
+            print("     no evidence")
     return 0
 
 
@@ -308,15 +450,28 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
     inspect_parser = sub.add_parser(
         "inspect",
-        help="summarize a trajectory JSONL (detection only, no intervention policy)",
+        help="tell a trajectory as a story: what happened, in plain language",
     )
     inspect_parser.add_argument("trajectory")
+    inspect_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="also print every step and the advised intervention",
+    )
+    inspect_parser.add_argument(
+        "--json", action="store_true", help="print the exact representation"
+    )
     replay_parser = sub.add_parser(
         "replay",
         help="re-run recorded events through the current engine",
     )
     replay_parser.add_argument("trajectory")
     replay_parser.add_argument("--json", action="store_true", help="emit decisions as JSONL")
+    replay_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="mark steps that produced no evidence",
+    )
     monitor_parser = sub.add_parser("monitor", help="print a live progress view")
     monitor_parser.add_argument("trajectory")
     monitor_parser.add_argument(

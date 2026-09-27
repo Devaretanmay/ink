@@ -123,18 +123,29 @@ microloop inspect run.jsonl
 ```
 
 ```
-Microloop trajectory analysis (schema 0.3.0)
-Steps          10
-Status         stalled (worst observed)
-Worst at       step 6
-Reasons        repeated_action_result, repeated_error
-Evidence       Same action, observation and supplied state recurred
-Recovered      no
-Action         observe (default policy: observe only)
+Microloop
+
+
+  step 6   stall detected
+           repeated action 3 times
+           same error repeated 3 times
+
+  step 7   progress resumed
+
+  step 10  stall detected
+           repeated action 5 times
+           same error repeated 5 times
+           test failures unchanged 5 times
+
+Trajectory ended stalled after 10 steps.
 ```
 
-`replay`, `monitor` and `doctor` cover offline replay, live inspection and
-runtime checks. See [docs/cli.md](docs/cli.md).
+Only transitions are shown. A step that is progressing and adds nothing is
+skipped, and the events tell the story in order. Add `--verbose` for every step,
+or `--json` for the exact representation.
+
+`replay` is the same trajectory as a timeline, and `monitor` follows a file as an
+agent writes it. `doctor` checks the runtime. See [docs/cli.md](docs/cli.md).
 
 ## How it fits
 
