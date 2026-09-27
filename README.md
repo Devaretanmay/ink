@@ -221,6 +221,28 @@ not that it has settled the question**. Two things did come out of it:
 None of this is evidence about real models. See
 [docs/integration.md](docs/integration.md#what-the-offline-experiment-found).
 
+### The first real-model run
+
+Against `openai/gpt-oss-120b` on Groq, one model pinned to every tier so model
+switching could not confound the comparison: both arms solved both tasks in three
+or four steps, **zero adaptations fired**, and no run ever left the healthy state.
+
+That establishes that the `--real` path works against a real API, and that the
+controller stays out of the way of a run that is working -- the failure mode an
+adaptive runtime is most likely to have. It establishes nothing about benefit:
+two tasks, both arms 2/2, no signal to measure. Reaching a task hard enough for a
+real model to stall is on the order of a hundred calls per arm.
+
+```bash
+export GROQ_API_KEY=...
+python -m integrations.experiment --real --provider groq --model openai/gpt-oss-120b \
+  --task-set real --tasks 2 --max-steps 6 --max-calls 25
+```
+
+`--max-calls` is a hard ceiling, not a suggestion, and a run stopped that way is
+recorded as `budget_exhausted` rather than `failed`: running out of allowance and
+running out of ideas are different facts.
+
 ## How it fits
 
 Microloop is not the agent, and it does not know what your agent is trying to

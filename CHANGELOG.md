@@ -199,8 +199,36 @@ runtime rather than a benchmark harness.
   as proper `tool_result` blocks tied to the `tool_use` id the API issued. A real
   run previously never saw its own test output, so it had nothing to react to.
 
+- `GroqProvider`: a real provider on Groq's OpenAI-compatible API, standard
+  library only, so the harness keeps working with nothing installed beyond the
+  runtime. `GROQ_API_KEY` is read from the environment, never stored on the
+  instance and never written to the episode store.
+- `max_calls` on the Groq provider: a hard ceiling on inference calls, raising
+  `BudgetExhausted` rather than returning a partial answer. A metered API and an
+  agent loop are a bad pairing without one, because the loop decides how many
+  turns to take and nothing in it knows what a turn costs. An exhausted run is
+  reported as `budget_exhausted`, which is deliberately not the same as
+  `failed`: running out of allowance and running out of ideas are different
+  facts.
+- `build_real_tasks()`: two Python bugs with a hidden verifier, for real-model
+  runs. `version-padding` is a control the model should solve in one attempt;
+  `dedupe-unhashable` is a task whose obvious first fix is wrong, so the model has
+  to read why the first attempt failed rather than pattern-match the traceback.
+- `--provider groq|anthropic`, `--model`, `--max-calls` and `--task-set` on the
+  experiment runner. `--model` pins one id to every tier, which isolates the
+  controller from model switching: with the same model on every rung an
+  escalation is a no-op, so a difference between arms is attributable to the
+  controller rather than to a better model.
+
 ### Fixed
 
+- Tool identity was lost after the first turn of any real run. Both providers
+  rebuilt the wire format from a queue holding only the most recent turn's
+  identifiers, so every earlier turn's `tool_calls` and tool results were
+  silently stripped. The run still worked; the model simply stopped being able
+  to see most of its own conversation, which is the worst possible failure for a
+  measurement. Wiring is now stateless, reading the identifiers back out of the
+  transcript the harness records.
 - The offline experiment was not an experiment. `ScriptedCodingProvider` (now
   `SimulatedCodingProvider`) applied the known fix only after spotting a
   Microloop-shaped phrase in the transcript, which made the static arm
@@ -212,6 +240,48 @@ runtime rather than a benchmark harness.
 - The offline agent counted its own opening task prompt as an instruction, so
   every run started on the top rung of its approach ladder and succeeded on the
   first attempt.
+- The harness never returned tool results to the model, so it had nothing to
+  react to. Tool declarations are now declared once, in OpenAI function-calling
+  shape, and each provider renders them its own way.
+- `GroqProvider` sent urllib's default agent string, which Groq's edge refuses
+  with Cloudflare 1010. It identifies itself, and reports the response body on
+  error rather than a bare status code.
+
+### Measured, on a real model
+
+The first run against a real model, `openai/gpt-oss-120b` on Groq, one model
+pinned to every tier, two tasks, both arms. **The result is null.**
+
+| task | arm | success | steps | adaptations |
+|---|---|---|---|---|
+| version-padding | static | yes | 4 | 0 |
+| version-padding | adaptive | yes | 3 | 0 |
+| dedupe-unhashable | static | yes | 3 | 0 |
+| dedupe-unhashable | adaptive | yes | 4 | 0 |
+
+Zero adaptations, and no run ever left the healthy state. `gpt-oss-120b` solved
+both tasks in three or four steps, so the controller had nothing to detect and
+correctly recommended `continue` every time.
+
+What this does and does not establish:
+
+- **It establishes that the plumbing works against a real API.** Real tool calls,
+  tool results returned with their identity intact, a real multi-turn
+  conversation, and a per-arm episode persisted to the store. The `--real` path
+  is no longer hypothetical.
+- **It establishes calibration, narrowly.** The controller stayed out of the way
+  of a run that was working. It did not fire spuriously, which is the failure
+  mode that matters most for an adaptive runtime and which the offline harness
+  could not have shown.
+- **It establishes nothing about benefit.** n=2, both arms 2/2, zero
+  interventions. There is no signal to measure, and no claim should be made from
+  this run beyond the two points above.
+
+The binding constraint is the call budget. Reaching a task hard enough for a
+real model to stall, let alone to stall repeatedly enough for the detectors to
+fire, needs on the order of a hundred calls per arm. Twenty-five is three agent
+runs. Any honest reading of this configuration has to say so rather than treat a
+null as a result.
 
 ### Measured
 

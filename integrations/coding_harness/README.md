@@ -75,7 +75,45 @@ result = harness.run()
 print(result.success, result.steps, result.adaptations)
 ```
 
-Swap `_simulated_factory(...)` for `AnthropicProvider()` to run the same harness
-against a real model. The provider needs the tool results, so the harness
+Swap `_simulated_factory(...)` for `AnthropicProvider()` or `GroqProvider()` to run
+the same harness against a real model. Both need the tool results, so the harness
 returns each tool's output to the model as a proper `tool_result` block tied to
-the `tool_use` id the API issued.
+the id the API issued.
+
+## Real models
+
+`GroqProvider` uses the standard library only, so the harness installs with nothing
+beyond the runtime. It reads `GROQ_API_KEY` from the environment and never stores
+it on the instance or writes it to the episode store.
+
+```bash
+export GROQ_API_KEY=...
+python -m integrations.experiment --real --provider groq --model openai/gpt-oss-120b \
+  --task-set real --tasks 2 --max-steps 6 --max-calls 25
+```
+
+`--model` pins one id to every tier. That is the honest way to ask whether the
+*controller* helps: with the same model on every rung an escalation is a no-op,
+so a difference between arms cannot be a better model.
+
+`--max-calls` is a hard ceiling that raises rather than returning a partial
+answer. A metered API and an agent loop are a bad pairing without one: the loop
+decides how many turns to take and nothing in it knows what a turn costs. A run
+that stops this way is recorded as `budget_exhausted`, which is deliberately not
+the same as `failed`.
+
+`build_real_tasks()` holds two Python bugs with a hidden verifier, for real-model
+runs. `version-padding` is a control the model should solve in one attempt.
+`dedupe-unhashable` is a task whose obvious first fix is wrong, so the model has
+to read why the first attempt failed rather than pattern-match the traceback. A
+task that can only be passed in one attempt cannot show whether an intervention
+helped.
+
+### One thing to preserve
+
+Both providers rebuild the wire format from the transcript, reading identifiers
+back out of it. An earlier version kept a queue of the most recent turn's ids,
+which silently stripped the tool calls and results of every *earlier* turn. The
+run still worked and the model simply stopped being able to see most of its own
+conversation, which is the worst possible failure for a measurement. If you add a
+provider, read the ids from the transcript; do not track them per turn.

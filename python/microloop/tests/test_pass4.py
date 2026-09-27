@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import tempfile
+from pathlib import Path
 
+import pytest
 from microloop import (
     ActionOutcome,
     AdaptationRecord,
@@ -26,7 +29,9 @@ from microloop.store import EpisodeStore
 from integrations.coding_harness.harness import CodingHarness
 from integrations.coding_harness.providers import (
     AgentBehaviour,
+    BudgetExhausted,
     Ceiling,
+    GroqProvider,
 )
 from integrations.coding_harness.tasks import build_tasks
 from integrations.experiment.runner import (
@@ -549,3 +554,139 @@ def test_openai_runtime_persists_and_finishes() -> None:
         assert store.stats()["episodes"] == 1
     finally:
         store.close()
+
+
+# --- real-model providers ----------------------------------------------------
+#
+# These never touch the network. They check the two things that silently break a
+# metered run: the transcript must keep every tool's identity across turns, and
+# the call budget must be a hard stop rather than a suggestion.
+
+
+class _FakeGroq:
+    """A stand-in for an OpenAI-compatible chat completions response."""
+
+    def __init__(self, calls: list[dict]) -> None:
+        self.calls = calls
+        self.posted: list[dict] = []
+
+    def _post(self, payload: dict) -> dict:
+        self.posted.append(payload)
+        message = self.calls[len(self.posted) - 1]
+        return {
+            "choices": [{"message": message}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+        }
+
+
+def _tool_turn(identifier: str, name: str, arguments: str) -> dict:
+    return {
+        "role": "assistant",
+        "content": "",
+        "tool_calls": [
+            {
+                "id": identifier,
+                "type": "function",
+                "function": {"name": name, "arguments": arguments},
+            }
+        ],
+    }
+
+
+def test_groq_transcript_keeps_tool_identity_across_turns() -> None:
+    """Every turn must stay wired, not just the most recent one.
+
+    An earlier version queued only the latest turn's ids, which stripped the tool
+    calls and results of every earlier turn. The run still worked and the model
+    simply stopped being able to see most of its own conversation.
+    """
+    provider = GroqProvider(api_key="t")
+    first_fake = _FakeGroq([_tool_turn("a1", "read_file", '{"path": "x.py"}')])
+    provider._post = first_fake._post
+    messages = [{"role": "system", "content": "s"}, {"role": "user", "content": "go"}]
+    first = provider.complete(model="m", messages=messages, tools=[])
+
+    second_fake = _FakeGroq([_tool_turn("a2", "run_tests", "{}")])
+    provider._post = second_fake._post
+    messages = messages + [
+        {
+            "role": "assistant",
+            "content": first.text,
+            "tool_calls": first.raw_tool_calls,
+        },
+        {"role": "tool", "name": "read_file", "content": "contents", "identifier": "a1"},
+    ]
+    provider.complete(model="m", messages=messages, tools=[])
+
+    sent = second_fake.posted[-1]["messages"]
+    earlier = [m for m in sent if m["role"] == "assistant" and m.get("tool_calls")]
+    earlier_ids = [c["id"] for m in earlier for c in m["tool_calls"]]
+    tool_ids = [m["tool_call_id"] for m in sent if m["role"] == "tool"]
+    assert earlier_ids == ["a1"], "the first turn lost its tool call"
+    assert tool_ids == ["a1"], "the first result lost its id"
+
+
+def test_groq_budget_is_a_hard_stop() -> None:
+    provider = GroqProvider(api_key="t", max_calls=1)
+    fake = _FakeGroq([_tool_turn("b1", "run_tests", "{}")])
+    provider._post = fake._post
+    messages = [{"role": "user", "content": "go"}]
+    provider.complete(model="m", messages=messages, tools=[])
+    with pytest.raises(BudgetExhausted):
+        provider.complete(model="m", messages=messages, tools=[])
+    assert provider.calls == 1
+
+
+def test_budget_exhaustion_is_not_reported_as_a_model_failure() -> None:
+    """Running out of allowance and running out of ideas are different facts."""
+    from integrations.coding_harness.providers import SimulatedCodingProvider
+    from integrations.experiment.runner import build_session
+
+    task = _task("stubborn")
+    provider = SimulatedCodingProvider(
+        filename=task.filename,
+        wrong_source=task.wrong_source,
+        correct_source=task.correct_source,
+        behaviour=task.behaviour,
+    )
+    provider.complete = _refuse  # type: ignore[method-assign]
+    result = CodingHarness(
+        task=task,
+        provider=provider,
+        session=build_session("static"),
+        arm="static",
+        max_steps=5,
+    ).run()
+    assert result.truncated is True
+    assert result.outcome == "budget_exhausted"
+    assert result.success is False
+
+
+def _refuse(**_kwargs):
+    raise BudgetExhausted("out of allowance")
+
+
+def test_real_task_set_is_solvable_and_fails_before_the_fix() -> None:
+    """A task nobody can pass, or that passes too easily, measures nothing."""
+    from integrations.coding_harness.real_tasks import build_real_tasks
+
+    for task in build_real_tasks():
+        workspace = Path(tempfile.mkdtemp())
+        task.prepare(workspace)
+        passed, message = task.verify(workspace)
+        assert not passed, f"{task.name} already passes with the buggy source"
+        assert message.startswith("1 failed:")
+        (workspace / task.filename).write_text(task.correct_source)
+        assert task.verify(workspace)[0] is True, f"{task.name} is not solvable"
+
+
+def test_tool_declaration_is_declared_once_and_translated() -> None:
+    """The harness declares its tools; each provider renders them its own way."""
+    from integrations.coding_harness.harness import TOOL_SCHEMAS
+    from integrations.coding_harness.providers import AnthropicProvider
+
+    names = {t["function"]["name"] for t in TOOL_SCHEMAS}
+    assert names == {"write_file", "read_file", "run_tests"}
+    rendered = AnthropicProvider._tools(TOOL_SCHEMAS)
+    assert {t["name"] for t in rendered} == names
+    assert all(set(t) == {"name", "description", "input_schema"} for t in rendered)

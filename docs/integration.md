@@ -258,6 +258,50 @@ None of this is evidence about real models. The offline agent is a model of an
 agent, described in `integrations/coding_harness/tasks.py`; the `--real` path is
 the one that would say something about them.
 
+### The first real-model run was null
+
+Against `openai/gpt-oss-120b` on Groq, one model pinned to every tier so that
+model switching could not confound the comparison:
+
+| task | arm | success | steps | adaptations |
+|---|---|---|---|---|
+| version-padding | static | yes | 4 | 0 |
+| version-padding | adaptive | yes | 3 | 0 |
+| dedupe-unhashable | static | yes | 3 | 0 |
+| dedupe-unhashable | adaptive | yes | 4 | 0 |
+
+Zero adaptations, and no run left the healthy state. The model solved both tasks
+in three or four steps, so there was nothing to detect.
+
+What that does and does not mean:
+
+- The `--real` path works against a real API: real tool calls, tool results
+  returned with their identity intact, a real multi-turn conversation, and an
+  episode persisted per arm.
+- The controller is calibrated in the narrow sense that matters most: it stayed
+  out of the way of a run that was working. Spurious intervention is the failure
+  mode an adaptive runtime is most likely to have, and this run does not have it.
+- It says **nothing** about whether adaptation helps. Two tasks, both arms 2/2,
+  zero interventions. There is no signal to measure.
+
+The limit is the call budget. Reaching a task hard enough for a real model to
+stall, let alone stall enough for the detectors to fire, is on the order of a
+hundred calls per arm. Treat this as plumbing that is now proven and calibration
+that is now observed, not as a result.
+
+```bash
+export GROQ_API_KEY=...
+python -m integrations.experiment --real --provider groq \
+  --model openai/gpt-oss-120b --task-set real --tasks 2 \
+  --max-steps 6 --max-calls 25
+```
+
+`--max-calls` is a hard ceiling. Exceeding it raises rather than returning a
+partial answer, because a metered API and an agent loop are a bad pairing without
+one: the loop decides how many turns to take and nothing in it knows what a turn
+costs. A run that stops this way is recorded as `budget_exhausted`, which is
+deliberately not the same as `failed`.
+
 ## Advanced configuration
 
 A `Policy` bounds how often the host can be steered:

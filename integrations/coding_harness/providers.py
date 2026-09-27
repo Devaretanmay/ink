@@ -7,8 +7,10 @@ model reply. Two implementations ship:
   for offline dry runs and tests. It reads verification output and user
   instructions, exactly as a real model would, and it is deliberately blind to
   whether Microloop is running.
-* :class:`AnthropicProvider` -- the real one. It imports the Anthropic SDK lazily
-  so the package works without it, and never leaks a model name into core.
+* :class:`AnthropicProvider` -- real, via the Anthropic SDK.
+* :class:`GroqProvider` -- real, via Groq's OpenAI-compatible API. Uses the
+  standard library, so it adds no dependency and the harness stays installable
+  with nothing but the runtime.
 
 A note on the simulated provider, because it is the difference between an
 experiment and a demonstration. An earlier version applied the known fix only
@@ -22,6 +24,10 @@ adaptive arm is allowed to fail.
 """
 from __future__ import annotations
 
+import json
+import os
+import urllib.error
+import urllib.request
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
@@ -29,7 +35,9 @@ from typing import Any, Protocol, runtime_checkable
 __all__ = [
     "AgentBehaviour",
     "AnthropicProvider",
+    "BudgetExhausted",
     "Ceiling",
+    "GroqProvider",
     "ModelReply",
     "Provider",
     "SimulatedCodingProvider",
@@ -43,6 +51,10 @@ class ToolCall:
 
     name: str
     arguments: dict[str, Any] = field(default_factory=dict)
+    #: The id the API assigned to this call, when it assigned one. Providers need
+    #: it to send the result back, and the harness carries it in the transcript
+    #: so that wiring a turn needs no memory of the turn before it.
+    identifier: str | None = None
 
 
 @dataclass
@@ -55,6 +67,10 @@ class ModelReply:
     output_tokens: int = 0
     cost: float = 0.0
     done: bool = False
+    #: The provider's own representation of the calls it requested, passed
+    #: through into the transcript so the next turn can be rebuilt exactly. The
+    #: harness stores it without interpreting it.
+    raw_tool_calls: list[dict[str, Any]] = field(default_factory=list)
 
 
 @runtime_checkable
@@ -308,35 +324,59 @@ class AnthropicProvider:
         """Convert the harness transcript into Anthropic message objects.
 
         Tool results are returned as ``tool_result`` blocks against the ids the
-        previous response issued, which is the form the API expects; a plain
-        user message would be accepted but drops the tool's identity, and the
-        model is measurably worse at attributing a failure to the call that
-        caused it.
+        response issued, which is the form the API expects; a plain user message
+        would be accepted but drops the tool's identity, and the model is
+        measurably worse at attributing a failure to the call that caused it.
+
+        Stateless, like the Groq provider: the ids come from the transcript
+        rather than from a queue of the most recent turn, so every turn in a
+        long run keeps its tools.
         """
-        pending = list(self._pending_tool_ids)
-        self._pending_tool_ids = []
         wired: list[dict[str, Any]] = []
-        index = 0
-        while index < len(messages):
-            message = messages[index]
+        for message in messages:
             role = message.get("role")
             if role == "tool":
-                blocks = []
-                while index < len(messages) and messages[index].get("role") == "tool":
-                    block: dict[str, Any] = {
-                        "type": "tool_result",
-                        "content": str(messages[index].get("content") or ""),
-                    }
-                    if pending:
-                        block["tool_use_id"] = pending.pop(0)
-                    blocks.append(block)
-                    index += 1
-                wired.append({"role": "user", "content": blocks})
-                continue
-            if role in ("user", "assistant"):
+                block: dict[str, Any] = {
+                    "type": "tool_result",
+                    "content": str(message.get("content") or ""),
+                }
+                identifier = message.get("identifier")
+                if identifier:
+                    block["tool_use_id"] = identifier
+                wired.append({"role": "user", "content": [block]})
+            elif role == "assistant":
+                entry: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": str(message.get("content") or ""),
+                }
+                raw = message.get("tool_calls") or []
+                if raw:
+                    entry["content"] = [entry["content"], *raw]
+                wired.append(entry)
+            elif role in ("system", "user"):
                 wired.append({"role": role, "content": str(message.get("content") or "")})
-            index += 1
         return wired
+
+    @staticmethod
+    def _tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Rewrite OpenAI function declarations into Anthropic tool declarations.
+
+        The harness declares its tools once, in the OpenAI shape, because that is
+        the shape most OpenAI-compatible APIs take. Anthropic wants the schema
+        hoisted to ``input_schema``, which is a rename and nothing more.
+        """
+        declared = []
+        for tool in tools:
+            function = tool.get("function") or tool
+            declared.append(
+                {
+                    "name": function.get("name"),
+                    "description": function.get("description", ""),
+                    "input_schema": function.get("parameters")
+                    or {"type": "object", "properties": {}},
+                }
+            )
+        return declared
 
     def complete(
         self, *, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
@@ -350,19 +390,32 @@ class AnthropicProvider:
                 (str(m["content"]) for m in messages if m.get("role") == "system"), ""
             ),
             messages=self._wire(messages),
-            tools=tools or None,
+            tools=self._tools(tools) or None,
         )
         text = "".join(
             block.text for block in response.content if getattr(block, "type", None) == "text"
         )
         calls: list[ToolCall] = []
-        self._pending_tool_ids = []
+        raw: list[dict[str, Any]] = []
         for block in response.content:
             if getattr(block, "type", None) == "tool_use":
                 identifier = getattr(block, "id", None)
+                calls.append(
+                    ToolCall(
+                        name=block.name,
+                        arguments=dict(block.input or {}),
+                        identifier=identifier,
+                    )
+                )
                 if identifier:
-                    self._pending_tool_ids.append(identifier)
-                calls.append(ToolCall(name=block.name, arguments=dict(block.input or {})))
+                    raw.append(
+                        {
+                            "type": "tool_use",
+                            "id": identifier,
+                            "name": block.name,
+                            "input": dict(block.input or {}),
+                        }
+                    )
         usage = getattr(response, "usage", None)
         return ModelReply(
             text=text,
@@ -371,6 +424,7 @@ class AnthropicProvider:
             output_tokens=getattr(usage, "output_tokens", 0) or 0,
             cost=_cost_of(response, model),
             done=not calls,
+            raw_tool_calls=raw,
         )
 
 
@@ -387,6 +441,179 @@ def _cost_of(response: Any, model: str) -> float:
         return float(get_usage().calculate_cost() or 0.0)
     except Exception:  # noqa: BLE001 - pricing is optional, never fatal
         return 0.0
+
+
+#: Identifies the client to the API edge. Set explicitly because the default
+#: urllib agent string is refused by Groq's edge with Cloudflare 1010 ("browser
+#: signature banned"), and an API client that cannot name itself is
+#: indistinguishable from a scraper.
+USER_AGENT = "microloop-experiment/0.4 (agent runtime evaluation harness)"
+
+
+class BudgetExhausted(RuntimeError):
+    """Raised when a metered provider is out of allowance.
+
+    Raised rather than logged, because the only safe response to an exhausted
+    budget is to stop. A provider that returned a partial answer instead would
+    make the run look like a model failure, and the run would keep spending.
+    """
+
+
+class GroqProvider:
+    """A real provider on Groq's OpenAI-compatible chat completions API.
+
+    Standard library only, so the harness keeps working with nothing installed
+    beyond the runtime. ``GROQ_API_KEY`` is read from the environment and never
+    stored on the instance, and no key is ever written to the episode store.
+
+    ``max_calls`` is a hard ceiling on inference calls for the lifetime of this
+    provider. It exists because a metered API and an agent loop are a bad
+    pairing without one: the loop decides how many turns to take, and nothing in
+    it knows what a turn costs. Exceeding the budget raises
+    :class:`BudgetExhausted` rather than returning a partial answer.
+
+    Two details matter for a measurement to mean anything. Tool results are sent
+    back as proper ``role="tool"`` messages carrying the ``tool_call_id`` the API
+    issued, so the model can attribute a failure to the call that caused it. And
+    the assistant turn that requested those tools is re-sent with its
+    ``tool_calls`` intact, because an OpenAI-shaped conversation without it is
+    not a conversation the model can continue.
+    """
+
+    #: Overridable so the provider can be pointed at a mock in tests.
+    ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+
+    def __init__(
+        self,
+        *,
+        max_tokens: int = 1024,
+        base_url: str | None = None,
+        timeout: float = 60.0,
+        api_key: str | None = None,
+        max_calls: int | None = None,
+    ) -> None:
+        self.max_tokens = max_tokens
+        self.base_url = base_url or self.ENDPOINT
+        self.timeout = timeout
+        self._api_key = api_key
+        self.max_calls = max_calls
+        self.calls = 0
+        self.requests: list[dict[str, Any]] = []
+
+    def _key(self) -> str:
+        key = self._api_key or os.environ.get("GROQ_API_KEY", "")
+        if not key:
+            raise RuntimeError(
+                "the Groq provider needs GROQ_API_KEY set; Microloop never stores "
+                "a provider credential"
+            )
+        return key
+
+    def _wire(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Rebuild the wire format from a transcript that already carries the ids.
+
+        Stateless on purpose. An earlier version queued only the most recent
+        turn's ids, which silently stripped the tool calls and results of every
+        turn before it -- so the longer the run, the more of the conversation the
+        model stopped being able to see. The harness records what the provider
+        returned, so reading it back is both total and testable.
+        """
+        wired: list[dict[str, Any]] = []
+        for message in messages:
+            role = message.get("role")
+            if role == "tool":
+                entry: dict[str, Any] = {
+                    "role": "tool",
+                    "content": str(message.get("content") or ""),
+                }
+                identifier = message.get("identifier")
+                if identifier:
+                    entry["tool_call_id"] = identifier
+                wired.append(entry)
+            elif role == "assistant":
+                entry = {"role": "assistant", "content": str(message.get("content") or "")}
+                raw = message.get("tool_calls") or []
+                if raw:
+                    entry["tool_calls"] = list(raw)
+                wired.append(entry)
+            elif role in ("system", "user"):
+                wired.append({"role": role, "content": str(message.get("content") or "")})
+        return wired
+
+    def _post(self, payload: dict[str, Any]) -> dict[str, Any]:
+        request = urllib.request.Request(
+            self.base_url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={
+                "Authorization": f"Bearer {self._key()}",
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "User-Agent": USER_AGENT,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            # Surface the body. A bare status code is close to useless: 403 from
+            # this endpoint means bad auth, a restricted key, or an unsupported
+            # parameter, and only the body distinguishes them.
+            body = error.read().decode("utf-8", "replace")[:500]
+            self.calls += 1
+            raise RuntimeError(
+                f"Groq returned HTTP {error.code}: {body}"
+            ) from error
+        except urllib.error.URLError as error:
+            raise RuntimeError(f"could not reach Groq: {error.reason}") from error
+
+    def complete(
+        self, *, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> ModelReply:
+        if self.max_calls is not None and self.calls >= self.max_calls:
+            raise BudgetExhausted(
+                f"Groq call budget of {self.max_calls} is spent; stopping rather "
+                f"than starting a run that cannot finish"
+            )
+        payload: dict[str, Any] = {
+            "model": model,
+            "messages": self._wire(messages),
+            "max_tokens": self.max_tokens,
+        }
+        if tools:
+            payload["tools"] = tools
+            payload["tool_choice"] = "auto"
+        self.requests.append(payload)
+        data = self._post(payload)
+        self.calls += 1
+
+        choice = (data.get("choices") or [{}])[0]
+        message = choice.get("message") or {}
+        calls: list[ToolCall] = []
+        for call in message.get("tool_calls") or []:
+            function = call.get("function") or {}
+            raw = function.get("arguments")
+            try:
+                arguments = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+            except json.JSONDecodeError:
+                arguments = {}
+            identifier = call.get("id")
+            calls.append(
+                ToolCall(
+                    name=str(function.get("name", "")),
+                    arguments=arguments,
+                    identifier=identifier,
+                )
+            )
+        usage = data.get("usage") or {}
+        return ModelReply(
+            text=str(message.get("content") or ""),
+            tool_calls=calls,
+            input_tokens=int(usage.get("prompt_tokens", 0) or 0),
+            output_tokens=int(usage.get("completion_tokens", 0) or 0),
+            done=not calls,
+            raw_tool_calls=[c for c in (message.get("tool_calls") or []) if c.get("id")],
+        )
 
 
 def _coerce_reply(payload: Mapping[str, Any]) -> ModelReply:

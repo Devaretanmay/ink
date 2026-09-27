@@ -19,7 +19,12 @@ from typing import Any
 
 from microloop import Episode, RuntimeSession
 
-from integrations.coding_harness.providers import AgentBehaviour, ModelReply, Provider
+from integrations.coding_harness.providers import (
+    AgentBehaviour,
+    BudgetExhausted,
+    ModelReply,
+    Provider,
+)
 
 __all__ = ["CodingHarness", "RunResult", "SYSTEM_PROMPT", "Task"]
 
@@ -73,6 +78,9 @@ class RunResult:
     outcome: str
     episode: Episode
     transcript: list[str] = field(default_factory=list)
+    #: True when the run stopped because the provider's call budget ran out
+    #: rather than because the task finished or the model gave up.
+    truncated: bool = False
 
     def to_metrics(self) -> dict[str, Any]:
         return {
@@ -85,35 +93,53 @@ class RunResult:
             "output_tokens": self.output_tokens,
             "tokens": self.input_tokens + self.output_tokens,
             "adaptations": self.adaptations,
+            "truncated": self.truncated,
         }
 
 
+#: The tools the agent may call, in OpenAI function-calling shape.
+#:
+#: This is the harness's declaration of its own tools, not a provider's wire
+#: format. Each provider translates it: an OpenAI-compatible API takes this as
+#: written, and :class:`AnthropicProvider` rewrites ``parameters`` to
+#: ``input_schema``. Keeping the declaration here and the translation in the
+#: provider is what lets the same harness drive either without either knowing
+#: about the other.
 TOOL_SCHEMAS = [
     {
-        "name": "write_file",
-        "description": "Write source into a file in the workspace.",
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "path": {"type": "string"},
-                "content": {"type": "string"},
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write source into a file in the workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string"},
+                    "content": {"type": "string"},
+                },
+                "required": ["path", "content"],
             },
-            "required": ["path", "content"],
         },
     },
     {
-        "name": "read_file",
-        "description": "Read a file from the workspace.",
-        "input_schema": {
-            "type": "object",
-            "properties": {"path": {"type": "string"}},
-            "required": ["path"],
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read a file from the workspace.",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string"}},
+                "required": ["path"],
+            },
         },
     },
     {
-        "name": "run_tests",
-        "description": "Run the task's tests and return the output.",
-        "input_schema": {"type": "object", "properties": {}},
+        "type": "function",
+        "function": {
+            "name": "run_tests",
+            "description": "Run the task's tests and return the output.",
+            "parameters": {"type": "object", "properties": {}},
+        },
     },
 ]
 
@@ -177,12 +203,22 @@ class CodingHarness:
         step = 0
         transcript: list[str] = []
         success = False
+        truncated = False
 
         while step < self.max_steps:
             step += 1
-            reply: ModelReply = self.provider.complete(
-                model=adapter.model, messages=messages, tools=TOOL_SCHEMAS
-            )
+            try:
+                reply: ModelReply = self.provider.complete(
+                    model=adapter.model, messages=messages, tools=TOOL_SCHEMAS
+                )
+            except BudgetExhausted as error:
+                # Out of allowance, not out of ideas. Record it as an unfinished
+                # run rather than a failed one: "we stopped paying" and "the
+                # model gave up" are different facts and the report must not
+                # conflate them.
+                truncated = True
+                transcript.append(f"{step:>3}  budget   {error}")
+                break
             adapter.add_usage(
                 input_tokens=reply.input_tokens,
                 output_tokens=reply.output_tokens,
@@ -194,13 +230,13 @@ class CodingHarness:
             passed: bool | None = None
             observation = reply.text or "no output"
             actions: list[str] = []
-            results: list[tuple[str, str]] = []
+            results: list[tuple[Any, str]] = []
             for call in reply.tool_calls:
                 adapter.add_tool_call()
                 actions.append(f"{call.name} {call.arguments.get('path', '')}".strip())
                 result, passed_here = self._dispatch(call.name, call.arguments)
                 observation = result
-                results.append((call.name, result))
+                results.append((call, result))
                 if passed_here is not None:
                     passed = passed_here
                     self._verifications += 1
@@ -234,16 +270,26 @@ class CodingHarness:
 
             # The model has to see what its tools returned, or it cannot react
             # to a failing test. This is the difference between a loop and a
-            # demonstration, and the offline agent depends on it too.
-            messages.append(
-                {
-                    "role": "assistant",
-                    "content": reply.text
-                    or ", ".join(f"{c.name}({c.arguments})" for c in reply.tool_calls),
+            # demonstration, and the offline agent depends on it too. The
+            # provider's own ids travel with the result so the next turn can be
+            # rebuilt in the API's wire format without guessing.
+            assistant: dict[str, Any] = {
+                "role": "assistant",
+                "content": reply.text
+                or ", ".join(f"{c.name}({c.arguments})" for c in reply.tool_calls),
+            }
+            if reply.raw_tool_calls:
+                assistant["tool_calls"] = list(reply.raw_tool_calls)
+            messages.append(assistant)
+            for call, result in results:
+                entry: dict[str, Any] = {
+                    "role": "tool",
+                    "name": call.name,
+                    "content": result,
                 }
-            )
-            for name, result in results:
-                messages.append({"role": "tool", "name": name, "content": result})
+                if call.identifier:
+                    entry["identifier"] = call.identifier
+                messages.append(entry)
 
             # The adapter may have queued a replan message; inject it so the next
             # model turn sees the new instruction. This is the real replan.
@@ -258,7 +304,11 @@ class CodingHarness:
                 break
 
         self._success = success
-        self.session.finish("completed" if success else "failed")
+        if truncated:
+            outcome = "budget_exhausted"
+        else:
+            outcome = "completed" if success else "failed"
+        self.session.finish(outcome)
         usage = adapter.usage
         return RunResult(
             task=self.task.name,
@@ -269,7 +319,8 @@ class CodingHarness:
             input_tokens=usage.input_tokens or 0,
             output_tokens=usage.output_tokens or 0,
             adaptations=len(self.session.episode.adaptations),
-            outcome=self.session.episode.outcome or "failed",
+            outcome=self.session.episode.outcome or outcome,
+            truncated=truncated,
             episode=self.session.episode,
             transcript=transcript,
         )

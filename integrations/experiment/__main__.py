@@ -1,17 +1,24 @@
 """Run the static-vs-adaptive experiment.
 
-Offline (default), using the deterministic scripted provider::
+Offline (default), against the deterministic agent model::
 
     python -m integrations.experiment
 
-Against Anthropic, using real model calls (requires ``anthropic`` and an API
-key). This is the real experiment and takes real time and money::
+Against a real model over an OpenAI-compatible API (Groq by default), using real
+tool calls and real time and tokens::
 
-    python -m integrations.experiment --real --tasks 32
+    python -m integrations.experiment --real --provider groq --tasks 1
+
+Against Anthropic, which needs the ``anthropic`` package installed::
+
+    python -m integrations.experiment --real --provider anthropic --tasks 1
 
 Real runs map the tier ladder onto concrete model ids from the environment
 (``MICROLOOP_MODEL_FAST`` / ``MICROLOOP_MODEL_BALANCED`` / ``MICROLOOP_MODEL_STRONG``),
-so no model name is ever hardcoded. Simulated results are labelled as such and
+so no model name is ever hardcoded. A single-model experiment sets all three to
+the same id, which is the fair way to isolate the controller: if every tier is
+the same model, escalation cannot help, and whatever the sweep shows is the
+controller and not a better model. Simulated results are labelled as such and
 never mixed with real ones.
 """
 from __future__ import annotations
@@ -25,7 +32,7 @@ from typing import Any
 from microloop import ModelTier
 from microloop.store import EpisodeStore
 
-from integrations.coding_harness.providers import AnthropicProvider
+from integrations.coding_harness.providers import AnthropicProvider, GroqProvider
 from integrations.coding_harness.tasks import build_tasks
 from integrations.experiment.runner import build_session, run_experiment, run_sweep
 
@@ -49,6 +56,16 @@ def _real_tiers() -> dict[str, str]:
     return tiers
 
 
+def _single_model_tiers(model: str) -> dict[str, str]:
+    """Pin every tier to one model id.
+
+    This is the honest way to ask whether the controller helps: with one model on
+    every rung, a model switch is a no-op, so a difference between the arms is
+    attributable to the controller's other actions rather than to a better model.
+    """
+    return {tier: model for tier in ModelTier.Order}
+
+
 def _simulated_tiers() -> dict[str, str]:
     from integrations.experiment.runner import DEFAULT_TIERS
 
@@ -59,9 +76,39 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="experiment", description=__doc__)
     parser.add_argument("--tasks", type=int, default=32, help="how many tasks to run")
     parser.add_argument(
+        "--task-set",
+        choices=("generated", "real"),
+        default="generated",
+        help=(
+            "generated: one-line arithmetic, solved in one attempt by a capable "
+            "model; real: Python bugs with a hidden verifier, where the obvious "
+            "first fix can be wrong"
+        ),
+    )
+    parser.add_argument(
         "--real",
         action="store_true",
-        help="use Anthropic model calls instead of the offline agent model",
+        help="make real model calls instead of running the offline agent model",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=("groq", "anthropic"),
+        default="groq",
+        help="which real API to call with --real (default groq)",
+    )
+    parser.add_argument(
+        "--model",
+        help=(
+            "a single model id pinned to every tier, which isolates the "
+            "controller from model switching; overrides the MICROLOOP_MODEL_* "
+            "variables"
+        ),
+    )
+    parser.add_argument(
+        "--max-calls",
+        type=int,
+        default=None,
+        help="hard ceiling on real API calls, so a metered run cannot overshoot",
     )
     parser.add_argument(
         "--db",
@@ -77,17 +124,32 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    tasks = build_tasks(args.tasks)
+    if args.task_set == "real":
+        from integrations.coding_harness.real_tasks import build_real_tasks
+
+        tasks = build_real_tasks()[: args.tasks]
+    else:
+        tasks = build_tasks(args.tasks)
     if args.real:
-        tiers = _real_tiers()
+        tiers = _single_model_tiers(args.model) if args.model else _real_tiers()
 
-        def arm_builder(arm: str, **kwargs: object):  # noqa: ANN202
-            return build_session(arm, tiers=tiers)
+        def arm_builder(arm: str, **kwargs: Any):  # noqa: ANN202
+            return build_session(arm, tiers=tiers, policy=kwargs.get("policy"))
 
-        provider_name, run_mode = "anthropic", "real"
+        if args.provider == "anthropic":
+            provider_name, run_mode = "anthropic", "real"
 
-        def provider_factory(task):  # noqa: ANN001, ANN202
-            return AnthropicProvider()
+            def provider_factory(task):  # noqa: ANN001, ANN202
+                return AnthropicProvider()
+
+        else:
+            provider_name, run_mode = "groq", "real"
+            budget = args.max_calls
+
+            def provider_factory(task):  # noqa: ANN001, ANN202
+                # A fresh budget per run, divided by the number of runs, so the
+                # ceiling is the caller's and the split is ours.
+                return GroqProvider(max_calls=budget)
 
     else:
         from integrations.experiment.runner import _simulated_factory, _tier_by_model
