@@ -87,6 +87,177 @@ run: reusing an id marks the sample as cached, and cached samples do not count
 toward a plateau. And signals Microloop does not recognise are treated as
 unknown, never as evidence of anything.
 
+## 5. Report runtime conditions (optional)
+
+Progress is one question. To let Microloop also recommend a runtime action, tell
+it the conditions the step ran under:
+
+```python
+decision = monitor.observe(
+    action=step.action,
+    observation=step.result,
+    runtime={
+        "model": "sonnet",
+        "context_tokens": 46_000,
+        "context_limit": 64_000,
+        "cost": 0.84,
+    },
+)
+
+decision.progress.state              # "stalled"
+decision.runtime.model               # "sonnet"
+decision.recommendation.action       # "replan"
+decision.recommendation.reason       # "trajectory_stalled"
+```
+
+Every `runtime` field is optional: `model`, `context_tokens`, `context_limit`,
+`input_tokens`, `output_tokens`, `cost`, `elapsed_seconds`, `tool_calls` and
+`remaining_budget`. Microloop never estimates prices; `cost` is whatever you
+measured. Add a `Budget` to make it enforce limits, and `Capabilities` to say
+which actions your host can actually perform:
+
+```python
+from microloop import Budget, Capabilities, Monitor
+
+monitor = Monitor(
+    policy=Policy(stalled=InterventionAction.Replan),
+    budget=Budget(max_cost=5.0, max_seconds=900),
+    capabilities=Capabilities(replan=True, model_switch=False),
+)
+```
+
+An exhausted budget stops the run; an action your host cannot perform is never
+recommended. Declaring capabilities is what unlocks the actuators: with only
+`replan` capable, a stall replans; add `model_switch` and the run escalates when
+a replan did not recover; add `context_compaction` and it compacts first when the
+context window is under pressure. That ordering is the default `RuleController`
+ladder.
+
+### Score the candidates instead of taking the first rung
+
+`RuntimeController` picks the first permitted rung. `ScoredController` scores
+every permitted candidate and picks the best, so a run under context pressure
+compacts even when a replan is also available, and a run that already burned a
+replan escalates instead of repeating it:
+
+```python
+from microloop import Capabilities, Monitor, ScoredController
+
+controller = ScoredController(
+    stalled="replan",
+    capabilities=Capabilities(replan=True, model_switch=True, context_compaction=True),
+    min_benefit=0.15,
+)
+monitor = Monitor(controller=controller)
+```
+
+The strategy is explicit: `controller.strategy` is `"scored"`, and
+`controller.config["strategy"]` matches. There is no hidden `"adaptive"` mode.
+The controller stays deterministic and provider neutral; `min_benefit` is the
+stability margin a new action must beat `continue` by, which keeps a model from
+bouncing between two rungs.
+
+### Apply adaptations with a session
+
+Capabilities say what the adapter *could* do. To let Microloop actually apply an
+adaptation, bind the adapter with a `RuntimeSession`:
+
+```python
+from microloop import Capabilities, Monitor, RuntimeAction, RuntimeController, RuntimeSession
+
+controller = RuntimeController(
+    stalled="replan",
+    capabilities=Capabilities(replan=True, model_switch=True, context_compaction=True),
+)
+session = RuntimeSession(Monitor(controller=controller), adapter)
+
+for step in agent.steps():
+    decision = session.observe(action=step.action, observation=step.result)
+    if decision.recommendation.action == RuntimeAction.Stop:
+        break
+
+session.finish("completed")
+print(session.summary()["cost_per_success"])
+```
+
+The session reports runtime state, asks the controller, applies the recommended
+action through the adapter, and records the result. Each adaptation is recorded
+separately with whether it helped (`improved`, `no_change` or `regressed`) once
+its evaluation window has passed; `session.summary()` carries the episode,
+including cost per successful task. It never applies `stop`: termination stays
+yours. Without a session, Microloop only recommends.
+
+## 6. Real integrations and the experiment
+
+Two integrations ship outside the package, so the core stays provider-neutral.
+
+`integrations/coding_harness` is a small agent loop the harness owns end to end:
+task, workspace, tools, tests, model call. `TieredAdapter` performs the three
+adaptations for real. Swap `SimulatedCodingProvider` for `AnthropicProvider` to
+run the same harness against a real model.
+
+`integrations/openai_agents` sits alongside the Agents SDK runner by registering
+its lifecycle hooks; nothing about the runner is forked.
+
+Both record into a local episode store:
+
+```python
+from microloop.store import EpisodeStore
+
+store = EpisodeStore(".microloop/episodes.db")
+store.record(result.episode, task=task.name, arm="adaptive", run_mode="real", success=result.success)
+```
+
+`run_mode` is `real` for actual model calls and `simulated` for the offline
+agent model; the two are never mixed. `microloop stats` reads the store. The
+static-vs-adaptive comparison lives in `integrations/experiment`:
+
+```bash
+python -m integrations.experiment                    # offline, deterministic
+python -m integrations.experiment --sweep --tasks 40  # compare controller policies
+python -m integrations.experiment --real --tasks 40   # Anthropic, needs keys
+```
+
+Microloop must be allowed to lose: if the adaptive arm does worse, the report
+says so. That is the finding, not a bug to tune away.
+
+### What the offline experiment found
+
+On 40 tasks, with the shipped default policy, the adaptive arm did **worse**
+than doing nothing. The comparison is paired, so this is a real swing rather
+than a difference in task difficulty:
+
+| policy | success | won | lost | p |
+|---|---|---|---|---|
+| static (no adaptation) | 21/40 | — | — | — |
+| eager replan | 18/40 | 0 | 3 | 0.250 |
+| patient replan | 22/40 | 1 | 0 | 1.000 |
+| wary replan | 16/40 | 0 | 5 | 0.062 |
+
+Replanning on every stalled step interrupts an agent that is slowly grinding
+toward a fix. The agent abandons the approach it has barely tried, loses the
+ground it made, and runs out of budget.
+
+Read the p-values before the counts. None of these clear 0.05, and the sweep
+says so in its own output: with at most five tasks where any policy disagreed
+with the baseline, one more discordant task would be needed before a sign test
+could reach significance at all. **The honest reading is that this experiment is
+underpowered, not that it has settled the question.** It does rule out a large
+effect in either direction, and it does show that intervening as fast as a run
+stalls is not free.
+
+Two things follow. The `improved` label on an adaptation is not a useful
+measure of whether it helped: 95% of replans were scored `improved` while the
+adaptive arm was losing, because progress recovers locally and the task still
+fails. `EpisodeStore.attribution()` reports success rates instead, beside a
+control group of runs with no adaptation. And the task set needs more close
+calls, where the outcome is actually decided by intervention timing, before any
+of these rows means much.
+
+None of this is evidence about real models. The offline agent is a model of an
+agent, described in `integrations/coding_harness/tasks.py`; the `--real` path is
+the one that would say something about them.
+
 ## Advanced configuration
 
 A `Policy` bounds how often the host can be steered:

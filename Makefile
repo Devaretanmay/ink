@@ -22,10 +22,12 @@ test-rust:
 test-python:
 	pytest python/microloop/tests/
 
-# The coding-agent example is a deterministic, scripted recovery demo. Running it
-# in CI keeps the documented public API honest.
+# Both examples are deterministic and offline. Running them in CI keeps the
+# documented public API honest and pins the adaptive example's result: it asserts
+# that intervening as fast as a run stalls loses a task that doing nothing wins.
 test-examples:
 	python examples/coding-agent/agent.py
+	python examples/adaptive-coding-agent/agent.py
 
 # Reproduces the per-step cost and memory figures quoted in README.md.
 perf:

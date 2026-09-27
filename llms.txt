@@ -19,17 +19,33 @@ for install and a ten-line example.
 
 - [Reduce a trajectory to one signal](https://github.com/Devaretanmay/microloop/blob/main/docs/concepts.md): the mental model. Event, trajectory, progress state, decision, and the four things progress is derived from.
 - [Wire Microloop into your agent loop](https://github.com/Devaretanmay/microloop/blob/main/docs/integration.md): four steps. Send steps, read progress, opt into recommendations, attach stronger signals.
-- [Analyze a trajectory from the command line](https://github.com/Devaretanmay/microloop/blob/main/docs/cli.md): `inspect`, `replay`, `monitor` and `doctor`, plus the JSONL trajectory format.
+- [Analyze a trajectory from the command line](https://github.com/Devaretanmay/microloop/blob/main/docs/cli.md): `inspect`, `replay`, `explain`, `monitor` and `doctor`, plus the JSONL trajectory format.
 - [How the engine computes progress](https://github.com/Devaretanmay/microloop/blob/main/docs/architecture.md): module map, data flow, normalization, cost, determinism and bounds.
 
 ## Reference
 
 - [Example: offline coding agent](https://github.com/Devaretanmay/microloop/blob/main/examples/coding-agent/README.md): a runnable deterministic recovery demo using the public API.
 - [Evaluation harness](https://github.com/Devaretanmay/microloop/blob/main/benchmarks/README.md): methodology and the provenance rules for what counts as a result.
+- [Coding harness integration](https://github.com/Devaretanmay/microloop/blob/main/integrations/coding_harness/README.md): a real agent loop whose runtime Microloop controls.
+- [OpenAI Agents SDK integration](https://github.com/Devaretanmay/microloop/blob/main/integrations/openai_agents/README.md): lifecycle hooks, no forked runner.
 
 ## Notes for agents
 
-- The public Python API is `Monitor`, `Policy`, `Event`, `Decision`, `InterventionAction` and `ProgressState`. Nothing else is supported.
-- `Monitor` defaults to observation-only. `replan` and `stop` require an explicit `Policy` and are bounded by a cooldown and a per-run cap.
+- The public Python API is `Monitor`, `Event`, `Decision`, `Policy`, `InterventionAction` and `ProgressState`, plus the runtime primitives `RuntimeState`, `Usage`, `Budget`, `Capabilities`, `CapabilityLevel`, `ProgressSnapshot`, `RuntimeAction`, `RuntimeDecision`, `RecommendationReason`, `RuntimeController`, `ScoredController`, `Strategy`, `ActionScore`, `ControllerTrace`, `ActionOutcome`, `RuntimeAdapter`, `AgentRuntimeAdapter`, `TieredAdapter`, `ContextCompactor`, `ModelTier`, `TaskOutcome`, `AdaptationResult`, `MockAdapter`, `RuntimeSession`, `Episode` and `AdaptationRecord`.
+- `Monitor.observe` returns a `Decision` with legacy fields (`status`, `reasons`, `evidence`, `intervention`, `severity`) plus `progress`, `runtime` and `recommendation`. Only observational `runtime` data is needed to get a runtime recommendation.
+- `RuntimeAction` defines nine actions. Six are produced today (`continue`, `replan`, `escalate_model`, `deescalate_model`, `compact_context`, `stop`); `restore_checkpoint`, `retry_tool` and `branch_strategy` are experimental.
+- `Monitor` defaults to observation-only. Actuators require an explicit `Policy` or `RuntimeController` and are bounded by a cooldown, a per-run cap and the configured `Budget`.
+- Two strategies share one pipeline. `RuntimeController` (strategy `rule`) takes the first permitted rung: `compact_context` when context is under pressure, then `replan`, then `escalate_model`; sustained progress after an escalation yields `deescalate_model`. `ScoredController` (strategy `scored`) scores every permitted candidate and picks the best, with a `min_benefit` stability margin. The strategy is an explicit, inspectable field.
+- Candidate actions come from `rules`; gating keeps the capable, available, off-cooldown, within-cap ones; scoring combines expected progress, relative cost, repetition and runtime pressure (context utilization, remaining budget, sustained progress).
+- Each action is judged after a short evaluation horizon and recorded as an `ActionOutcome` (`improved`, `no_change`, `regressed`). Actions attempted while stuck belong to a `StallEpisode`; when every actuator has failed the reason becomes `action_exhausted` and Microloop recommends `continue` rather than cycling.
+- A scored decision carries a `ControllerTrace` (candidates, scores, selected). It is omitted from normal output and shown by `microloop replay --verbose` and in `--json`.
+- The controller never recommends an action the adapter does not declare through `Capabilities`, or that the host does not list in the per-step `available` set.
+- `RuntimeSession` (opt-in) binds a `RuntimeAdapter` and applies recommended adaptations; without it Microloop only recommends. It never applies `stop`.
 - `decision.severity` is a fixed lookup over `decision.status` and carries no information beyond it. Branch on `status`.
+- Provider code lives outside the package in `integrations/`: `integrations/coding_harness` (a real agent loop) and `integrations/openai_agents` (SDK lifecycle hooks). The core never contains provider logic.
+- `ModelTier` (`fast`/`balanced`/`strong`) is the provider-neutral ladder. `TieredAdapter` maps tiers to model ids and performs the three adaptations for real: replan injection, tier switching and deterministic `ContextCompactor`. `TaskOutcome` (`success`, `verifier`, `score`) is the host's verdict on the task.
+- `microloop.store.EpisodeStore` is a local SQLite store of episodes, adaptations and controller candidate traces. `microloop stats [db]` summarizes it: adaptations attempted vs improved, outcomes segmented by the situation they were chosen in, the share of runs that finished per action beside a no-adaptation control, and cost per successful task. Local only, no telemetry.
+- An adaptation's `improved` label means progress recovered afterwards, not that the action caused success. In the first 40-task run, 95% of replans were scored `improved` while the adaptive arm lost to doing nothing. Do not treat it as evidence; use `EpisodeStore.attribution()`.
+- `python -m integrations.experiment` runs every task static and adaptive and reports success, cost/tokens/steps per success. `--sweep` compares controller policies pairwise against the no-adaptation baseline and refuses to name a winner when the sign test cannot support it. `--real` uses Anthropic (needs keys and model ids from the environment); the default is a deterministic simulated agent labelled `run_mode="simulated"`.
+- The offline harness is a model of an agent, not evidence about real models. Agent behaviour is fixed per task and identical in both arms; a Microloop adaptation can only reach the agent the way a person reading the terminal could, by changing the model tier or adding an instruction.
 - Schema validation of trajectory files happens in the CLI, not in the library. `Monitor.observe()` is version-agnostic and ignores unknown fields.

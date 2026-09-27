@@ -12,7 +12,17 @@ microloop-core (Rust)
 │   ├── oscillation.rs  A/B environment state cycles
 │   └── verification.rs verifier progress/regression comparison
 ├── engine.rs         ProgressEngine: features -> progress state
-├── policy.rs         Policy: progress state -> recommendation
+├── policy.rs         Policy: progress state -> intervention (compatibility)
+├── runtime/          adaptive runtime layer
+│   ├── state.rs        RuntimeState, Usage, Budget
+│   ├── action.rs       RuntimeAction vocabulary (3 enabled, 6 experimental)
+│   ├── capabilities.rs Capabilities and CapabilityLevel
+│   ├── decision.rs     ProgressSnapshot, RuntimeDecision, RecommendationReason,
+│   │                   ActionScore, ControllerTrace, Strategy
+│   ├── rules.rs        candidate actions + reasons (what is possible)
+│   ├── outcome.rs      ActionOutcome, ActionAttempt, StallEpisode
+│   ├── scoring.rs      ActionScorer, HeuristicScorer, ScoringConfig
+│   └── controller.rs   RuntimeController: gating + rule/scored selection
 ├── monitor.rs        Monitor: facade returning Decision
 └── config.rs         MonitorConfig: detection bounds and their validation
 ```
@@ -21,14 +31,27 @@ The Python package `python/microloop` wraps the core through a thin PyO3 layer
 (`python/microloop/src/lib.rs`) that marshals events and decisions as JSON. No
 detection or policy logic lives in the bindings.
 
+All provider code lives outside the package, in the repository's
+`integrations/` tree (`integrations/coding_harness`, `integrations/openai_agents`)
+and its `experiments` runner. Adapters own the model ladder, the compaction
+implementation and the actuation; the core still only ever recommends a
+direction. This is what keeps the engine from growing provider-specific
+branches.
+
 ## Pipeline
 
 ```text
-events
+events (+ runtime)
   -> trajectory features
   -> progress state
-  -> recommendation
+  -> progress snapshot
+  -> runtime state
+  -> runtime recommendation
 ```
+
+Detection and runtime adaptation are independent. Progress answers *is this run
+advancing?*; the runtime layer answers *under what conditions, and what should
+change?* Detection never knows about runtime actions.
 
 ## Data flow
 
@@ -42,10 +65,28 @@ events
    other detectors for that step.
 4. `ProgressState` is synthesized: `regressing` dominates, then `stalled`, then
    `warning`, defaulting to `healthy`.
-5. `Policy::evaluate` maps the state to an `InterventionAction`, applying the
-   cooldown and cap. `Monitor` attaches the feedback text. Detectors have no say
-   in this step, and the policy never sees them.
-6. The `Decision` is returned. The runtime performs no I/O and executes nothing.
+5. `ProgressSnapshot` summarizes the state, its detector `signals`, the step and
+   `since_step` (the step at which the current state began).
+6. `RuntimeController::decide` takes the snapshot, the reported `RuntimeState`,
+   adapter `Capabilities` and any per-step `available` set. An exhausted
+   `Budget` stops the run. Otherwise `rules::candidates` lists the possible
+   actions for the state (context pressure, a stall, recovery) and gating keeps
+   those that are capable, available, off cooldown and within the per-run cap.
+   Under the `Rule` strategy the controller takes the first surviving rung;
+   under `Scored` every survivor is scored by the `ActionScorer` (expected
+   progress, cost, repetition, runtime pressure) and the highest score wins
+   unless it does not clear the stability margin, in which case `continue` is
+   chosen. Nothing permitted degrades to `continue`.
+   `RuntimeController` owns this state, not `Policy`; `Policy` only supplies a
+   converted configuration.
+7. `Monitor` fills the nested `progress`, `runtime` and `recommendation` fields,
+   keeps `status`/`intervention` in sync, and attaches the feedback text. A
+   scored decision also attaches its `ControllerTrace`.
+8. The `Decision` is returned. The runtime performs no I/O and executes nothing.
+9. Between decisions the controller judges pending attempts against their
+   evaluation horizon, records the `ActionOutcome`, and opens or closes the
+   `StallEpisode`. This is pure state, not I/O: the engine still replays
+   identically. Actuation itself stays host-side.
 
 ## Normalization
 
@@ -88,8 +129,11 @@ this. There is no clock, randomness or network access in the core.
 
 ## Bindings
 
-The PyO3 bindings expose `Monitor` and `Policy` as JSON-in/JSON-out classes. The
-Pythonic surface (`microloop/__init__.py`) adds the `Event` and `Decision`
-dataclasses, plus `InterventionAction` and `ProgressState` as plain classes
-holding string constants, and helpers such as `Decision.should_intervene` and
-`Decision.recovery_context`.
+The PyO3 bindings expose `Monitor`, `Policy` and `RuntimeController` as
+JSON-in/JSON-out classes. The Pythonic surface (`microloop/__init__.py`) adds the
+`Event` and `Decision` dataclasses, plus `InterventionAction` and `ProgressState`
+as plain classes holding string constants, and helpers such as
+`Decision.should_intervene` and `Decision.recovery_context`. The
+`microloop.runtime` subpackage mirrors the Rust runtime types (`RuntimeState`,
+`ProgressSnapshot`, `RuntimeDecision`, `Budget`, `Capabilities`) and adds the
+host-side pieces: the `RuntimeAdapter` protocol and the `Episode` accumulator.

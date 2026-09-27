@@ -108,9 +108,10 @@ jobs:
       - name: Test suite passes against the installed wheel
         run: |
           "${{ matrix.venv }}/python" -m pytest python/microloop/tests/
-      - name: The documented example runs
+      - name: The documented examples run
         run: |
           "${{ matrix.venv }}/python" examples/coding-agent/agent.py
+          "${{ matrix.venv }}/python" examples/adaptive-coding-agent/agent.py
 
   python:
     name: python (${{ matrix.python-version }})
@@ -133,3 +134,4 @@ jobs:
       - run: ruff check .
       - run: pytest python/microloop/tests/
       - run: python examples/coding-agent/agent.py
+      - run: python examples/adaptive-coding-agent/agent.py

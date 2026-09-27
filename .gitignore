@@ -13,6 +13,7 @@ __pycache__/
 /results_*
 !benchmarks/results/
 benchmarks/data/
+.microloop/
 .agents/
 .idea/
 .vscode/

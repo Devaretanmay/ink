@@ -16,6 +16,15 @@ Microloop runs in process and returns the current progress state, the evidence
 behind it, and, if you enable it, a recommendation for what the host should do
 next.
 
+When your integration also reports runtime conditions (model, context, tokens,
+cost), Microloop returns them alongside progress and a runtime recommendation.
+When progress degrades, a deterministic controller evaluates the possible
+actions -- `replan`, `escalate_model`, `compact_context` -- and picks the best
+tradeoff for the run: a run under context pressure compacts, a run that already
+burned a replan escalates, a run on a short budget declines an expensive
+escalation. Bind an adapter with a `RuntimeSession` and Microloop applies the
+adaptation, records whether it helped, and reports cost per successful task.
+
 [![CI](https://github.com/Devaretanmay/microloop/actions/workflows/ci.yml/badge.svg)](https://github.com/Devaretanmay/microloop/actions)
 [![PyPI](https://img.shields.io/pypi/v/microloop.svg?v=0.3.0)](https://pypi.org/project/microloop/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
@@ -103,6 +112,11 @@ verification results, environment state, and repeated errors. The internal
 detectors are an implementation detail; see
 [architecture](docs/architecture.md) if you want them.
 
+Each decision also carries `progress` (state, signals, `since_step`), `runtime`
+(the conditions you reported) and `recommendation` (a `RuntimeAction` and its
+reason). See [runtime primitives](docs/concepts.md#runtime) and
+[adaptations](docs/concepts.md#adaptations).
+
 By default the runtime only observes. Recommendations require an explicit
 policy:
 
@@ -113,6 +127,19 @@ monitor = Monitor(policy=Policy(
     stalled=InterventionAction.Replan,
     regressing=InterventionAction.Stop,
     cooldown_steps=5,
+))
+```
+
+That uses the rule ladder. For the controller that scores candidates and picks
+the best, use `ScoredController` -- the strategy is explicit, not a hidden
+switch:
+
+```python
+from microloop import Capabilities, Monitor, ScoredController
+
+monitor = Monitor(controller=ScoredController(
+    stalled="replan",
+    capabilities=Capabilities(replan=True, model_switch=True, context_compaction=True),
 ))
 ```
 
@@ -144,8 +171,55 @@ Only transitions are shown. A step that is progressing and adds nothing is
 skipped, and the events tell the story in order. Add `--verbose` for every step,
 or `--json` for the exact representation.
 
-`replay` is the same trajectory as a timeline, and `monitor` follows a file as an
-agent writes it. `doctor` checks the runtime. See [docs/cli.md](docs/cli.md).
+`replay` is the same trajectory as a timeline, `explain` shows the runtime
+recommendation and the conditions behind it, `monitor` follows a file as an agent
+writes it, and `stats` summarizes the local episode store. `doctor` checks the
+runtime. See [docs/cli.md](docs/cli.md).
+
+## Real integrations and the first experiment
+
+Provider code lives outside the package, in [`integrations/`](integrations):
+a coding harness whose task, workspace, tools and tests the harness owns, and an
+OpenAI Agents SDK integration that registers the SDK's lifecycle hooks without
+forking its runner. Both use a provider-neutral `TieredAdapter` that performs the
+three adaptations for real: it injects a replan message, moves the model tier, and
+compacts the transcript deterministically. Model names live only in the adapter.
+
+Every run can be recorded to a local SQLite episode store -- one row per episode,
+per adaptation and per candidate the scored controller considered -- and
+summarized with `microloop stats`. The static-vs-adaptive experiment runs each
+task twice and reports task success, cost per success, tokens per success and
+steps per success:
+
+```bash
+python -m integrations.experiment                   # offline, deterministic
+python -m integrations.experiment --sweep --tasks 40 # compare controller policies
+python -m integrations.experiment --real            # Anthropic, needs keys
+```
+
+### The first result was negative
+
+On the 40-task offline run, with the shipped default policy, the adaptive arm
+**did worse than doing nothing** (18/40 against 21/40, paired per task). The
+cause is mechanical: replanning on every stalled step interrupts an agent that
+is slowly grinding toward a fix, so it abandons the approach it has barely tried
+and runs out of budget. A policy that intervenes once and gets out of the way
+finishes the same task in 14 steps instead of failing at 40.
+
+No configuration cleared p<0.05, and the sweep says so in its own output rather
+than naming a winner. The honest reading is that the experiment is **underpowered,
+not that it has settled the question**. Two things did come out of it:
+
+- The `improved` label on an adaptation is not evidence. 95% of replans were
+  scored `improved` while the adaptive arm was losing, because progress recovers
+  locally and the task still fails. `microloop stats` now reports success rates
+  per action beside a control group instead.
+- The task set was missing tasks where intervention timing actually decides the
+  outcome, so a controller that intervened constantly scored the same as one that
+  never intervened. Adding them changed the ranking of the policies entirely.
+
+None of this is evidence about real models. See
+[docs/integration.md](docs/integration.md#what-the-offline-experiment-found).
 
 ## How it fits
 
@@ -161,9 +235,9 @@ scope, failure counts and environment state when you have them.
 
 ## Docs
 
-- [Reduce a trajectory to one signal](docs/concepts.md): the mental model
+- [Reduce a trajectory to one signal](docs/concepts.md): the mental model, including runtime primitives
 - [Wire Microloop into your agent loop](docs/integration.md): four steps, from sending steps to attaching verifier signals
-- [Analyze a trajectory from the command line](docs/cli.md): `inspect`, `replay`, `monitor`, `doctor`
+- [Analyze a trajectory from the command line](docs/cli.md): `inspect`, `replay`, `explain`, `monitor`, `doctor`
 - [How the engine computes progress](docs/architecture.md): module map, data flow, cost
 
 Point an agent at [`llms.txt`](llms.txt) for a machine-readable index.
