@@ -1,4 +1,4 @@
-"""Microloop CLI: inspect, replay, monitor and doctor.
+"""Microloop CLI: inspect, replay, monitor, explain, stats and doctor.
 
 Reads schema 0.3.0 trajectory JSONL and streams it through the native runtime.
 ``monitor`` can follow a live file as an agent appends steps.
@@ -15,6 +15,7 @@ import json
 import platform
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 from . import (
@@ -25,6 +26,7 @@ from . import (
     Monitor,
     Policy,
     ProgressState,
+    ScoredController,
     __version__,
 )
 
@@ -34,7 +36,15 @@ _SCHEMA_MAJOR = int(SCHEMA_VERSION.split(".", 1)[0])
 
 # Recommendation policy for `replay` and `monitor`: surfaces what a host *could*
 # do without ever taking it. `inspect` deliberately does not use this; see below.
+# The scored strategy is used so `--verbose` and `explain` can show candidates.
 _RECOMMENDATION_POLICY = Policy(
+    warning=InterventionAction.Observe,
+    stalled=InterventionAction.Replan,
+    regressing=InterventionAction.Replan,
+    cooldown_steps=1,
+    max_interventions=10_000,
+)
+_RECOMMENDATION_CONTROLLER = ScoredController(
     warning=InterventionAction.Observe,
     stalled=InterventionAction.Replan,
     regressing=InterventionAction.Replan,
@@ -129,11 +139,23 @@ def _event_from_record(record: dict[str, Any], fallback_step: int) -> Event:
         state=record.get("state"),
         metrics=record.get("metrics"),
         metadata=record.get("metadata"),
+        runtime=record.get("runtime"),
     )
 
 
 def _recommending() -> Monitor:
-    return Monitor(policy=_RECOMMENDATION_POLICY)
+    return Monitor(controller=_RECOMMENDATION_CONTROLLER)
+
+
+def _trace_lines(decision: Decision) -> list[str]:
+    """Render the scored controller's candidates, best first."""
+    recommendation = decision.recommendation
+    trace = recommendation.trace if recommendation is not None else None
+    if trace is None or not trace.candidates:
+        return []
+    ranked = sorted(trace.candidates, key=lambda candidate: candidate.score, reverse=True)
+    rows = [f"  {candidate.action:<18}{candidate.score:+.2f}" for candidate in ranked]
+    return ["candidates", *rows]
 
 
 def _observing() -> Monitor:
@@ -146,6 +168,8 @@ def commands() -> dict[str, Any]:
         "inspect": _inspect,
         "replay": _replay,
         "monitor": _monitor_live,
+        "explain": _explain,
+        "stats": _stats,
         "doctor": _doctor,
     }
 
@@ -189,6 +213,33 @@ _COUNTABLE = {
     "repeated_error",
     "state_stagnation",
 }
+
+
+def _runtime_lines(decision: Decision) -> list[str]:
+    """Render the runtime conditions behind a step, when the host reported any."""
+    runtime = decision.runtime
+    if runtime is None:
+        return []
+    lines: list[str] = []
+
+    def add(label: str, value: Any) -> None:
+        lines.append(f"{label:<10}{value}")
+
+    if runtime.model:
+        add("model", runtime.model)
+    if runtime.context_utilization is not None:
+        add("context", f"{runtime.context_utilization * 100:.0f}%")
+    if runtime.cost is not None:
+        add("cost", f"${runtime.cost:.2f}")
+    if runtime.remaining_budget is not None:
+        add("budget", f"${runtime.remaining_budget:.2f} left")
+    if runtime.elapsed_seconds is not None:
+        add("elapsed", f"{runtime.elapsed_seconds:.0f}s")
+    if runtime.tool_calls is not None:
+        add("tool calls", runtime.tool_calls)
+    if not lines:
+        return []
+    return ["runtime", *lines]
 
 
 def _describe(decision: Decision) -> list[str]:
@@ -262,6 +313,8 @@ def _report(records: list[dict[str, Any]], monitor: Monitor, verbose: bool) -> N
             print(f"  step {decision.step}   {label}")
             for line in _describe(decision):
                 print(f"           {line}")
+            for line in _runtime_lines(decision):
+                print(f"           {line}")
         previous = decision.status
 
     final = decisions[-1]
@@ -302,6 +355,8 @@ def _print_verbose(records: list[dict[str, Any]]) -> None:
         )
         for item in decision.evidence:
             print(f"           {item['reason']}: {item['detail']} (steps {item['steps']})")
+        for line in _trace_lines(decision):
+            print(f"           {line}")
     print()
     print("Policy is observe-only for this report; no action was taken.")
 
@@ -312,7 +367,7 @@ def _machine_report(schema: str, records: list[dict[str, Any]]) -> dict[str, Any
     # One monitor for the whole run, for the same reason as _print_verbose.
     monitor = _recommending()
     for index, record in enumerate(records, start=1):
-        decisions.append(monitor.observe_event(_event_from_record(record, index)).__dict__)
+        decisions.append(monitor.observe_event(_event_from_record(record, index)).to_dict())
     states = [d["status"] for d in decisions]
     worst = max(states, key=lambda s: _STATE_RANK.get(s, 0)) if states else "healthy"
     return {
@@ -335,36 +390,89 @@ def _replay(args: argparse.Namespace) -> int:
     if args.json:
         for index, record in enumerate(records, start=1):
             decision = monitor.observe_event(_event_from_record(record, index))
-            print(
-                json.dumps(
-                    {
-                        "schema_version": schema,
-                        "step": decision.step,
-                        "status": decision.status,
-                        "reasons": decision.reasons,
-                        "evidence": decision.evidence,
-                        "intervention": decision.intervention,
-                        "severity": decision.severity,
-                        "verified_progress": decision.verified_progress,
-                    }
-                )
-            )
+            payload = {
+                "schema_version": schema,
+                "step": decision.step,
+                "status": decision.status,
+                "reasons": decision.reasons,
+                "evidence": decision.evidence,
+                "intervention": decision.intervention,
+                "severity": decision.severity,
+                "verified_progress": decision.verified_progress,
+            }
+            if decision.progress is not None:
+                payload["progress"] = decision.progress.to_dict()
+            if decision.runtime is not None:
+                payload["runtime"] = decision.runtime.to_dict()
+            if decision.recommendation is not None:
+                payload["recommendation"] = decision.recommendation.to_dict()
+            print(json.dumps(payload))
         return 0
 
     print()
     for index, record in enumerate(records, start=1):
         decision = monitor.observe_event(_event_from_record(record, index))
         lines = _describe(decision)
+        runtime_lines = _runtime_lines(decision)
         intervening = decision.intervention != InterventionAction.Observe
-        if lines or intervening or args.verbose:
+        if lines or runtime_lines or intervening or args.verbose:
             print()
         print(f"  {decision.step}  {_STATE_WORD.get(decision.status, decision.status)}")
         for line in lines:
             print(f"     {line}")
+        for line in runtime_lines:
+            print(f"     {line}")
+        if args.verbose:
+            for line in _trace_lines(decision):
+                print(f"     {line}")
         if intervening:
             print(f"     -> {decision.intervention}")
         if args.verbose and not lines and decision.status == ProgressState.Healthy:
             print("     no evidence")
+    return 0
+
+
+def _explain(args: argparse.Namespace) -> int:
+    """Explain why the runtime would act, using progress and runtime together."""
+    schema, records = _read_trajectory(args.trajectory)
+    if args.json:
+        print(json.dumps(_machine_report(schema, records), indent=2))
+        return 0
+    monitor = _recommending()
+    decisions = [
+        monitor.observe_event(_event_from_record(record, index))
+        for index, record in enumerate(records, start=1)
+    ]
+    print("Microloop explain")
+    print()
+    previous: str | None = None
+    shown = 0
+    for decision in decisions:
+        recommendation = decision.recommendation
+        intervening = recommendation is not None and recommendation.should_intervene
+        transition = decision.status != previous
+        previous = decision.status
+        if not transition and not intervening:
+            continue
+        shown += 1
+        print(f"  step {decision.step}   {_STATE_WORD.get(decision.status, decision.status)}")
+        if decision.progress is not None and decision.progress.since_step:
+            print(f"           since step {decision.progress.since_step}")
+        for line in _describe(decision):
+            print(f"           {line}")
+        for line in _runtime_lines(decision):
+            print(f"           {line}")
+        for line in _trace_lines(decision):
+            print(f"           {line}")
+        if recommendation is not None:
+            reason = recommendation.reason.replace("_", " ")
+            print(f"           recommendation {recommendation.action} ({reason})")
+        print()
+    final = decisions[-1]
+    if shown == 0:
+        print(f"No progress issues across {_steps(len(decisions))}.")
+        print()
+    print(_outcome(final, len(decisions), with_count=shown > 0))
     return 0
 
 
@@ -416,6 +524,105 @@ def _monitor_live(args: argparse.Namespace) -> int:
     print(f"{'Regressions':<18}{regressions}")
     print(f"{'Recommended':<18}{interventions}")
     print(f"{'Recovered':<18}{'yes' if recovered else 'no'}")
+    return 0
+
+
+#: Action names read better in a report than the raw enum values.
+_ACTION_LABEL = {
+    "replan": "replan",
+    "escalate_model": "model escalation",
+    "deescalate_model": "model de-escalation",
+    "compact_context": "context compaction",
+}
+
+
+def _stats(args: argparse.Namespace) -> int:
+    """Aggregate the local episode store: what worked, and what it cost."""
+    from .store import DEFAULT_DB_PATH, EpisodeStore
+
+    path = args.database or DEFAULT_DB_PATH
+    if path != ":memory:" and not Path(path).exists():
+        if args.json:
+            print(json.dumps({"episodes": 0, "by_action": {}, "arms": {}}))
+        else:
+            print("Microloop runtime statistics")
+            print()
+            print(f"No episodes recorded in {path}.")
+        return 0
+
+    store = EpisodeStore(path)
+    try:
+        summary = store.stats()
+    finally:
+        store.close()
+
+    if args.json:
+        print(json.dumps(summary, indent=2))
+        return 0
+
+    print("Microloop runtime statistics")
+    print()
+    print(f"{'Episodes':<24}{summary['episodes']}")
+    print(f"{'Successful':<24}{summary['successful']}")
+    print()
+    print(f"{'Adaptations':<24}{summary['adaptations']}")
+    for action, bucket in sorted(summary["by_action"].items()):
+        print()
+        print(_ACTION_LABEL.get(action, action))
+        print(f"  {'attempted':<22}{bucket['attempted']}")
+        for outcome in ("improved", "no_change", "regressed"):
+            if bucket.get(outcome):
+                print(f"  {outcome:<22}{bucket[outcome]}")
+
+    arms = summary.get("arms") or {}
+    if len(arms) > 1:
+        print()
+        print("By arm")
+        print(f"  {'arm':<22}{'tasks':<8}{'succeeded':<12}{'cost / success'}")
+        for name, bucket in sorted(arms.items()):
+            cost = bucket.get("cost_per_success")
+            price = "n/a" if cost is None else f"${cost:.2f}"
+            print(
+                f"  {name:<22}{bucket['episodes']:<8}{bucket['successful']:<12}{price}"
+            )
+
+    segments = summary.get("segments") or {}
+    if segments:
+        print()
+        print("Where each action was chosen")
+        for state, rows in segments.items():
+            for row in rows:
+                if row["attempted"] < 1:
+                    continue
+                signals = ", ".join(row["signals"]) or "no signals"
+                rate = row["improved_rate"]
+                share = "n/a" if rate is None else f"{rate * 100:.0f}%"
+                label = _ACTION_LABEL.get(row["action"], row["action"])
+                print()
+                print(f"{_STATE_WORD.get(state, state)} / {signals} / {label}")
+                print(f"  {'attempted':<22}{row['attempted']}")
+                print(f"  {'improved':<22}{row['improved']} ({share})")
+
+    attribution = summary.get("attribution") or {}
+    by_action_success = attribution.get("by_action") or {}
+    if by_action_success:
+        control = (attribution.get("control_no_adaptation") or {}).get("success_rate")
+        control_text = "n/a" if control is None else f"{control * 100:.0f}%"
+        print()
+        print("Runs that finished, by action applied")
+        print("  (an action usually fires on the runs that were already in")
+        print("   trouble, so read this beside the arm table, not instead of it)")
+        print(f"  {'no adaptation (control)':<30}{control_text}")
+        for action, bucket in by_action_success.items():
+            rate = bucket["success_rate"]
+            share = "n/a" if rate is None else f"{rate * 100:.0f}%"
+            label = _ACTION_LABEL.get(action, action)
+            runs = bucket["episodes"]
+            print(f"  {f'{label} ({runs} runs)':<30}{share}")
+
+    print()
+    cost = summary["cost_per_success"]
+    print(f"{'Cost / successful task':<24}{'n/a' if cost is None else f'${cost:.2f}'}")
     return 0
 
 
@@ -481,6 +688,26 @@ def build_parser() -> argparse.ArgumentParser:
         "--interval", type=float, default=0.25, help="poll interval in seconds when following"
     )
     monitor_parser.add_argument("--no-color", action="store_true", help="disable ANSI color")
+    explain_parser = sub.add_parser(
+        "explain",
+        help="explain the runtime recommendation from progress and runtime state",
+    )
+    explain_parser.add_argument("trajectory")
+    explain_parser.add_argument(
+        "--json", action="store_true", help="print the exact representation"
+    )
+    stats_parser = sub.add_parser(
+        "stats", help="summarize the local episode store"
+    )
+    stats_parser.add_argument(
+        "database",
+        nargs="?",
+        default=None,
+        help="path to the episode database (default .microloop/episodes.db)",
+    )
+    stats_parser.add_argument(
+        "--json", action="store_true", help="print the aggregate as JSON"
+    )
     sub.add_parser("doctor", help="check the native runtime")
     return parser
 

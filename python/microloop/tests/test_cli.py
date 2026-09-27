@@ -268,6 +268,54 @@ def test_all_three_views_agree_on_the_same_history(tmp_path, capsys) -> None:
     )
 
 
+def _runtime_trajectory(tmp_path: Path) -> Path:
+    repeat = {
+        "action": "pytest tests/",
+        "observation": "1 failed, 4 passed",
+        "metrics": {"exit_code": 1},
+        "metadata": {"error": "AssertionError: test_admin.py:42"},
+        "runtime": {
+            "model": "sonnet",
+            "context_tokens": 46_000,
+            "context_limit": 64_000,
+            "cost": 0.84,
+        },
+    }
+    return _trajectory(tmp_path, *[{**repeat, "step": n} for n in range(1, 4)])
+
+
+def test_inspect_renders_runtime_when_present(tmp_path, capsys) -> None:
+    path = _runtime_trajectory(tmp_path)
+    assert main(["inspect", str(path)]) == 0
+    output = capsys.readouterr().out
+    assert "stall detected" in output
+    assert "runtime" in output
+    assert "sonnet" in output
+    assert "72%" in output
+    assert "$0.84" in output
+
+
+def test_explain_combines_progress_and_runtime_into_a_recommendation(tmp_path, capsys) -> None:
+    path = _runtime_trajectory(tmp_path)
+    assert main(["explain", str(path)]) == 0
+    output = capsys.readouterr().out
+    assert output.startswith("Microloop explain")
+    assert "stalled" in output
+    assert "recommendation replan (trajectory stalled)" in output
+    assert "sonnet" in output
+
+
+def test_explain_json_is_the_exact_representation(tmp_path, capsys) -> None:
+    path = _runtime_trajectory(tmp_path)
+    assert main(["explain", "--json", str(path)]) == 0
+    report = json.loads(capsys.readouterr().out)
+    last = report["decisions"][-1]
+    assert last["progress"]["state"] == "stalled"
+    assert last["runtime"]["model"] == "sonnet"
+    assert last["recommendation"]["action"] == "replan"
+    assert last["recommendation"]["reason"] == "trajectory_stalled"
+
+
 def test_replay_keeps_recommendations_separate_from_inspect(capsys) -> None:
     assert main(["replay", str(FIXTURE)]) == 0
     assert "replan" in capsys.readouterr().out
@@ -278,6 +326,18 @@ def test_replay_does_not_reproduce_agent_execution(capsys) -> None:
     lines = [line for line in capsys.readouterr().out.splitlines() if line.strip()]
     assert len(lines) == 10
     assert all(line.startswith("{") for line in lines)
+
+
+def test_replay_verbose_shows_candidate_scores(tmp_path, capsys) -> None:
+    """The scored controller's reasoning is available, but only on request."""
+    path = _runtime_trajectory(tmp_path)
+    assert main(["replay", "--verbose", str(path)]) == 0
+    output = capsys.readouterr().out
+    assert "candidates" in output
+    assert "replan" in output
+
+    assert main(["replay", str(path)]) == 0
+    assert "candidates" not in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("command", ["inspect", "replay", "monitor"])
