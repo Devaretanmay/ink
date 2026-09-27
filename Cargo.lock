@@ -82,7 +82,7 @@ dependencies = [
 
 [[package]]
 name = "microloop-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "regex",
  "serde",
@@ -91,7 +91,7 @@ dependencies = [
 
 [[package]]
 name = "microloop-python"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "microloop-core",
  "pyo3",

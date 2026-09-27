@@ -1,0 +1,142 @@
+"""Versioned, JSON-only decision contracts."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+from dataclasses import asdict, dataclass, field
+from typing import Any
+
+
+def canonical(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False)
+
+
+def digest(value: Any) -> str:
+    return hashlib.sha256(canonical(value).encode()).hexdigest()
+
+
+@dataclass(frozen=True)
+class DecisionSite:
+    name: str
+    state_schema: dict[str, str]
+    choices: tuple[str, ...]
+    fallback_revision: str = "1"
+
+    def __post_init__(self):
+        object.__setattr__(self, "choices", tuple(self.choices))
+        object.__setattr__(self, "state_schema", dict(self.state_schema))
+        if not self.name or not self.fallback_revision:
+            raise ValueError("Site name and fallback revision must be nonempty")
+        if (
+            len(self.choices) < 2
+            or len(set(self.choices)) != len(self.choices)
+            or any(not isinstance(c, str) or not c for c in self.choices)
+        ):
+            raise ValueError("Choices must contain at least two unique nonempty strings")
+        for name, kind in self.state_schema.items():
+            if not name or kind.rstrip("?") not in {"string", "integer", "number", "boolean"}:
+                raise ValueError("Schema fields use string, integer, number, boolean, optionally ?")
+
+    @property
+    def version(self) -> str:
+        return digest(asdict(self))
+
+    def encode(self, state: dict) -> dict:
+        if not isinstance(state, dict) or set(state) - set(self.state_schema):
+            raise ValueError("State must be an object with only declared fields")
+        encoded = {}
+        for name, kind in self.state_schema.items():
+            value = state.get(name)
+            if value is None and kind.endswith("?"):
+                encoded[name] = None
+                continue
+            kind = kind.rstrip("?")
+            valid = {
+                "string": type(value) is str,
+                "integer": type(value) is int,
+                "boolean": type(value) is bool,
+                "number": type(value) in (int, float),
+            }[kind]
+            if not valid or (kind == "number" and not math.isfinite(value)):
+                raise ValueError(f"Invalid state field {name!r}: expected {kind}")
+            encoded[name] = float(value) if kind == "number" else value
+        canonical(encoded)
+        return encoded
+
+
+@dataclass(frozen=True)
+class FallbackResult:
+    choice: str
+    model_calls: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost: float | None = None
+    provider: str | None = None
+    model: str | None = None
+
+    def __post_init__(self):
+        for key in ("model_calls", "input_tokens", "output_tokens"):
+            value = getattr(self, key)
+            if value is not None and (type(value) is not int or value < 0):
+                raise ValueError(f"{key} must be a nonnegative integer")
+        if self.cost is not None and (not math.isfinite(self.cost) or self.cost < 0):
+            raise ValueError("cost must be finite and nonnegative")
+
+
+@dataclass(frozen=True)
+class DecisionResult:
+    choice: str
+    decision_id: str
+    source: str
+    site_version: str
+    fast_path_version: str | None = None
+    fallback_reason: str | None = None
+    confidence: float | None = None
+    recorded: bool = True
+
+
+@dataclass(frozen=True)
+class Outcome:
+    quality: float
+    verifier: str
+    verifier_version: str
+    evidence: dict = field(default_factory=dict)
+
+    def __post_init__(self):
+        if not math.isfinite(self.quality) or not 0 <= self.quality <= 1:
+            raise ValueError("Quality must be finite and between zero and one")
+        if not self.verifier or not self.verifier_version or not self.evidence:
+            raise ValueError("Outcome requires verifier identity, version, and evidence")
+        canonical(self.evidence)
+
+
+@dataclass(frozen=True)
+class PromotionRequirements:
+    """Explicit experiment settings, not universal production defaults."""
+
+    min_samples: int
+    min_quality: float
+    min_confidence: float
+    max_degradation: float
+    comparison_rate: float
+    min_region_samples: int
+    evaluation_window: int
+    max_uncovered_rate: float = 1.0
+
+    def __post_init__(self):
+        for key in ("min_samples", "min_region_samples", "evaluation_window"):
+            if type(getattr(self, key)) is not int or getattr(self, key) < 1:
+                raise ValueError(f"{key} must be a positive integer")
+        for key in (
+            "min_quality",
+            "min_confidence",
+            "max_degradation",
+            "comparison_rate",
+            "max_uncovered_rate",
+        ):
+            if not math.isfinite(getattr(self, key)) or not 0 <= getattr(self, key) <= 1:
+                raise ValueError(f"{key} must be between zero and one")
+        if not 0 < self.comparison_rate < 1:
+            raise ValueError("Active service requires a nonzero fallback comparison sample")

@@ -40,6 +40,8 @@ def test_public_surface_stays_small() -> None:
         "TieredAdapter",
         "Usage",
         "__version__",
+        "Microloop", "DecisionSite", "DecisionResult", "FallbackResult",
+        "Outcome", "PromotionRequirements", "decision", "record_outcome",
     ]
     assert not hasattr(microloop, "wrap")
 

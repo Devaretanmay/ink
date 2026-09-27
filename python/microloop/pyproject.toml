@@ -4,14 +4,14 @@ build-backend = "maturin"
 
 [project]
 name = "microloop"
-version = "0.3.0"
-description = "Local reliability runtime for autonomous agents"
+version = "0.4.0"
+description = "Verified local fast paths for repeated agent decisions"
 authors = [{ name = "Microloop Team" }]
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 readme = "README.md"
 requires-python = ">=3.10, <3.14"
-keywords = ["agent", "llm", "trajectory", "progress", "loop-detection"]
+keywords = ["agent", "llm", "decision", "fast-path", "local-inference"]
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
@@ -24,6 +24,9 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Development Status :: 4 - Beta",
 ]
+
+[project.optional-dependencies]
+laya = ["laya-mlx==0.2.0; python_version >= '3.11' and sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
 [project.scripts]
 microloop = "microloop.cli:main"

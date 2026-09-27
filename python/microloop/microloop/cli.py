@@ -713,6 +713,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if "--legacy" in argv:
+        argv.remove("--legacy")
+    elif argv and (argv[0] in {"sites", "compile", "evaluate", "maintenance", "export", "retain"}
+                   or (argv[0] == "inspect" and len(argv) > 1
+                       and ("--db" in argv or not any(
+                           Path(a).is_file() for a in argv[1:] if not a.startswith("-"))))):
+        from .decision_cli import main as decision_main
+        return decision_main(argv)
     parser = build_parser()
     args = parser.parse_args(argv)
     if not args.command:
