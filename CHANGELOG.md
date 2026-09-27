@@ -21,7 +21,8 @@ runtime rather than a benchmark harness.
 - Schema `0.3.0` trajectory JSONL with real compatibility checking: a
   trajectory whose `schema_version` major version differs from the runtime's is
   rejected instead of being analyzed on a guess.
-- Dual MIT / Apache-2.0 licensing, with both license texts shipped in the wheel.
+- Apache-2.0 licensing, with the license text shipped in the wheel. Previously
+  dual MIT / Apache-2.0; MIT has been dropped.
 - Benchmark provenance gate: every run bundle declares `run_mode`
   (`real`/`simulated`), simulated runs are confined to their own directory, and
   the report generator rejects anything that is not `real`.

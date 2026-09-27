@@ -18,7 +18,7 @@ next.
 
 [![CI](https://github.com/Devaretanmay/microloop/actions/workflows/ci.yml/badge.svg)](https://github.com/Devaretanmay/microloop/actions)
 [![PyPI](https://img.shields.io/pypi/v/microloop.svg)](https://pypi.org/project/microloop/)
-[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
 
 ## Install
 
@@ -156,6 +156,8 @@ scope, failure counts and environment state when you have them.
 
 Point an agent at [`llms.txt`](llms.txt) for a machine-readable index.
 
+[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+
 ## Evaluation
 
 The reproducible evaluation harness lives in [`benchmarks/`](benchmarks/).
@@ -172,5 +174,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-Dual licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your
-option.
+[Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution.

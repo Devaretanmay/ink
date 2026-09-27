@@ -1,27 +1,32 @@
 ---
 name: Bug report
-about: Create a report to help us improve Microloop
+about: Something in Microloop behaves incorrectly
 title: '[BUG] '
 labels: 'bug'
 assignees: ''
 ---
 
-**Describe the bug**
-A clear and concise description of what the bug is.
+**What happened**
 
-**To Reproduce**
-Steps to reproduce the behavior:
-1. Initialize Microloop with '...'
-2. Call method '...'
-3. See error
+What you observed, and what you expected instead.
 
-**Expected behavior**
-A clear and concise description of what you expected to happen.
+**Reproduction**
 
-**Environment (please complete the following information):**
- - OS: [e.g. macOS, Ubuntu, Windows]
- - Language Binding: [e.g. Rust, Python, C, Go]
- - Version: [e.g. 0.1.0]
+The smallest case that shows it. A trajectory is often enough:
 
-**Additional context**
-Add any other context about the problem here. Logs from `.microloop/loop.log` are highly appreciated.
+```jsonl
+{"schema_version": "0.3.0", "step": 1, "action": "pytest tests/", "observation": "4 failed", "metrics": {"exit_code": 1, "failures": 4}, "metadata": {"verifier": "pytest", "verification_id": "run-1"}}
+```
+
+or, for the CLI, the command and its full output.
+
+**Environment**
+
+- Microloop version: `python -c "import microloop; print(microloop.__version__)"`
+- Python version: `microloop doctor` reports it
+- Binding: Python or Rust
+- OS:
+
+**Anything else**
+
+Relevant config, or the `Monitor(...)` / `Policy(...)` arguments you passed.

@@ -1,22 +1,23 @@
-## Description
+## What changed
 
-Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context. 
-
-Fixes # (issue)
+<!-- What this does, and why. Link the issue it fixes. -->
 
 ## Type of change
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation Update
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change to the public API
+- [ ] Documentation
+- [ ] Build, CI, or packaging
 
-## Checklist:
+## Checklist
 
-- [ ] My code follows the style guidelines of this project
-- [ ] I have performed a self-review of my own code
-- [ ] I have commented my code, particularly in hard-to-understand areas
-- [ ] I have made corresponding changes to the documentation
-- [ ] My changes generate no new warnings
-- [ ] I have added tests that prove my fix is effective or that my feature works
-- [ ] New and existing unit tests pass locally with my changes
+- [ ] `make check` passes
+- [ ] Added or updated a test that fails without this change
+- [ ] Documented any behaviour change in `docs/`
+- [ ] Public API changes are intentional and reflected in `CHANGELOG.md`
+- [ ] No secrets, credentials, or benchmark run directories in the diff
+
+## Notes for reviewers
+
+<!-- Anything you would have wanted to know while reading this. -->
