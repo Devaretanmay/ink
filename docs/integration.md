@@ -408,3 +408,69 @@ say.
 for a run stopped by the call ceiling. Calls are counted separately from steps on
 purpose: a step is an observation and a call is a metered request, and a budget
 written in one is not a budget written in the other.
+
+## Calibration result: the band is too easy for this model
+
+The static arm, `openai/gpt-oss-120b` pinned to every tier, 14 steps, measured
+before any paired run:
+
+| family | solved |
+|---|---|
+| edge | 4/4 |
+| regression | 3/4 |
+| stateful | 3/4 |
+| api | 2/4 |
+| **total** | **12/16 = 75%** |
+
+Raw per-task numbers: `integrations/experiment/results/close-calibration-gpt-oss-120b.json`.
+
+75% is above the 40-70% band, so by the decision rule the answer is **make the
+tasks harder**. It is not a licence to touch the controller, and the controller
+was not touched.
+
+What this does and does not tell you:
+
+- The model solves three quarters of these tasks. That is the wrong shape for the
+  question, because an adaptive runtime can only be measured where its
+  intervention could have gone either way, and at 75% there is little room.
+- `api` at 2/4 is the discriminating family and `edge` at 4/4 is dead weight.
+  Weighting the band toward the harder families is the obvious next move.
+- **n=16 of 24.** Eight tasks never ran: Groq's free tier is 200,000 tokens per
+  day and the run spent 140,358 of them. The rate is wide.
+- The model is **nondeterministic** -- `regression-00` failed in an earlier probe
+  and passed here. Any single run of this band needs that treated as noise.
+
+### The real constraint is tokens, not calls
+
+This is the operationally important finding, and it changes how a real run has to
+be planned.
+
+| limit | value | what it bounds |
+|---|---|---|
+| tokens per minute | 8,000 | throughput; a run spends most of its time sleeping |
+| tokens per day | 200,000 | **the whole experiment** |
+
+One arm over the band cost 148 calls and 140,358 tokens. A paired static-vs-
+adaptive run is roughly double that, so about 280,000 tokens: **two days of
+free-tier quota, or a paid tier.** The `--max-calls` ceiling is not the limit
+that matters here; a call-count budget set to 400 would have looked generous
+while the run was actually capped by quota hours earlier.
+
+Retries also inflate token spend unpredictably, because a resampled generation is
+not free. Treat a token budget as the real constraint and derive a call ceiling
+from the observed tokens-per-call (~950 here).
+
+### Failure modes a real model actually hit
+
+Both were found by running rather than by reasoning, and both would have ended a
+run that still had budget:
+
+- **A model inventing a tool.** `gpt-oss-120b` called `print_tree`, which was
+  never offered. An OpenAI-compatible API rejects the whole request when the
+  conversation mentions a tool it was not given, so one hallucinated name kills
+  every later turn. Unknown calls are now dropped, the model is told, and a turn
+  consisting only of invented tools does not end the run.
+- **A model reading a directory.** `read_file` on a path that resolved to a
+  directory raised `IsADirectoryError` out of the tool loop. Every tool failure is
+  now reported *to the model* rather than raised, and tool paths are contained to
+  the workspace.

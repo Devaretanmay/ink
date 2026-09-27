@@ -35,7 +35,8 @@ __all__ = ["CodingHarness", "RunResult", "SYSTEM_PROMPT", "Task"]
 SYSTEM_PROMPT = (
     "You are a coding agent working in a sandboxed workspace.\n"
     "Use write_file to change source, read_file to inspect it, and run_tests "
-    "to verify.\n"
+    "to verify. Those three are the only tools that exist; do not invent "
+    "another.\n"
     "run_tests is the only measure of success. Read its output and act on it."
 )
 
@@ -186,21 +187,50 @@ class CodingHarness:
 
         ``passed`` is ``True``/``False`` for a verification tool and ``None`` for
         any other tool.
+
+        Every failure here is reported *to the model* rather than raised. A
+        workspace is something a model explores, and a crash on a bad path -- a
+        directory, a missing file, a stray ``..`` -- would end a run that should
+        have continued and had turns left to spend.
         """
         if name == "write_file":
-            path = self.workspace / str(arguments["path"])
+            path = self._resolve(arguments.get("path"))
+            if path is None:
+                return "write_file: missing or unusable path", None
+            if path.is_dir():
+                return f"write_file: {arguments['path']} is a directory", None
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(str(arguments.get("content", "")), encoding="utf-8")
             return f"wrote {arguments['path']}", None
         if name == "read_file":
-            path = self.workspace / str(arguments["path"])
+            path = self._resolve(arguments.get("path"))
+            if path is None:
+                return "read_file: missing or unusable path", None
+            if path.is_dir():
+                return f"read_file: {arguments['path']} is a directory", None
             if not path.exists():
                 return f"{arguments['path']}: no such file", None
-            return path.read_text(encoding="utf-8"), None
+            return path.read_text(encoding="utf-8", errors="replace"), None
         if name == "run_tests":
             passed, output = self.task.verify(self.workspace)
             return output, passed
         return f"unknown tool {name}", None
+
+    def _resolve(self, raw: Any) -> Path | None:
+        """Resolve a tool argument to a path inside the workspace.
+
+        Containment matters: a model that writes ``../../../.ssh/authorized_keys``
+        is describing itself rather than attacking, and the answer is the same
+        either way. The workspace is the only place a tool may reach.
+        """
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        candidate = (self.workspace / raw).resolve()
+        try:
+            candidate.relative_to(self.workspace.resolve())
+        except ValueError:
+            return None
+        return candidate
 
     # -- loop -----------------------------------------------------------------
     def run(self) -> RunResult:

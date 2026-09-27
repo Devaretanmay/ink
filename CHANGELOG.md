@@ -244,8 +244,52 @@ runtime rather than a benchmark harness.
   was previously collected by the adapter and never fed, so every stored
   `elapsed_seconds` was null.
 
+### Measured: the close-call band against a real model
+
+The static arm on the 24-task band, `openai/gpt-oss-120b` pinned to every tier,
+14 steps, run before any paired comparison:
+
+  edge 4/4   regression 3/4   stateful 3/4   api 2/4   total 12/16 = 75%
+
+75% is above the 40-70% band, so the decision rule says make the tasks harder.
+The controller was not touched. `api` is the discriminating family at 2/4 and
+`edge` is dead weight at 4/4.
+
+Three things this run established that reasoning had not:
+
+- **The binding constraint is tokens, not calls.** Groq's free tier is 8,000
+  tokens per minute and 200,000 per day. One arm over the band cost 148 calls and
+  140,358 tokens, so a paired run is roughly two days of free quota. A
+  `--max-calls 400` ceiling would have looked generous while the run was capped
+  by quota hours earlier. Plan against tokens and derive the call ceiling from
+  the observed ~950 tokens per call.
+- **The model is nondeterministic.** `regression-00` failed in an earlier probe
+  and passed here, on the same task. Any single run of this band has to treat
+  that as noise.
+- **The run ended at 16 of 24 tasks.** Eight never ran, so the rate is wide.
+
 ### Fixed
 
+- A model inventing a tool name killed the whole run. `gpt-oss-120b` called
+  `print_tree`, which was never offered; an OpenAI-compatible API rejects the
+  entire request when the conversation mentions a tool it was not given, so one
+  hallucination ended every later turn. Unknown calls are now dropped, the model
+  is told they were ignored, and a turn of nothing but invented tools does not end
+  the run.
+- A `read_file` on a path resolving to a directory raised `IsADirectoryError` out
+  of the tool loop and killed a run that still had turns to spend. Every tool
+  failure is now reported to the model rather than raised, and tool paths are
+  contained to the workspace.
+- A 429 was fatal. Groq's free tier is 8,000 tokens per minute, so a run crosses
+  the limit routinely; it is now retried after the wait the server itself
+  reports. A 400 with code `tool_use_failed` is the model's invention rather than
+  a bad request and is resampled, because the alternative was one hallucinated
+  tool name ending the experiment.
+- `--max-calls` was a per-task cap, not a per-run cap, so 400 over 24 tasks would
+  have meant thousands of calls. The ceiling is now owned by the run and the
+  runner reserves the worst case for a whole task before starting one, so a run
+  that runs out of money reports skipped tasks rather than looking like a run
+  where every task failed.
 - `model_calls` added to the Python runtime types but not mirrored in the Rust
   `RuntimeState` was silently dropped by the PyO3 round trip rather than
   rejected. The only symptom was a null column. A field added on one side of a

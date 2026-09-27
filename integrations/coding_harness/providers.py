@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import json
 import os
+import re
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Mapping
@@ -460,6 +462,26 @@ class BudgetExhausted(RuntimeError):
     """
 
 
+def _is_tool_use_failure(body: str) -> bool:
+    """Whether a 400 is the model's invention rather than a bad request.
+
+    Distinguishing these matters: one is fixed by asking again, the other means
+    the request itself is wrong and retrying only wastes the budget.
+    """
+    return "tool_use_failed" in body or "Tool call validation failed" in body
+
+
+def _retry_after(body: str, default: float) -> float:
+    """How long the server asked us to wait, if it said.
+
+    Groq reports the wait in the message ("Please try again in 3.5625s"), and
+    honouring it is faster than any backoff we would invent. Parsed leniently:
+    a body that does not match falls back to the caller's delay.
+    """
+    match = re.search(r"try again in\s*([0-9.]+)\s*s", body)
+    return float(match.group(1)) if match else default
+
+
 class CallBudget:
     """A ceiling on inference calls shared across a whole run.
 
@@ -524,8 +546,18 @@ class GroqProvider:
         api_key: str | None = None,
         max_calls: int | None = None,
         budget: CallBudget | None = None,
+        max_retries: int = 8,
+        retry_delay: float = 4.0,
+        max_retry_delay: float = 30.0,
     ) -> None:
         self.max_tokens = max_tokens
+        #: A rate-limited request is retried rather than failed. Groq's free tier
+        #: is 8,000 tokens per minute, and a single agent turn can be a few
+        #: thousand, so a run crosses the limit routinely.
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
+        self.max_retry_delay = max_retry_delay
+        self.retries = 0
         self.base_url = base_url or self.ENDPOINT
         self.timeout = timeout
         self._api_key = api_key
@@ -588,20 +620,41 @@ class GroqProvider:
             },
             method="POST",
         )
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as error:
-            # Surface the body. A bare status code is close to useless: 403 from
-            # this endpoint means bad auth, a restricted key, or an unsupported
-            # parameter, and only the body distinguishes them.
-            body = error.read().decode("utf-8", "replace")[:500]
-            self.calls += 1
-            raise RuntimeError(
-                f"Groq returned HTTP {error.code}: {body}"
-            ) from error
-        except urllib.error.URLError as error:
-            raise RuntimeError(f"could not reach Groq: {error.reason}") from error
+        delay = self.retry_delay
+        for attempt in range(self.max_retries + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except urllib.error.HTTPError as error:
+                body = error.read().decode("utf-8", "replace")[:500]
+                # Two classes of failure are recoverable and must not end a run.
+                #
+                # A 429 is the free tier's 8,000 tokens per minute, and the server
+                # says how long to wait. Honouring it is faster than any backoff
+                # we would invent.
+                #
+                # A 400 with code `tool_use_failed` is the *model* inventing a
+                # tool, rejected at generation time. Our own request is valid;
+                # the model's output is not, and re-sampling usually fixes it.
+                # Without this, one hallucinated tool name ends the experiment.
+                recoverable = error.code == 429 or _is_tool_use_failure(body)
+                if recoverable and attempt < self.max_retries:
+                    wait = _retry_after(body, delay)
+                    self.retries += 1
+                    time.sleep(wait)
+                    delay = min(delay * 2, self.max_retry_delay)
+                    continue
+                self.calls += 1
+                raise RuntimeError(
+                    f"Groq returned HTTP {error.code}: {body}"
+                ) from error
+            except urllib.error.URLError as error:
+                if attempt < self.max_retries:
+                    time.sleep(delay)
+                    delay = min(delay * 2, self.max_retry_delay)
+                    continue
+                raise RuntimeError(f"could not reach Groq: {error.reason}") from error
+        raise RuntimeError("Groq request failed after retries")
 
     def complete(
         self, *, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
@@ -622,30 +675,51 @@ class GroqProvider:
 
         choice = (data.get("choices") or [{}])[0]
         message = choice.get("message") or {}
+        declared = {
+            str((tool.get("function") or {}).get("name") or tool.get("name"))
+            for tool in tools
+        }
         calls: list[ToolCall] = []
+        raw: list[dict[str, Any]] = []
+        dropped: list[str] = []
         for call in message.get("tool_calls") or []:
             function = call.get("function") or {}
-            raw = function.get("arguments")
+            name = str(function.get("name", ""))
+            # A model will invent a tool name. Keeping the call in the
+            # transcript poisons every later request: an OpenAI-compatible API
+            # validates that the conversation only mentions tools it was given,
+            # and rejects the whole run rather than the one bad call. So an
+            # undeclared call is dropped here and reported to the model instead.
+            if declared and name not in declared:
+                dropped.append(name)
+                continue
+            arguments_raw = function.get("arguments")
             try:
-                arguments = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+                arguments = (
+                    json.loads(arguments_raw)
+                    if isinstance(arguments_raw, str)
+                    else dict(arguments_raw or {})
+                )
             except json.JSONDecodeError:
                 arguments = {}
             identifier = call.get("id")
-            calls.append(
-                ToolCall(
-                    name=str(function.get("name", "")),
-                    arguments=arguments,
-                    identifier=identifier,
-                )
-            )
+            calls.append(ToolCall(name=name, arguments=arguments, identifier=identifier))
+            if identifier:
+                raw.append({key: value for key, value in call.items() if value is not None})
+        text = str(message.get("content") or "")
+        if dropped:
+            note = f"Those tools do not exist and were ignored: {', '.join(dropped)}."
+            text = f"{text}\n{note}".strip()
         usage = data.get("usage") or {}
         return ModelReply(
-            text=str(message.get("content") or ""),
+            text=text,
             tool_calls=calls,
             input_tokens=int(usage.get("prompt_tokens", 0) or 0),
             output_tokens=int(usage.get("completion_tokens", 0) or 0),
-            done=not calls,
-            raw_tool_calls=[c for c in (message.get("tool_calls") or []) if c.get("id")],
+            # A turn that asked only for tools that do not exist has made no
+            # progress, so it must not be allowed to end the run.
+            done=not calls and not dropped,
+            raw_tool_calls=raw,
         )
 
 

@@ -849,3 +849,86 @@ def test_runner_skips_tasks_it_cannot_fund() -> None:
     # that would discover the budget is gone on their first turn.
     assert report.arms["static"].episodes <= 1
     assert report.skipped >= 0
+
+
+def test_a_bad_tool_path_is_reported_not_raised() -> None:
+    """A model exploring its workspace must not be able to end the run.
+
+    A read aimed at a directory, a missing file, or a path outside the workspace
+    all used to propagate out of the tool loop and kill a run that still had
+    turns left to spend.
+    """
+    import tempfile as _tempfile
+
+    from integrations.coding_harness.tasks import build_tasks
+
+    task = build_tasks(1)[0]
+    from integrations.experiment.runner import build_session
+
+    harness = CodingHarness(
+        task=task,
+        provider=object(),
+        session=build_session("static"),
+        workspace=_tempfile.mkdtemp(),
+    )
+    task.prepare(harness.workspace)
+    for bad in ({"path": ""}, {"path": "   "}, {"path": "nope.py"}):
+        observation, passed = harness._dispatch("read_file", bad)
+        assert passed is None
+        assert observation
+    (harness.workspace / "sub").mkdir()
+    assert "directory" in harness._dispatch("read_file", {"path": "sub"})[0]
+    assert "directory" in harness._dispatch("write_file", {"path": "sub", "content": "x"})[0]
+    # A path outside the workspace is refused rather than followed.
+    assert "unusable" in harness._dispatch("read_file", {"path": "../../etc/passwd"})[0]
+    assert harness._dispatch("read_file", {"path": "task.py"})[0]
+
+
+def test_hallucinated_tool_calls_are_dropped_not_forwarded() -> None:
+    """A model will invent a tool name, and it must not poison the run.
+
+    An OpenAI-compatible API validates that the conversation only mentions tools
+    it was offered and rejects the *whole request* when it does not. Forwarding
+    one invented call therefore kills every subsequent turn of the run.
+    """
+    from integrations.coding_harness.harness import TOOL_SCHEMAS
+    from integrations.coding_harness.providers import GroqProvider
+
+    provider = GroqProvider(api_key="t")
+    fake = _FakeGroq(
+        [
+            {
+                "content": "let me look around",
+                "tool_calls": [
+                    {
+                        "id": "x1",
+                        "type": "function",
+                        "function": {"name": "print_tree", "arguments": '{"path": ""}'},
+                    }
+                ],
+            }
+        ]
+    )
+    provider._post = fake._post
+    reply = provider.complete(
+        model="m", messages=[{"role": "user", "content": "go"}], tools=TOOL_SCHEMAS
+    )
+    assert reply.tool_calls == []
+    assert reply.raw_tool_calls == []
+    assert "print_tree" in reply.text, "the model should be told the tool is not real"
+    # And a turn of nothing but invented tools must not end the run.
+    assert reply.done is False
+
+
+def test_declared_tool_calls_still_pass_through() -> None:
+    from integrations.coding_harness.harness import TOOL_SCHEMAS
+    from integrations.coding_harness.providers import GroqProvider
+
+    provider = GroqProvider(api_key="t")
+    fake = _FakeGroq([_tool_turn("ok1", "run_tests", "{}")])
+    provider._post = fake._post
+    reply = provider.complete(
+        model="m", messages=[{"role": "user", "content": "go"}], tools=TOOL_SCHEMAS
+    )
+    assert [c.name for c in reply.tool_calls] == ["run_tests"]
+    assert reply.raw_tool_calls and reply.raw_tool_calls[0]["id"] == "ok1"
