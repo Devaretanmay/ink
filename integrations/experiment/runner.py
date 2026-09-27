@@ -35,7 +35,7 @@ from microloop import (
 from microloop.store import EpisodeStore
 
 from integrations.coding_harness.harness import CodingHarness, RunResult, Task
-from integrations.coding_harness.providers import Provider, SimulatedCodingProvider
+from integrations.coding_harness.providers import CallBudget, Provider, SimulatedCodingProvider
 
 __all__ = [
     "ArmSummary",
@@ -213,6 +213,10 @@ class ExperimentReport:
     provider: str
     tasks: int
     arms: dict[str, ArmSummary] = field(default_factory=dict)
+    #: Tasks that were not run because the call budget could not cover them.
+    #: Reported rather than silently dropped, because a short run and a failed
+    #: run are different facts.
+    skipped: int = 0
 
     def render(self) -> str:
         lines = [
@@ -244,6 +248,7 @@ class ExperimentReport:
             "run_mode": self.run_mode,
             "provider": self.provider,
             "tasks": self.tasks,
+            "skipped": self.skipped,
             "arms": {name: summary.to_dict() for name, summary in self.arms.items()},
         }
 
@@ -261,6 +266,7 @@ def run_experiment(
     policy: ControllerPolicy | None = None,
     arm_label: str | None = None,
     max_steps: int = 40,
+    call_budget: CallBudget | None = None,
 ) -> ExperimentReport:
     """Run every task under every arm and aggregate the results.
 
@@ -275,7 +281,14 @@ def run_experiment(
     for name in arms:
         report.arms[name] = ArmSummary(arm=name)
 
+    # Reserve the worst case for a whole run before starting one. Without this a
+    # metered run launches every remaining task, each of which discovers the
+    # budget is gone on its first turn and reports budget_exhausted, and a run
+    # that ran out of money ends up looking like a run where every task failed.
     for task in task_list:
+        if call_budget is not None and not call_budget.can_afford(max_steps):
+            report.skipped = len(task_list) - len(report.arms["static"].outcomes)
+            break
         for name in arms:
             session = arm_builder(name, policy=policy)
             harness = CodingHarness(
@@ -529,6 +542,7 @@ def run_sweep(
     arm_builder: Callable[..., RuntimeSession] = build_session,
     tiers: dict[str, str] | None = None,
     max_steps: int = 40,
+    call_budget: CallBudget | None = None,
 ) -> SweepReport:
     """Compare controller policies against each other and against doing nothing.
 
@@ -548,6 +562,7 @@ def run_sweep(
         arm_builder=arm_builder,
         tiers=tiers,
         max_steps=max_steps,
+        call_budget=call_budget,
     )
     report.rows.append(SweepRow("static", static.arms["static"], "no adaptation"))
 
@@ -564,6 +579,7 @@ def run_sweep(
             policy=policy,
             arm_label=policy.name,
             max_steps=max_steps,
+            call_budget=call_budget,
         )
         report.rows.append(SweepRow(policy.name, adaptive.arms["adaptive"], policy.note()))
     return report

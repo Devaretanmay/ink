@@ -36,6 +36,7 @@ __all__ = [
     "AgentBehaviour",
     "AnthropicProvider",
     "BudgetExhausted",
+    "CallBudget",
     "Ceiling",
     "GroqProvider",
     "ModelReply",
@@ -459,6 +460,37 @@ class BudgetExhausted(RuntimeError):
     """
 
 
+class CallBudget:
+    """A ceiling on inference calls shared across a whole run.
+
+    A per-provider limit is not a run limit. The experiment builds a fresh
+    provider for every task, so a per-instance cap multiplies by the number of
+    tasks: ``--max-calls 400`` over 24 tasks would have meant about 9,600 calls
+    rather than 400. The cap has to be owned by something that outlives the
+    provider, and the run is the only thing that does.
+    """
+
+    def __init__(self, limit: int | None) -> None:
+        self.limit = limit
+        self.spent = 0
+
+    @property
+    def remaining(self) -> int | None:
+        return None if self.limit is None else max(0, self.limit - self.spent)
+
+    def charge(self) -> None:
+        """Record one inference call, or refuse to start it."""
+        if self.limit is not None and self.spent >= self.limit:
+            raise BudgetExhausted(
+                f"call budget of {self.limit} is spent; stopping rather than "
+                f"starting a run that cannot finish"
+            )
+        self.spent += 1
+
+    def can_afford(self, cost: int = 1) -> bool:
+        return self.limit is None or self.spent + cost <= self.limit
+
+
 class GroqProvider:
     """A real provider on Groq's OpenAI-compatible chat completions API.
 
@@ -491,12 +523,16 @@ class GroqProvider:
         timeout: float = 60.0,
         api_key: str | None = None,
         max_calls: int | None = None,
+        budget: CallBudget | None = None,
     ) -> None:
         self.max_tokens = max_tokens
         self.base_url = base_url or self.ENDPOINT
         self.timeout = timeout
         self._api_key = api_key
+        #: Prefer ``budget``: a per-instance limit multiplies by the number of
+        #: tasks, because the experiment builds one provider per task.
         self.max_calls = max_calls
+        self.budget = budget or (CallBudget(max_calls) if max_calls is not None else None)
         self.calls = 0
         self.requests: list[dict[str, Any]] = []
 
@@ -570,11 +606,8 @@ class GroqProvider:
     def complete(
         self, *, model: str, messages: list[dict[str, Any]], tools: list[dict[str, Any]]
     ) -> ModelReply:
-        if self.max_calls is not None and self.calls >= self.max_calls:
-            raise BudgetExhausted(
-                f"Groq call budget of {self.max_calls} is spent; stopping rather "
-                f"than starting a run that cannot finish"
-            )
+        if self.budget is not None:
+            self.budget.charge()
         payload: dict[str, Any] = {
             "model": model,
             "messages": self._wire(messages),

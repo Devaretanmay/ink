@@ -32,7 +32,11 @@ from typing import Any
 from microloop import ModelTier
 from microloop.store import EpisodeStore
 
-from integrations.coding_harness.providers import AnthropicProvider, GroqProvider
+from integrations.coding_harness.providers import (
+    AnthropicProvider,
+    CallBudget,
+    GroqProvider,
+)
 from integrations.coding_harness.tasks import build_tasks
 from integrations.experiment.runner import build_session, run_experiment, run_sweep
 
@@ -70,6 +74,15 @@ def _simulated_tiers() -> dict[str, str]:
     from integrations.experiment.runner import DEFAULT_TIERS
 
     return dict(DEFAULT_TIERS)
+
+
+def _budgeted(factory, budget: CallBudget):  # noqa: ANN001, ANN202
+    """Bind one shared budget to a per-task provider factory."""
+
+    def make(task):  # noqa: ANN001, ANN202
+        return factory(task, budget)
+
+    return make
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -162,12 +175,13 @@ def main(argv: list[str] | None = None) -> int:
 
         else:
             provider_name, run_mode = "groq", "real"
-            budget = args.max_calls
 
-            def provider_factory(task):  # noqa: ANN001, ANN202
-                # A fresh budget per run, divided by the number of runs, so the
-                # ceiling is the caller's and the split is ours.
-                return GroqProvider(max_calls=budget)
+            def provider_factory(task, budget=None):  # noqa: ANN001, ANN001
+                # The budget is shared across the whole run, not per task. The
+                # experiment builds a provider per task, so a per-instance cap
+                # would multiply by the task count and 400 would mean several
+                # thousand calls.
+                return GroqProvider(budget=budget)
 
     else:
         from integrations.experiment.runner import _simulated_factory, _tier_by_model
@@ -192,6 +206,11 @@ def main(argv: list[str] | None = None) -> int:
     else:
         arms = ("static", "adaptive")
 
+    call_budget = None
+    if args.real and args.provider == "groq":
+        call_budget = CallBudget(args.max_calls)
+        provider_factory = _budgeted(provider_factory, call_budget)
+
     store = EpisodeStore(args.db)
     try:
         runner = run_sweep if args.sweep else run_experiment
@@ -206,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
             arm_builder=arm_builder,
             tiers=tiers,
             max_steps=args.max_steps,
+            call_budget=call_budget,
         )
     finally:
         store.close()

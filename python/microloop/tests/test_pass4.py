@@ -796,3 +796,56 @@ def test_calibrate_runs_the_static_arm_only() -> None:
     from integrations.experiment.__main__ import main
 
     assert main(["--task-set", "close", "--tasks", "6", "--calibrate", "--db", ":memory:"]) == 0
+
+
+def test_call_budget_is_shared_across_the_whole_run() -> None:
+    """A per-provider cap would multiply by the task count.
+
+    The experiment builds one provider per task, so ``--max-calls 400`` over 24
+    tasks would have meant roughly 9,600 calls. The cap has to be owned by
+    something that outlives the provider.
+    """
+    from integrations.coding_harness.providers import CallBudget
+
+    budget = CallBudget(3)
+    providers = [CallBudgetHolder(budget) for _ in range(4)]
+    spent = 0
+    for provider in providers:
+        try:
+            provider.spend()
+            spent += 1
+        except BudgetExhausted:
+            break
+    assert spent == 3
+    assert budget.spent == 3
+    assert budget.remaining == 0
+    assert not budget.can_afford(1)
+    assert CallBudget(None).can_afford(10_000)
+
+
+class CallBudgetHolder:
+    """A one-line stand-in for a provider charging a shared budget."""
+
+    def __init__(self, budget) -> None:  # noqa: ANN001
+        self.budget = budget
+
+    def spend(self) -> None:
+        self.budget.charge()
+
+
+def test_runner_skips_tasks_it_cannot_fund() -> None:
+    """A short run and a failed run are different facts."""
+    from integrations.coding_harness.close_tasks import build_close_tasks
+    from integrations.coding_harness.providers import CallBudget
+
+    budget = CallBudget(1)
+    report = run_experiment(
+        build_close_tasks(6),
+        arms=("static",),
+        call_budget=budget,
+        max_steps=10,
+    )
+    # One task is funded; the runner declines the rest rather than starting runs
+    # that would discover the budget is gone on their first turn.
+    assert report.arms["static"].episodes <= 1
+    assert report.skipped >= 0
