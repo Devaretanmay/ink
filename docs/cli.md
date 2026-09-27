@@ -1,4 +1,4 @@
-# CLI
+# Analyze a trajectory from the command line
 
 Four commands. All of them read a trajectory file and stream it through the
 in-process runtime.

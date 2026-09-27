@@ -60,6 +60,31 @@ for step in agent.steps():
 `agent` stands for whatever loop you already have. For a runnable version see
 [`examples/coding-agent`](examples/coding-agent).
 
+## Why not just put this in a prompt?
+
+Because a prompt has neither of the two things this needs. It has no memory
+across steps, so it cannot see that step 29, 30 and 31 were the same command.
+And it does not see your verifier results, so it cannot tell a plateau from a
+plateau that is quietly getting worse. Microloop reads what the run already
+produces and keeps the last 32 steps in a fixed window.
+
+## Cost
+
+Per call to `observe()`, window full and every detector running. Python 3.13,
+Apple M4, release build, 100,000 steps after 5,000 warmup:
+
+| Traffic | median | p99 |
+|---|---|---|
+| healthy, distinct commands | 48 µs | 56 µs |
+| a verifier reporting improvement | 92 µs | 103 µs |
+| the same test failing repeatedly | 112 µs | 122 µs |
+
+Memory is flat: 1 KiB traced after 100,000 steps, because the window holds 32
+records regardless of run length. No runtime Python dependencies, three Rust
+ones, 558 KiB compressed wheel.
+
+Absolute timings are machine-specific. Re-derive them with `make perf`.
+
 ## What you get back
 
 Every call returns a `Decision`:
@@ -112,9 +137,11 @@ runtime checks. See [docs/cli.md](docs/cli.md).
 
 ## How it fits
 
-Microloop is an in-process library. It observes execution and returns progress
-state plus a recommendation. Your agent stays in control: the runtime never calls
-a model, runs a tool, or ends a run on its own, and makes no network requests.
+Microloop is not the agent, and it does not know what your agent is trying to
+do. It reads the steps you report and reports how they are going.
+
+It is an in-process library. It never calls a model, runs a tool, or ends a run,
+and it makes no network requests. Your agent stays in control.
 
 The more signals you attach, the sharper the estimate. A one-line integration
 works; [`docs/integration.md`](docs/integration.md) shows how to add verifier
@@ -122,10 +149,12 @@ scope, failure counts and environment state when you have them.
 
 ## Docs
 
-- [concepts](docs/concepts.md): the mental model
-- [integration](docs/integration.md): wiring it into a host loop
-- [cli](docs/cli.md): command reference
-- [architecture](docs/architecture.md): engine internals
+- [Reduce a trajectory to one signal](docs/concepts.md): the mental model
+- [Wire Microloop into your agent loop](docs/integration.md): four steps, from sending steps to attaching verifier signals
+- [Analyze a trajectory from the command line](docs/cli.md): `inspect`, `replay`, `monitor`, `doctor`
+- [How the engine computes progress](docs/architecture.md): module map, data flow, cost
+
+Point an agent at [`llms.txt`](llms.txt) for a machine-readable index.
 
 ## Evaluation
 

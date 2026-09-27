@@ -1,0 +1,35 @@
+# Microloop
+
+> Runtime progress for autonomous agents. An agent can run a long time and stop
+> getting anywhere. Microloop reads the steps it takes, keeps a fixed window of
+> the last 32, and reports whether the run is still advancing: `healthy`,
+> `warning`, `stalled` or `regressing`.
+>
+> It is an in-process library. Roughly 50 to 110 microseconds per step, flat
+> memory regardless of run length, no network calls, no runtime Python
+> dependencies. It never calls a model or runs a tool.
+>
+> Install with `pip install microloop`. Python 3.10 to 3.13. The import name is
+> `microloop`. The Rust crate is not on crates.io yet.
+
+Start with the [README](https://github.com/Devaretanmay/microloop/blob/main/README.md)
+for install and a ten-line example.
+
+## Docs
+
+- [Reduce a trajectory to one signal](https://github.com/Devaretanmay/microloop/blob/main/docs/concepts.md): the mental model. Event, trajectory, progress state, decision, and the four things progress is derived from.
+- [Wire Microloop into your agent loop](https://github.com/Devaretanmay/microloop/blob/main/docs/integration.md): four steps. Send steps, read progress, opt into recommendations, attach stronger signals.
+- [Analyze a trajectory from the command line](https://github.com/Devaretanmay/microloop/blob/main/docs/cli.md): `inspect`, `replay`, `monitor` and `doctor`, plus the JSONL trajectory format.
+- [How the engine computes progress](https://github.com/Devaretanmay/microloop/blob/main/docs/architecture.md): module map, data flow, normalization, cost, determinism and bounds.
+
+## Reference
+
+- [Example: offline coding agent](https://github.com/Devaretanmay/microloop/blob/main/examples/coding-agent/README.md): a runnable deterministic recovery demo using the public API.
+- [Evaluation harness](https://github.com/Devaretanmay/microloop/blob/main/benchmarks/README.md): methodology and the provenance rules for what counts as a result.
+
+## Notes for agents
+
+- The public Python API is `Monitor`, `Policy`, `Event`, `Decision`, `InterventionAction` and `ProgressState`. Nothing else is supported.
+- `Monitor` defaults to observation-only. `replan` and `stop` require an explicit `Policy` and are bounded by a cooldown and a per-run cap.
+- `decision.severity` is a fixed lookup over `decision.status` and carries no information beyond it. Branch on `status`.
+- Schema validation of trajectory files happens in the CLI, not in the library. `Monitor.observe()` is version-agnostic and ignores unknown fields.

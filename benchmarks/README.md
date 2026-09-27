@@ -4,6 +4,9 @@ Microloop is evaluated against the same agent, model and prompt with Microloop
 as the only variable. This directory holds the reproducible methodology, the
 runner and the published summaries. Raw runs are not committed.
 
+`perf.py` is unrelated to the rest of this directory: it measures the cost of
+calling `Monitor.observe()` and produces no benchmark result. See `make perf`.
+
 ## Layout
 
 ```

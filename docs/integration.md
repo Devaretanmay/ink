@@ -1,4 +1,4 @@
-# Integration
+# Wire Microloop into your agent loop
 
 Four steps. The first is enough to get value; the rest make it sharper.
 

@@ -1,4 +1,4 @@
-# Architecture
+# How the engine computes progress
 
 ```
 microloop-core (Rust)
@@ -54,6 +54,23 @@ timestamps, temp paths, PIDs and ephemeral ports, then collapses whitespace and
 truncates to 256 bytes. Normalized comparison lets `normalized_repetition`
 detect structurally identical steps whose volatile tokens differ. Error
 signatures are the first non-empty line of an observation, normalized.
+
+## Cost
+
+The engine is a fixed amount of work per step: five pure functions over a window
+of at most 32 records, plus the masking pass in `canonical.rs`. Nothing scales
+with run length.
+
+Measured with `make perf` (Python 3.13, Apple M4, release build, window full):
+
+| Traffic | median | p99 |
+|---|---|---|
+| healthy, distinct commands | 48 µs | 56 µs |
+| a verifier reporting improvement | 92 µs | 103 µs |
+| the same test failing repeatedly | 112 µs | 122 µs |
+
+Traced memory is 1 KiB after 100,000 steps, because the window is bounded. The
+numbers are machine-specific; the ratios are the point.
 
 ## Determinism
 

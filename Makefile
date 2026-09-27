@@ -1,4 +1,4 @@
-.PHONY: check fmt fmt-fix lint test test-rust test-python test-examples build wheel clean
+.PHONY: check fmt fmt-fix lint test test-rust test-python test-examples perf build wheel clean
 
 # One command that must pass before anything is published.
 check: fmt lint test test-examples wheel
@@ -26,6 +26,10 @@ test-python:
 # in CI keeps the documented public API honest.
 test-examples:
 	python examples/coding-agent/agent.py
+
+# Reproduces the per-step cost and memory figures quoted in README.md.
+perf:
+	python benchmarks/perf.py
 
 build:
 	cargo build --release -p microloop-core

@@ -1,7 +1,7 @@
-# Concepts
+# Reduce a trajectory to one signal
 
-Microloop observes a sequence of agent steps and reduces it to one question: is
-the run still making progress?
+An agent can run for a long time and stop getting anywhere. Microloop reads the
+steps and reports whether the run is still advancing.
 
 ```text
 Event  ->  Trajectory  ->  Progress state  ->  Decision

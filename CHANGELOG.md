@@ -84,6 +84,13 @@ being renamed in 0.3.
 - Documentation reframed around progress and recommendation rather than
   detection and intervention. The detectors, the policy and the API surface are
   unchanged.
+- The README now carries measured per-step cost and memory figures instead of
+  the old unmeasured latency claim. `benchmarks/perf.py` and `make perf`
+  reproduce them; the script measures the engine, not agent performance.
+- Added a short section answering why this is not a prompt, and a disambiguating
+  line separating Microloop from the agent it observes.
+- Doc titles are now verb phrases naming what the reader gets, and llms.txt is a
+  machine-readable index of the documentation.
 
 ## [0.2.0] (2026-07-01)
 
