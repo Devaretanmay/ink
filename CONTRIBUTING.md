@@ -54,6 +54,9 @@ examples                a runnable offline coding-agent demo
    worse than no number.
 6. Do not commit raw benchmark run directories, credentials, or build output.
    Published benchmark summaries go under `benchmarks/results/published/`.
+7. On a release, bump the `?v=` query on the PyPI badge in `README.md`. shields.io
+   caches for 12 hours, so a new release otherwise keeps showing the old version
+   for up to half a day.
 
 ## Coding notes
 

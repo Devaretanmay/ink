@@ -17,7 +17,7 @@ behind it, and, if you enable it, a recommendation for what the host should do
 next.
 
 [![CI](https://github.com/Devaretanmay/microloop/actions/workflows/ci.yml/badge.svg)](https://github.com/Devaretanmay/microloop/actions)
-[![PyPI](https://img.shields.io/pypi/v/microloop.svg)](https://pypi.org/project/microloop/)
+[![PyPI](https://img.shields.io/pypi/v/microloop.svg?v=0.3.0)](https://pypi.org/project/microloop/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](#license)
 
 ## Install
