@@ -28,6 +28,9 @@ classifiers = [
 [project.optional-dependencies]
 laya = ["laya-mlx==0.2.0; python_version >= '3.11' and sys_platform == 'darwin' and platform_machine == 'arm64'"]
 
+# Only the optional local-model example needs this extra.
+local-demo = ["mlx-lm==0.31.3; python_version >= '3.11' and sys_platform == 'darwin' and platform_machine == 'arm64'"]
+
 [project.scripts]
 microloop = "microloop.cli:main"
 

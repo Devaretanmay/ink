@@ -721,18 +721,3 @@ class GroqProvider:
             done=not calls and not dropped,
             raw_tool_calls=raw,
         )
-
-
-def _coerce_reply(payload: Mapping[str, Any]) -> ModelReply:
-    """Build a reply from a plain mapping (used by tests and traces)."""
-    return ModelReply(
-        text=str(payload.get("text", "")),
-        tool_calls=[
-            ToolCall(str(call["name"]), dict(call.get("arguments") or {}))
-            for call in payload.get("tool_calls", [])
-        ],
-        input_tokens=int(payload.get("input_tokens", 0)),
-        output_tokens=int(payload.get("output_tokens", 0)),
-        cost=float(payload.get("cost", 0.0)),
-        done=bool(payload.get("done", False)),
-    )

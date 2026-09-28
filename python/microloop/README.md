@@ -63,7 +63,7 @@ with Microloop() as client:
 ```
 
 `agent_decision` and `execute_action` above are application callbacks. For a runnable
-example, see [the refund agent](examples/refund_agent/README.md).
+example, see [the refund agent](https://github.com/Devaretanmay/microloop/blob/main/examples/refund_agent/README.md).
 
 Use `await client.decide_async(...)` for an async fallback. The top-level
 `decision(...)` helper owns a default local client; explicit clients are preferred
@@ -94,7 +94,7 @@ microloop maintenance
 The included refund workload is generated, not customer production traffic.
 Its default fallback is a labelled test fixture. A real model mode requires
 `MICROLOOP_API_KEY` and an explicit `--model`; it records actual model usage.
-Read [validation evidence](docs/validation-v0.4.md) before interpreting results.
+Read [validation evidence](https://github.com/Devaretanmay/microloop/blob/main/docs/validation-v0.4.md) before interpreting results.
 
 Fallback invocations avoided, model calls, tokens, and outcome quality are separate
 metrics. Microloop does not assume every fallback makes exactly one model call.
@@ -105,13 +105,13 @@ history. There is no cloud service, dashboard, workflow mining, or provider rout
 ## Compatibility and development
 
 The v0.3 Rust core and Python imports remain available. Old Python implementation
-lives under `microloop.internal`; [compatibility notes](docs/compatibility.md)
+lives under `microloop.internal`; [compatibility notes](https://github.com/Devaretanmay/microloop/blob/main/docs/compatibility.md)
 explain the boundary. The old episode database is unchanged.
 
-- [Integration](docs/integration.md)
-- [Architecture](docs/architecture.md)
-- [CLI](docs/cli.md)
-- [Concepts](docs/concepts.md)
+- [Integration](https://github.com/Devaretanmay/microloop/blob/main/docs/integration.md)
+- [Architecture](https://github.com/Devaretanmay/microloop/blob/main/docs/architecture.md)
+- [CLI](https://github.com/Devaretanmay/microloop/blob/main/docs/cli.md)
+- [Concepts](https://github.com/Devaretanmay/microloop/blob/main/docs/concepts.md)
 
 Run `make check` for Rust/Python checks, existing examples, and wheel construction.
 Laya and provider-backed experiments are opt-in and separate from offline CI.

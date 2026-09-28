@@ -11,8 +11,7 @@
 | Decision contracts, profiler, engine, verifier, store | New Python-owned decision subsystem |
 
 Trajectory schema stays `0.3.0`; package version is independent. Decision history
-uses a separate versioned SQLite schema (currently version 3, with transactional
-1 to 2 migration). Existing `.microloop/episodes.db` is never
+uses a separate versioned SQLite schema (currently version 4, with transactional 1→2→3→4 migrations). Existing `.microloop/episodes.db` is never
 renamed or rewritten by the new decision client. Site summaries come from
 `internal.profiler`; calibration profiles stay frozen on artifacts.
 

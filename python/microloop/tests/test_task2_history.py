@@ -306,3 +306,12 @@ def test_repair_broken_v2_fk_demotes_existing_active_path(tmp_path):
         )
     finally:
         store.close()
+
+
+def test_export_cannot_overwrite_live_database(tmp_path):
+    path = tmp_path / "db"
+    with Microloop(path) as client:
+        client.register(SITE)
+        with pytest.raises(ValueError, match="live database"):
+            client.store.export(path)
+        assert client.inspect(SITE)["observations"] == 0

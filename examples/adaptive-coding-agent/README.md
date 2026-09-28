@@ -1,8 +1,9 @@
-# Adaptive coding agent
+# Adaptive coding agent (compatibility surface)
 
 The same task, run static and adaptive, on two tasks chosen because they
 disagree about the answer. Fully offline and deterministic, so it is safe to run
-in CI.
+in CI. This exercises the compatibility trajectory API; new integrations should
+use the decision API.
 
 ```bash
 python examples/adaptive-coding-agent/agent.py

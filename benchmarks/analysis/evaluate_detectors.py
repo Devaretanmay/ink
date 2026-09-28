@@ -289,8 +289,6 @@ def main():
     if args.json:
         print(json.dumps(results, indent=2))
         return
-
-    # Print human-readable report
     metrics = results.get("performance_metrics", {})
     cm = results.get("confusion_matrix", {})
     summary = results.get("dataset_summary", {})

@@ -67,7 +67,7 @@ for step in agent.steps():
 ```
 
 `agent` stands for whatever loop you already have. For a runnable version see
-[`examples/coding-agent`](examples/coding-agent).
+[`examples/coding-agent`](../../examples/coding-agent).
 
 ## Why not just put this in a prompt?
 
@@ -110,12 +110,12 @@ Every call returns a `Decision`:
 Progress state is derived from recurrence between steps, movement in
 verification results, environment state, and repeated errors. The internal
 detectors are an implementation detail; see
-[architecture](docs/architecture.md) if you want them.
+[architecture](architecture.md) if you want them.
 
 Each decision also carries `progress` (state, signals, `since_step`), `runtime`
 (the conditions you reported) and `recommendation` (a `RuntimeAction` and its
-reason). See [runtime primitives](docs/concepts.md#runtime) and
-[adaptations](docs/concepts.md#adaptations).
+reason). See [runtime primitives](concepts.md) and
+[adaptations](concepts.md).
 
 By default the runtime only observes. Recommendations require an explicit
 policy:
@@ -174,11 +174,11 @@ or `--json` for the exact representation.
 `replay` is the same trajectory as a timeline, `explain` shows the runtime
 recommendation and the conditions behind it, `monitor` follows a file as an agent
 writes it, and `stats` summarizes the local episode store. `doctor` checks the
-runtime. See [docs/cli.md](docs/cli.md).
+runtime. See [cli.md](cli.md).
 
 ## Real integrations and the first experiment
 
-Provider code lives outside the package, in [`integrations/`](integrations):
+Provider code lives outside the package, in [`integrations/`](../../integrations):
 a coding harness whose task, workspace, tools and tests the harness owns, and an
 OpenAI Agents SDK integration that registers the SDK's lifecycle hooks without
 forking its runner. Both use a provider-neutral `TieredAdapter` that performs the
@@ -194,7 +194,7 @@ steps per success:
 ```bash
 python -m integrations.experiment                   # offline, deterministic
 python -m integrations.experiment --sweep --tasks 40 # compare controller policies
-python -m integrations.experiment --real            # Anthropic, needs keys
+python -m integrations.experiment --real            # needs provider keys (default --provider groq)
 ```
 
 ### The first result was negative
@@ -219,7 +219,7 @@ not that it has settled the question**. Two things did come out of it:
   never intervened. Adding them changed the ranking of the policies entirely.
 
 None of this is evidence about real models. See
-[docs/integration.md](docs/integration.md#what-the-offline-experiment-found).
+[integration.md](integration.md).
 
 ### The first real-model run
 
@@ -252,17 +252,17 @@ It is an in-process library. It never calls a model, runs a tool, or ends a run,
 and it makes no network requests. Your agent stays in control.
 
 The more signals you attach, the sharper the estimate. A one-line integration
-works; [`docs/integration.md`](docs/integration.md) shows how to add verifier
+works; [`integration.md`](integration.md) shows how to add verifier
 scope, failure counts and environment state when you have them.
 
 ## Docs
 
-- [Reduce a trajectory to one signal](docs/concepts.md): the mental model, including runtime primitives
-- [Wire Microloop into your agent loop](docs/integration.md): four steps, from sending steps to attaching verifier signals
-- [Analyze a trajectory from the command line](docs/cli.md): `inspect`, `replay`, `explain`, `monitor`, `doctor`
-- [How the engine computes progress](docs/architecture.md): module map, data flow, cost
+- [Reduce a trajectory to one signal](concepts.md): the mental model, including runtime primitives
+- [Wire Microloop into your agent loop](integration.md): four steps, from sending steps to attaching verifier signals
+- [Analyze a trajectory from the command line](cli.md): `inspect`, `replay`, `explain`, `monitor`, `doctor`
+- [How the engine computes progress](architecture.md): module map, data flow, cost
 
-Point an agent at [`llms.txt`](llms.txt) for a machine-readable index.
+Point an agent at [`llms.txt`](../../llms.txt) for a machine-readable index.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 

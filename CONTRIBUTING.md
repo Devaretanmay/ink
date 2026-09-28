@@ -9,7 +9,9 @@ By participating you agree to the [code of conduct](CODE_OF_CONDUCT.md).
 ```bash
 git clone https://github.com/Devaretanmay/microloop
 cd microloop
-pip install -e '.[dev]'
+uv venv --python 3.13
+uv pip install maturin pytest ruff
+maturin develop --manifest-path python/microloop/Cargo.toml
 make check
 ```
 
@@ -33,13 +35,18 @@ deterministic simulation on purpose.
 ## Repository layout
 
 ```
-crates/microloop-core   Rust runtime: detection and policy
-python/microloop        PyO3 bindings, Python SDK, CLI
+crates/microloop-core   Rust trajectory compatibility engine
+python/microloop        decision-JIT SDK, PyO3 bindings, CLI
 python/microloop/tests  Python tests and the trajectory fixture
-benchmarks              evaluation harness, and perf.py for engine cost
+benchmarks              evaluation harness, perf.py, decision_jit.py
 benchmarks/schemas      authoritative run-result and event schemas
-docs                    concepts, integration, CLI, architecture
-examples                a runnable offline coding-agent demo
+docs                    decision-JIT docs (integration, architecture, cli,
+                        concepts, compatibility, validation-v0.4, laya-path,
+                        implementation-status-v0.4) plus legacy/
+examples                refund_agent (primary decision-JIT demo), coding-agent
+                        and adaptive-coding-agent (compatibility surfaces),
+                        public_calibration/
+integrations            coding_harness, openai_agents, experiment runner
 ```
 
 ## Before opening a pull request
@@ -54,9 +61,8 @@ examples                a runnable offline coding-agent demo
    worse than no number.
 6. Do not commit raw benchmark run directories, credentials, or build output.
    Published benchmark summaries go under `benchmarks/results/published/`.
-7. On a release, bump the `?v=` query on the PyPI badge in `README.md`. shields.io
-   caches for 12 hours, so a new release otherwise keeps showing the old version
-   for up to half a day.
+7. On a release, if a PyPI badge is (re-)added to `README.md`, bump its `?v=`
+   query (shields.io caches ~12h). There is currently no badge, so this is a no-op.
 
 ## Coding notes
 

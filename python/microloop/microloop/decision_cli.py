@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import sqlite3
 from pathlib import Path
 
 from .decision_api import Microloop
@@ -103,5 +104,5 @@ def main(argv):
                         f"  fast path     {row['fast_path'] or 'none'}"
                     )
         return 0
-    except (ValueError, KeyError, OSError, ImportError) as error:
+    except (ValueError, KeyError, OSError, ImportError, sqlite3.Error) as error:
         parser.exit(2, f"microloop: {error}\n")

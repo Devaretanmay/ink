@@ -1,4 +1,5 @@
-"""Microloop CLI: inspect, replay, monitor, explain, stats and doctor.
+"""Microloop CLI: decision commands (sites, inspect, compile, evaluate, maintenance,
+export, retain) plus legacy trajectory views (replay, monitor, explain, stats, doctor).
 
 Reads schema 0.3.0 trajectory JSONL and streams it through the native runtime.
 ``monitor`` can follow a live file as an agent appends steps.
@@ -29,6 +30,8 @@ from . import (
     ScoredController,
     __version__,
 )
+from .decision_cli import main as decision_main
+from .store import DEFAULT_DB_PATH, EpisodeStore
 
 # Trajectory schema major version this runtime can read. A different major
 # version changes the meaning of fields, so it is rejected rather than guessed.
@@ -538,8 +541,6 @@ _ACTION_LABEL = {
 
 def _stats(args: argparse.Namespace) -> int:
     """Aggregate the local episode store: what worked, and what it cost."""
-    from .store import DEFAULT_DB_PATH, EpisodeStore
-
     path = args.database or DEFAULT_DB_PATH
     if path != ":memory:" and not Path(path).exists():
         if args.json:
@@ -657,7 +658,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command")
     inspect_parser = sub.add_parser(
         "inspect",
-        help="tell a trajectory as a story: what happened, in plain language",
+        help="Legacy: tell a trajectory as a story: what happened, in plain language",
     )
     inspect_parser.add_argument("trajectory")
     inspect_parser.add_argument(
@@ -670,7 +671,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     replay_parser = sub.add_parser(
         "replay",
-        help="re-run recorded events through the current engine",
+        help="Legacy: re-run recorded events through the trajectory engine",
     )
     replay_parser.add_argument("trajectory")
     replay_parser.add_argument("--json", action="store_true", help="emit decisions as JSONL")
@@ -679,7 +680,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="mark steps that produced no evidence",
     )
-    monitor_parser = sub.add_parser("monitor", help="print a live progress view")
+    monitor_parser = sub.add_parser("monitor", help="Legacy: print a live progress view")
     monitor_parser.add_argument("trajectory")
     monitor_parser.add_argument(
         "-f", "--follow", action="store_true", help="keep reading as the file grows"
@@ -690,14 +691,14 @@ def build_parser() -> argparse.ArgumentParser:
     monitor_parser.add_argument("--no-color", action="store_true", help="disable ANSI color")
     explain_parser = sub.add_parser(
         "explain",
-        help="explain the runtime recommendation from progress and runtime state",
+        help="Legacy: explain the runtime recommendation from progress and runtime state",
     )
     explain_parser.add_argument("trajectory")
     explain_parser.add_argument(
         "--json", action="store_true", help="print the exact representation"
     )
     stats_parser = sub.add_parser(
-        "stats", help="summarize the local episode store"
+        "stats", help="Legacy: summarize the local episode store"
     )
     stats_parser.add_argument(
         "database",
@@ -727,7 +728,6 @@ def main(argv: list[str] | None = None) -> int:
                    or (argv[0] == "inspect" and len(argv) > 1
                        and ("--db" in argv or not any(
                            Path(a).is_file() for a in argv[1:] if not a.startswith("-"))))):
-        from .decision_cli import main as decision_main
         return decision_main(argv)
     parser = build_parser()
     args = parser.parse_args(argv)

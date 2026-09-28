@@ -1,17 +1,18 @@
 """
-Microloop: keep agents making progress, and adapt how they run.
+Compatibility trajectory/adaptive-execution runtime (pre-0.4 surface).
 
 A local adaptive-execution runtime for autonomous agents. It watches an agent's
 execution trajectory, reports whether the run is advancing, and recommends a
 runtime action from the progress and the execution conditions behind it.
+New integrations should use the decision API; see ``microloop.compat``.
 
 The public API is intentionally small: ``Monitor``, ``Event``, ``Decision``,
 ``Policy``, ``ProgressState`` and ``InterventionAction``, plus the runtime
 primitives ``RuntimeState``, ``RuntimeDecision``, ``ProgressSnapshot``,
 ``RuntimeAction``, ``Budget``, ``Capabilities``, ``RuntimeController`` and
 ``Episode``. The host owns the agent loop; Microloop only observes it and
-returns instructions. Pass 1 recommends ``continue``, ``replan`` and ``stop``
-only.
+returns instructions. The controller vocabulary is the full ``RuntimeAction``
+set; new integrations should use the decision API.
 
 ``SCHEMA_VERSION`` is the trajectory schema the ``microloop`` CLI reads. It is
 not enforced here: the runtime ``Event`` has no version field and ignores unknown

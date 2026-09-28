@@ -4,7 +4,7 @@ The Python `Microloop` client owns site registration, dispatch, compilation,
 verification, and maintenance. Rust's existing trajectory and controller exports
 remain compatibility infrastructure; the decision JIT does not depend on them
 for qualification. Package version (0.4.0) is independent of the trajectory
-schema (0.3.0) and the decision-store schema (version 3).
+schema (0.3.0) and the decision-store schema (version 4).
 
 ## Data flow
 
@@ -26,8 +26,10 @@ schema (0.3.0) and the decision-store schema (version 3).
 verification calculations. Legacy trajectory/controller code lives alongside
 these modules behind unchanged compatibility imports.
 
-SQLite schema version 3 contains sites, decisions, factual outcomes, immutable
-artifacts, profiles, promotion evidence, and append-only lifecycle events. WAL,
+SQLite schema version 4 contains sites, decisions, factual outcomes, immutable
+artifacts, profiles, promotion evidence, and append-only lifecycle events, plus
+queryable per-state coverage, promotion records, drift checks, and artifact
+lineage. WAL,
 foreign keys, bounded lock waits, and transactions protect concurrent connections.
 The previous episode database is separate. Read-only CLI queries open the decision
 database in read-only mode. Export takes a consistent snapshot; retention protects
@@ -49,6 +51,9 @@ another. Bounded task-level scores use one-sided 95% Hoeffding bounds; independe
 between task groups is an assumption, not a property Microloop can prove.
 Calibration gates coverage by region. Held-out and fresh shadow evaluations must
 pass overall and for every covered region, using the frozen verifier identity.
+
+Outcome-preserving migrations repair the earlier broken child foreign key;
+affected active paths return to shadow when factual evidence was lost.
 
 An atomic promotion records SHADOW → VERIFIED → ACTIVE. Active paths retain random
 fallback comparisons. Maintenance or re-evaluation ticks demote on outcome

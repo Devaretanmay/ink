@@ -32,13 +32,23 @@ from typing import Any
 from microloop import ModelTier
 from microloop.store import EpisodeStore
 
+from integrations.coding_harness.close_tasks import build_close_tasks, close_call_report
+from integrations.coding_harness.close_tasks import summarise as summarise_close_calls
 from integrations.coding_harness.providers import (
     AnthropicProvider,
     CallBudget,
     GroqProvider,
 )
+from integrations.coding_harness.real_tasks import build_real_tasks
 from integrations.coding_harness.tasks import build_tasks
-from integrations.experiment.runner import build_session, run_experiment, run_sweep
+from integrations.experiment.runner import (
+    DEFAULT_TIERS,
+    _simulated_factory,
+    _tier_by_model,
+    build_session,
+    run_experiment,
+    run_sweep,
+)
 
 _ENV_TIER = {
     ModelTier.Fast: "MICROLOOP_MODEL_FAST",
@@ -71,8 +81,6 @@ def _single_model_tiers(model: str) -> dict[str, str]:
 
 
 def _simulated_tiers() -> dict[str, str]:
-    from integrations.experiment.runner import DEFAULT_TIERS
-
     return dict(DEFAULT_TIERS)
 
 
@@ -152,12 +160,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.task_set == "close":
-        from integrations.coding_harness.close_tasks import build_close_tasks
-
         tasks = build_close_tasks(args.tasks)
     elif args.task_set == "real":
-        from integrations.coding_harness.real_tasks import build_real_tasks
-
         tasks = build_real_tasks()[: args.tasks]
     else:
         tasks = build_tasks(args.tasks)
@@ -184,8 +188,6 @@ def main(argv: list[str] | None = None) -> int:
                 return GroqProvider(budget=budget)
 
     else:
-        from integrations.experiment.runner import _simulated_factory, _tier_by_model
-
         tiers = _simulated_tiers()
 
         def arm_builder(arm: str, **kwargs: Any):  # noqa: ANN202
@@ -195,8 +197,6 @@ def main(argv: list[str] | None = None) -> int:
         provider_factory = _simulated_factory(_tier_by_model(tiers))
 
     if args.validate:
-        from integrations.coding_harness.close_tasks import close_call_report
-
         print(close_call_report())
         return 0
 
@@ -235,11 +235,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print(report.render())
         if args.calibrate:
-            from integrations.coding_harness.close_tasks import summarise
-
             summary = report.arms["static"]
             print()
-            print(summarise(summary.successes, summary.episodes))
+            print(summarise_close_calls(summary.successes, summary.episodes))
         if run_mode == "simulated":
             print()
             print(

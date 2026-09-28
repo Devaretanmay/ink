@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 
 
@@ -26,8 +27,6 @@ def profile_history(rows):
     tasks = [r.get("task") for r in rows]
     states = [r.get("state") for r in rows]
     # States arrive decoded as dicts; count repetition by canonical form.
-    import json
-
     def key(s):
         return json.dumps(s, sort_keys=True, separators=(",", ":")) if s is not None else ""
 
@@ -42,7 +41,7 @@ def profile_history(rows):
     unsuccessful = len(with_outcome) - successful
 
     usage = {}
-    for field in ("model_calls", "input_tokens", "output_tokens", "cost"):
+    for field in ("model_calls", "input_tokens", "output_tokens", "cost", "request_attempts"):
         known = [
             r["usage"][field]
             for r in rows
@@ -55,7 +54,7 @@ def profile_history(rows):
         if isinstance(r.get("usage"), dict)
         and any(
             r["usage"].get(key) is not None
-            for key in ("model_calls", "input_tokens", "output_tokens", "cost")
+            for key in ("model_calls", "input_tokens", "output_tokens", "cost", "request_attempts")
         )
     )
 

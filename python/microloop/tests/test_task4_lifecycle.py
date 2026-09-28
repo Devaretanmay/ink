@@ -127,3 +127,26 @@ def test_changed_verifier_demotes_even_when_all_scores_pass():
             evidence={"ok": True},
         )
         assert client.reevaluate(SITE)["demoted"]
+
+
+def test_maintenance_waits_for_compilation_support():
+    with Microloop(":memory:") as client:
+        run(client, 10, "early")
+        result = client.maintenance(verifier=verify, requirements=REQ)
+        assert "pending" in result[SITE.name]
+        assert client.inspect(SITE)["state"] == "OBSERVE"
+        run(client, 300, "ready")
+        assert "compiled" in client.maintenance(verifier=verify, requirements=REQ)[SITE.name]
+
+
+def test_early_candidate_can_be_replaced_when_evidence_arrives():
+    with Microloop(":memory:") as client:
+        run(client, 10, "early")
+        first = client.compile(SITE)
+        run(client, 300, "enough")
+        result = client.maintenance(verifier=verify, requirements=REQ)
+        assert "pending" in result[SITE.name]  # Replacement still needs fresh shadow traffic.
+        assert client.inspect(SITE)["fast_path"] != first
+        assert client.inspect(SITE)["profile"] is not None
+        run(client, 100, "fresh")
+        assert client.maintenance(verifier=verify, requirements=REQ)[SITE.name]["qualified"]

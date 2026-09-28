@@ -1,0 +1,42 @@
+{
+  "checked_at": "2026-09-28T12:30:37.958154+00:00",
+  "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "python": "3.13.12",
+  "package": "0.4.0",
+  "rust_tests_passed": 95,
+  "python_installed_wheel_tests_passed": 150,
+  "python_tests_skipped": 0,
+  "rustfmt": "passed",
+  "clippy": "passed",
+  "ruff": "passed",
+  "legacy_examples": "passed",
+  "installed_cli_doctor": "passed",
+  "installed_cli_readonly_real_history": "passed",
+  "sqlite_integrity_check": "ok",
+  "sqlite_foreign_key_check": "no violations",
+  "wheel": "microloop-0.4.0-cp310-abi3-macosx_11_0_arm64.whl",
+  "wheel_sha256": "a43d1965b5cebfbba60423bfe2018b2f47965efd5b11c1902a3885ca3f454125",
+  "installed_fixture_acceptance": {
+    "promoted": true,
+    "served_fast_path": true,
+    "maintained_outcomes": true,
+    "steady_path_retained": true,
+    "novel_fallback": true,
+    "drift_demoted": true,
+    "post_demotion_fallback": true
+  },
+  "installed_fixture_active_phase": {
+    "decisions": 600,
+    "sources": {
+      "fast_path": 397,
+      "fallback": 203
+    },
+    "quality": 1.0,
+    "median_seconds": 0.008617292012786493
+  },
+  "external_gates": {
+    "cloud_provider": "not run: credentials unavailable",
+    "customer_production": "not run: no customer traffic",
+    "publication": "not performed"
+  }
+}

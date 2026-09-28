@@ -3,7 +3,7 @@ Runtime microbenchmark for the Microloop engine.
 
 This measures the cost of calling `Monitor.observe()`, not agent performance. It
 produces no benchmark result and nothing here is a claim about task success. The
-numbers quoted in README.md and docs/architecture.md come from this script, so
+numbers quoted in docs/legacy/README-v0.3.md ("Cost") come from this script, so
 they can be re-derived rather than taken on trust.
 
     make perf

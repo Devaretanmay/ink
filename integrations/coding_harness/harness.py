@@ -93,20 +93,6 @@ class RunResult:
     #: rather than because the task finished or the model gave up.
     truncated: bool = False
 
-    def to_metrics(self) -> dict[str, Any]:
-        return {
-            "task": self.task,
-            "arm": self.arm,
-            "success": self.success,
-            "steps": self.steps,
-            "cost": self.cost,
-            "input_tokens": self.input_tokens,
-            "output_tokens": self.output_tokens,
-            "tokens": self.input_tokens + self.output_tokens,
-            "adaptations": self.adaptations,
-            "truncated": self.truncated,
-        }
-
 
 #: The tools the agent may call, in OpenAI function-calling shape.
 #:

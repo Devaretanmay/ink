@@ -51,3 +51,11 @@ Explicit export contains state and outcomes; choose its destination deliberately
 Retention excludes sites with artifacts so promotion evidence remains auditable.
 Keep sensitive fields out of the decision contract unless they are required.
 Provider credentials are owned by the application and never belong in state.
+
+## Measured call savings
+
+A site may declare `fallback_model_calls=1` (or another fixed count). Its callback
+must return a `FallbackResult` reporting exactly that count; mismatches raise.
+Only such sites report direct `model_calls_avoided` and
+`verified_model_calls_avoided`. Variable-call callbacks keep those fields unknown.
+Token/cost savings are not inferred from a fixed call count.

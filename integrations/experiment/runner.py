@@ -25,7 +25,6 @@ from typing import Any
 from microloop import (
     Capabilities,
     ContextCompactor,
-    Episode,
     ModelTier,
     Monitor,
     RuntimeSession,
@@ -329,11 +328,6 @@ def _fold(summary: ArmSummary, result: RunResult, elapsed: float) -> None:
     summary.adaptations += result.adaptations
     summary.wall_seconds += elapsed
     summary.outcomes[result.task] = result.success
-
-
-def episode_for_run(result: RunResult) -> Episode:
-    """Convenience accessor used by callers that need the raw episode."""
-    return result.episode
 
 
 # -- policy sweep -------------------------------------------------------------

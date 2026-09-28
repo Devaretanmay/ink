@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .contracts import canonical
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 SCHEMA = [
     """CREATE TABLE sites(version TEXT PRIMARY KEY, name TEXT NOT NULL,
@@ -35,6 +35,24 @@ SCHEMA = [
        created REAL NOT NULL, previous TEXT NOT NULL,
        current TEXT NOT NULL, detail TEXT NOT NULL)""",
     "CREATE INDEX decision_site_time ON decisions(site, created)",
+    """CREATE TABLE state_coverage(site TEXT NOT NULL, state TEXT NOT NULL,
+       observations INTEGER NOT NULL DEFAULT 0, fast_served INTEGER NOT NULL DEFAULT 0,
+       outcomes INTEGER NOT NULL DEFAULT 0, quality_sum REAL NOT NULL DEFAULT 0.0,
+       PRIMARY KEY(site, state))""",
+    """CREATE TABLE promotion_records(artifact TEXT PRIMARY KEY
+       REFERENCES artifacts(id) ON DELETE CASCADE,
+       decided REAL NOT NULL, qualified INTEGER NOT NULL,
+       holdout_samples INTEGER NOT NULL, shadow_samples INTEGER NOT NULL,
+       quality_lower REAL, delta_lower REAL, agreement REAL)""",
+    """CREATE TABLE drift_checks(id INTEGER PRIMARY KEY,
+       artifact TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+       created REAL NOT NULL, demoted INTEGER NOT NULL,
+       active_samples INTEGER NOT NULL, comparison_samples INTEGER NOT NULL,
+       missing_outcomes INTEGER NOT NULL, quality_lower REAL, delta_lower REAL,
+       uncovered_rate REAL)""",
+    """CREATE TABLE artifact_links(parent TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+       child TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+       created REAL NOT NULL, PRIMARY KEY(parent, child))""",
 ]
 
 
@@ -115,6 +133,66 @@ def _migrate_2_to_3(db):
 MIGRATIONS = {1: _migrate_1_to_2, 2: _migrate_2_to_3}
 
 
+def _migrate_3_to_4(db):
+    """Add queryable coverage, promotion, drift, and lineage tables with backfill."""
+    for statement in [s for s in SCHEMA if s.startswith("CREATE TABLE state_coverage")
+                      or s.startswith("CREATE TABLE promotion_records")
+                      or s.startswith("CREATE TABLE drift_checks")
+                      or s.startswith("CREATE TABLE artifact_links")]:
+        db.execute(statement)
+    db.execute(
+        """INSERT INTO state_coverage(site, state, observations, fast_served, outcomes, quality_sum)
+        SELECT d.site, d.state, COUNT(*),
+          SUM(CASE WHEN d.source='fast_path' THEN 1 ELSE 0 END),
+          SUM(CASE WHEN o.decision IS NULL THEN 0 ELSE 1 END),
+          COALESCE(SUM(CAST(json_extract(o.payload, '$.quality') AS REAL)), 0.0)
+        FROM decisions d LEFT JOIN outcomes o ON o.decision=d.id
+        GROUP BY d.site, d.state"""
+    )
+    for row in db.execute("SELECT id, evidence FROM artifacts WHERE evidence IS NOT NULL"):
+        try:
+            evidence = json.loads(row["evidence"])
+        except ValueError:
+            continue
+        holdout, shadow = evidence.get("holdout") or {}, evidence.get("shadow") or {}
+        db.execute(
+            "INSERT OR IGNORE INTO promotion_records VALUES (?,?,?,?,?,?,?,?)",
+            (
+                row["id"], time.time(), int(bool(evidence.get("qualified"))),
+                holdout.get("samples", 0), shadow.get("samples", 0),
+                holdout.get("quality_lower"), shadow.get("delta_lower"),
+                holdout.get("agreement"),
+            ),
+        )
+    for row in db.execute(
+        "SELECT artifact, created, previous, current, detail FROM events"
+    ):
+        try:
+            detail = json.loads(row["detail"])
+        except ValueError:
+            detail = {}
+        if row["previous"] == "ACTIVE" and row["current"] == "SHADOW":
+            db.execute(
+                """INSERT INTO drift_checks(artifact, created, demoted, active_samples,
+                comparison_samples, missing_outcomes, quality_lower, delta_lower, uncovered_rate)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+                (
+                    row["artifact"], row["created"], 1,
+                    detail.get("active_samples", 0), detail.get("comparison_samples", 0),
+                    detail.get("missing_outcomes", 0), detail.get("quality_lower"),
+                    detail.get("delta_lower"), detail.get("uncovered_rate"),
+                ),
+            )
+        if row["current"] == "RETIRED" and isinstance(detail, dict) and detail.get("replaced_by"):
+            db.execute(
+                "INSERT OR IGNORE INTO artifact_links VALUES (?,?,?)",
+                (row["artifact"], detail["replaced_by"], row["created"]),
+            )
+
+
+MIGRATIONS[3] = _migrate_3_to_4
+
+
 class DecisionStore:
     def __init__(self, path=".microloop/decisions.db", *, readonly=False):
         self.path = str(path)
@@ -177,12 +255,15 @@ class DecisionStore:
         return rows
 
     def export(self, path):
+        self._check_destination(path)
         with self.lock:
             self.conn.execute("BEGIN")
             try:
                 data = {
                     table: self.rows(f"SELECT * FROM {table}")
-                    for table in ("sites", "decisions", "outcomes", "artifacts", "events")
+                    for table in ("sites", "decisions", "outcomes", "artifacts", "events",
+                                  "state_coverage", "promotion_records", "drift_checks",
+                                  "artifact_links")
                 }
             finally:
                 self.conn.rollback()
@@ -190,18 +271,23 @@ class DecisionStore:
 
     def backup_to(self, dest):
         """Consistent SQLite backup; dest path must not be the live database."""
-        if self.path != ":memory:":
-            try:
-                if Path(dest).expanduser().resolve() == Path(self.path).expanduser().resolve():
-                    raise ValueError("Backup destination must not be the live database")
-            except OSError:
-                pass
+        self._check_destination(dest)
         with self.lock:
             target = sqlite3.connect(str(dest))
             try:
                 self.conn.backup(target)
             finally:
                 target.close()
+
+    def _check_destination(self, dest):
+        if self.path == ":memory:":
+            return
+        target, source = Path(dest).expanduser().resolve(), Path(self.path).resolve()
+        protected = [source, Path(str(source) + "-wal"), Path(str(source) + "-shm")]
+        if target in protected or any(
+            item.exists() and target.exists() and item.samefile(target) for item in protected
+        ):
+            raise ValueError("Destination must not overwrite the live database or journal")
 
     def checkpoint(self):
         with self.lock:
@@ -211,24 +297,45 @@ class DecisionStore:
         with self.lock:
             self.conn.execute("VACUUM")
 
+    def _rebuild_coverage(self, db, site_version):
+        db.execute("DELETE FROM state_coverage WHERE site=?", (site_version,))
+        db.execute(
+            """INSERT INTO state_coverage(site, state, observations, fast_served, outcomes,
+            quality_sum) SELECT d.site, d.state, COUNT(*),
+              SUM(CASE WHEN d.source='fast_path' THEN 1 ELSE 0 END),
+              SUM(CASE WHEN o.decision IS NULL THEN 0 ELSE 1 END),
+              COALESCE(SUM(CAST(json_extract(o.payload, '$.quality') AS REAL)), 0.0)
+            FROM decisions d LEFT JOIN outcomes o ON o.decision=d.id
+            WHERE d.site=? GROUP BY d.site, d.state""",
+            (site_version,),
+        )
+
     def retain_since(self, timestamp):
         # Freeze evidence for all existing artifacts. Deleting source rows would invalidate audits.
         with self.transaction() as db:
-            return db.execute(
+            count = db.execute(
                 """DELETE FROM decisions WHERE created < ? AND site NOT IN
                 (SELECT site FROM artifacts)""",
                 (timestamp,),
             ).rowcount
+            for row in db.execute(
+                "SELECT DISTINCT site FROM decisions WHERE site NOT IN "
+                "(SELECT site FROM artifacts)"
+            ):
+                self._rebuild_coverage(db, row[0])
+            return count
 
     def retain_site(self, site_version, timestamp):
         """Per-site retention; refuses to delete evidence behind existing artifacts."""
         with self.transaction() as db:
             if db.execute("SELECT 1 FROM artifacts WHERE site=?", (site_version,)).fetchone():
                 return 0
-            return db.execute(
+            count = db.execute(
                 "DELETE FROM decisions WHERE site=? AND created < ?",
                 (site_version, timestamp),
             ).rowcount
+            self._rebuild_coverage(db, site_version)
+            return count
 
     def close(self):
         with self.lock:

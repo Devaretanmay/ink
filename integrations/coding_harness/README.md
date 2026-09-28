@@ -8,7 +8,9 @@ and the adaptation decision.
 integrations/coding_harness/
 ├── harness.py    Task, CodingHarness, RunResult, SYSTEM_PROMPT, the tool loop
 ├── providers.py  Provider protocol, SimulatedCodingProvider, AnthropicProvider
-└── tasks.py      a controlled, deterministic task set
+├── tasks.py      a controlled, deterministic task set
+├── close_tasks.py  24-task close-call band plus validate()/calibrate sizing
+└── real_tasks.py  two Python bugs with hidden verifier (build_real_tasks)
 ```
 
 ## Why a harness rather than a closed CLI
@@ -57,7 +59,7 @@ from integrations.coding_harness import (
     CodingHarness,
     build_tasks,
 )
-from integrations.experiment.runner import (
+from integrations.experiment.runner import (  # underscore helpers are internal
     DEFAULT_TIERS,
     _simulated_factory,
     _tier_by_model,

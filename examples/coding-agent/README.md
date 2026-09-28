@@ -1,10 +1,11 @@
-# Coding agent example
+# Coding agent example (compatibility surface)
 
 An offline, **deterministic** demonstration of the recovery loop. It uses the
-real public API (`Monitor`, `Policy`, `InterventionAction`) against a real
+compatibility API (`Monitor`, `Policy`, `InterventionAction`) against a real
 temporary repository, but the agent's failure and recovery path is *scripted*,
 not the result of a model deciding what to do. It is a worked example of the
-integration pattern, not a benchmark.
+integration pattern, not a benchmark. New integrations should use the decision
+API; see the refund agent.
 
 The agent starts with a wrong fix strategy. Because it repeats the same failed
 edit and the same assertion, Microloop classifies the trajectory as `stalled` and

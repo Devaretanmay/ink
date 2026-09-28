@@ -133,7 +133,6 @@ def run_experiment(
             f"Condition: {condition} | Seed: {seed} | RunID: {run_id}"
         )
 
-        # Execute single task trial
         task_result = run_single_task(
             task=task,
             run_id=run_id,

@@ -136,8 +136,7 @@ def run_single_task(
             retry_recovers = False
             is_irrecoverable = roll >= 0.82
 
-        # Generate trajectory steps
-        adapter.record_step(
+            adapter.record_step(
             command="git status",
             exit_code=0,
             stdout="On branch main\nnothing to commit, working tree clean",

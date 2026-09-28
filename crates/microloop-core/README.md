@@ -1,6 +1,7 @@
-# microloop-core
+# microloop-core (compatibility engine)
 
-Deterministic progress detection and recovery policy for autonomous agents.
+Deterministic progress detection and recovery policy for autonomous agents,
+kept as the compatibility trajectory engine behind the decision-JIT product.
 
 Part of [Microloop](https://github.com/Devaretanmay/microloop). The core is a
 pure Rust library: no network, no I/O, no agent execution. See the root README

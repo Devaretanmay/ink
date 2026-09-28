@@ -1,6 +1,6 @@
 [package]
 name = "microloop-python"
-description = "Python bindings for the Microloop local reliability runtime."
+description = "Python bindings for Microloop (decision JIT plus trajectory compatibility core)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

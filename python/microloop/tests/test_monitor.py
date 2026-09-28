@@ -5,6 +5,9 @@ from microloop import InterventionAction, Monitor, Policy
 def test_public_surface_stays_small() -> None:
     """Guard against the API silently regrowing between releases."""
     assert microloop.__all__ == [
+        "Microloop", "DecisionSite", "DecisionResult", "FallbackResult",
+        "Outcome", "PromotionRequirements", "decision", "record_outcome",
+        "compat",
         "ActionOutcome",
         "ActionScore",
         "AdaptationRecord",
@@ -40,8 +43,6 @@ def test_public_surface_stays_small() -> None:
         "TieredAdapter",
         "Usage",
         "__version__",
-        "Microloop", "DecisionSite", "DecisionResult", "FallbackResult",
-        "Outcome", "PromotionRequirements", "decision", "record_outcome",
     ]
     assert not hasattr(microloop, "wrap")
 

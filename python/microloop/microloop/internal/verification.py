@@ -6,7 +6,7 @@ import math
 from copy import deepcopy
 from dataclasses import asdict
 
-from .contracts import Outcome, canonical, digest
+from .contracts import Outcome, canonical
 
 
 def lower_bound(values):
@@ -90,7 +90,3 @@ def passes(stats, requirements):
         and stats["quality_lower"] >= requirements.min_quality
         and stats["delta_lower"] >= -requirements.max_degradation
     )
-
-
-def profile_id(profile):
-    return digest(profile)

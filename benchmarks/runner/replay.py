@@ -36,7 +36,6 @@ def replay_trajectory(
     if not os.path.exists(trajectory_path):
         raise FileNotFoundError(f"Trajectory file not found: {trajectory_path}")
 
-    # Read events
     events = []
     with open(trajectory_path, encoding="utf-8") as f:
         for line_no, line in enumerate(f, start=1):

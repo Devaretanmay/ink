@@ -32,6 +32,7 @@ class Microloop:
     def __init__(self, path=".microloop/decisions.db", *, engines=(), readonly=False):
         self.store = DecisionStore(path, readonly=readonly)
         self.engines = {e.name: e for e in (ExactEngine(), LayaEngine(), *engines)}
+        self._contracts = {}
 
     def close(self):
         self.store.close()
@@ -50,6 +51,7 @@ class Microloop:
                 "INSERT OR IGNORE INTO sites VALUES (?,?,?,?)",
                 (site.version, site.name, contract, time.time()),
             )
+        self._contracts[site.name] = site
         return site
 
     def _site(self, site, state, choices, fallback_revision):
@@ -61,16 +63,24 @@ class Microloop:
             except sqlite3.Error:
                 # Explicit contracts still allow the original agent to operate during an outage.
                 return site
-        existing = self.store.rows(
-            "SELECT contract FROM sites WHERE name=? ORDER BY created DESC", (site,)
-        )
+        try:
+            existing = self.store.rows(
+                "SELECT contract FROM sites WHERE name=? ORDER BY created DESC", (site,)
+            )
+        except sqlite3.Error:
+            known = self._contracts.get(site)
+            if known is None:
+                raise ValueError(
+                    "Storage unavailable; pass an explicit DecisionSite contract"
+                ) from None
+            existing = [{"contract": canonical(asdict(known))}]
         if existing:
             contract = json.loads(existing[0]["contract"])
             if choices is not None:
                 contract["choices"] = choices
             if fallback_revision is not None:
                 contract["fallback_revision"] = fallback_revision
-            return self.register(DecisionSite(**contract))
+            return self._site(DecisionSite(**contract), state, None, None)
         if choices is None:
             raise ValueError("A new site requires choices or explicit registration")
         types = {str: "string", int: "integer", float: "number", bool: "boolean"}
@@ -80,7 +90,9 @@ class Microloop:
             raise ValueError(
                 "Use DecisionSite with an explicit schema for optional fields"
             ) from error
-        return self.register(DecisionSite(site, schema, tuple(choices), fallback_revision or "1"))
+        return self._site(
+            DecisionSite(site, schema, tuple(choices), fallback_revision or "1"), state, None, None
+        )
 
     def _artifact(self, site):
         rows = self.store.rows(
@@ -187,6 +199,12 @@ class Microloop:
                     canonical(usage),
                 ),
             )
+            db.execute(
+                """INSERT INTO state_coverage(site, state, observations, fast_served)
+                VALUES (?,?,1,?) ON CONFLICT(site, state) DO UPDATE SET
+                observations=observations+1, fast_served=fast_served+excluded.fast_served""",
+                (site.version, canonical(state), 1 if source == "fast_path" else 0),
+            )
         return result
 
     def _save_fallback(self, site, state, value, task_id, started, artifact, prediction, reason):
@@ -260,6 +278,15 @@ class Microloop:
                 db.execute(
                     "INSERT INTO outcomes VALUES (?,?,?)", (decision_id, payload, time.time())
                 )
+                row = db.execute(
+                    "SELECT site, state FROM decisions WHERE id=?", (decision_id,)
+                ).fetchone()
+                db.execute(
+                    """INSERT INTO state_coverage(site, state, observations, outcomes, quality_sum)
+                    VALUES (?,?,0,1,?) ON CONFLICT(site, state) DO UPDATE SET
+                    outcomes=outcomes+1, quality_sum=quality_sum+excluded.quality_sum""",
+                    (row["site"], row["state"], outcome.quality),
+                )
         return outcome
 
     def _resolve(self, site):
@@ -331,6 +358,11 @@ class Microloop:
                     None,
                 ),
             )
+            if previous:
+                db.execute(
+                    "INSERT OR IGNORE INTO artifact_links VALUES (?,?,?)",
+                    (previous["id"], artifact_id, time.time()),
+                )
             self._event(db, artifact_id, "OBSERVE", "CANDIDATE", {"engine": engine})
             db.execute("UPDATE artifacts SET status='SHADOW' WHERE id=?", (artifact_id,))
             self._event(db, artifact_id, "CANDIDATE", "SHADOW", {})
@@ -459,6 +491,15 @@ class Microloop:
             db.execute(
                 "UPDATE artifacts SET evidence=? WHERE id=?", (canonical(evidence), artifact["id"])
             )
+            db.execute(
+                "INSERT OR REPLACE INTO promotion_records VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    artifact["id"], time.time(), int(qualified),
+                    held_stats.get("samples", 0), shadow_stats.get("samples", 0),
+                    held_stats.get("quality_lower"), shadow_stats.get("delta_lower"),
+                    held_stats.get("agreement"),
+                ),
+            )
             if qualified:
                 self._event(db, artifact["id"], "SHADOW", "VERIFIED", evidence)
                 self._event(db, artifact["id"], "VERIFIED", "ACTIVE", {"profile": profile["id"]})
@@ -538,6 +579,18 @@ class Microloop:
                 ).rowcount
                 if count:
                     self._event(db, artifact["id"], "ACTIVE", "SHADOW", evidence)
+        with self.store.transaction() as db:
+            db.execute(
+                """INSERT INTO drift_checks(artifact, created, demoted, active_samples,
+                comparison_samples, missing_outcomes, quality_lower, delta_lower, uncovered_rate)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+                (
+                    artifact["id"], time.time(), int(demote),
+                    evidence["active_samples"], evidence["comparison_samples"],
+                    evidence["missing_outcomes"], evidence["quality_lower"],
+                    evidence["delta_lower"], evidence["uncovered_rate"],
+                ),
+            )
         return evidence
 
     def maintenance(self, *, verifier=None, requirements=None, engine="exact"):
@@ -547,6 +600,9 @@ class Microloop:
             try:
                 artifact = self._artifact(site.version)
                 if artifact is None:
+                    if requirements is None:
+                        raise ValueError("Automatic compilation requires explicit requirements")
+                    self._require_compilation_support(site, requirements)
                     results[site.name] = {"compiled": self.compile(site, engine=engine)}
                 elif artifact["status"] == "ACTIVE":
                     results[site.name] = self.reevaluate(site)
@@ -554,11 +610,59 @@ class Microloop:
                     if artifact["profile"] is None:
                         if requirements is None:
                             continue
-                        self.calibrate(site, verifier=verifier, requirements=requirements)
+                        try:
+                            self.calibrate(site, verifier=verifier, requirements=requirements)
+                        except ValueError as error:
+                            if (
+                                str(error)
+                                != "No state regions have sufficient calibration evidence"
+                            ):
+                                raise
+                            self._require_compilation_support(site, requirements)
+                            history = self.store.history(site.version)
+                            new_rows = [
+                                r
+                                for r in history
+                                if r["created"] > artifact["payload"]["created"]
+                                and r["outcome"] is not None
+                            ]
+                            if len(new_rows) < requirements.min_samples:
+                                raise
+                            # A candidate compiled too early must not pin a site forever.
+                            self.compile(site, engine=engine, replace_existing=True)
+                            self.calibrate(site, verifier=verifier, requirements=requirements)
                     results[site.name] = self.evaluate(site, verifier=verifier)
             except (ValueError, KeyError) as error:
                 results[site.name] = {"pending": str(error)}
         return results
+
+    def _require_compilation_support(self, site, requirements):
+        rows = [
+            r
+            for r in self.store.history(site.version)
+            if r["source"] == "fallback" and r["outcome"] is not None
+        ]
+        train, calibration, evaluation = split_history(rows)
+        if requirements.min_confidence == 1 or requirements.max_degradation == 0:
+            raise ValueError("Finite samples cannot meet the configured confidence bounds")
+        calibration_min = max(
+            requirements.min_region_samples,
+            math.ceil(math.log(20) / (2 * (1 - requirements.min_confidence) ** 2)),
+        )
+        evaluation_min = max(
+            requirements.min_samples, math.ceil(2 * math.log(20) / requirements.max_degradation**2)
+        )
+        trained = {canonical(r["state"]) for r in train}
+        cal, held = {}, {}
+        for part, counts in ((calibration, cal), (evaluation, held)):
+            for record in part:
+                counts.setdefault(canonical(record["state"]), set()).add(record["task"])
+        if not any(
+            len(cal.get(region, ())) >= calibration_min
+            and len(held.get(region, ())) >= evaluation_min
+            for region in trained
+        ):
+            raise ValueError("Insufficient independent calibration/evaluation tasks to compile")
 
     def sites(self):
         return [
@@ -569,6 +673,42 @@ class Microloop:
     def profile(self, site):
         site = self._resolve(site)
         return profile_history(self.store.history(site.version))
+
+    def coverage(self, site):
+        """Queryable per-state counters: observations, fast serves, outcomes, quality."""
+        site = self._resolve(site)
+        return self.store.rows(
+            "SELECT state, observations, fast_served, outcomes, quality_sum "
+            "FROM state_coverage WHERE site=? ORDER BY observations DESC",
+            (site.version,),
+        )
+
+    def promotions(self, site):
+        """Queryable promotion decisions per artifact, newest first."""
+        site = self._resolve(site)
+        return self.store.rows(
+            "SELECT p.* FROM promotion_records p JOIN artifacts a ON a.id=p.artifact "
+            "WHERE a.site=? ORDER BY p.decided DESC",
+            (site.version,),
+        )
+
+    def drift_history(self, site):
+        """Queryable re-evaluation ticks per artifact, newest first."""
+        site = self._resolve(site)
+        return self.store.rows(
+            "SELECT d.* FROM drift_checks d JOIN artifacts a ON a.id=d.artifact "
+            "WHERE a.site=? ORDER BY d.created DESC, d.id DESC",
+            (site.version,),
+        )
+
+    def lineage(self, site):
+        """Artifact parent-to-child links from recompilation replacements."""
+        site = self._resolve(site)
+        return self.store.rows(
+            "SELECT l.* FROM artifact_links l JOIN artifacts a ON a.id=l.child "
+            "WHERE a.site=? ORDER BY l.created",
+            (site.version,),
+        )
 
     def inspect(self, site):
         site = self._resolve(site)
@@ -582,7 +722,7 @@ class Microloop:
         verified = [r for r in fast if r["outcome"] and r["outcome"]["quality"] == 1]
         profiler = profile_history(rows)
         usage = {}
-        for key in ("model_calls", "input_tokens", "output_tokens", "cost"):
+        for key in ("model_calls", "input_tokens", "output_tokens", "cost", "request_attempts"):
             known = [r["usage"][key] for r in rows if r["usage"].get(key) is not None]
             usage[key] = sum(known) if known else None
         active = [r["outcome"]["quality"] for r in fast if r["outcome"]]

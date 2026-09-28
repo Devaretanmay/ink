@@ -20,10 +20,10 @@ abort visibly. No fabricated usage hides failures.
 
 Each fresh output directory receives a SQLite decision database, an independently
 executed action ledger, complete exported history, and a report. The workload
-runs 3,000 baseline observations, 600 shadow cases, 600 active cases, novel cases,
-and deliberate drift. The Laya variant widens the evaluation window for its small
-qualified region. Qualification failures remain visible; the script does not
-force promotion to finish the demonstration.
+runs 3,000 baseline observations, 600 shadow cases, then active, novel, drift,
+and after-demotion phases sized by the evaluation window (600 exact; 1,800 Laya,
+see the agent REQUIREMENTS override). Qualification failures remain visible; the
+script does not force promotion to finish the demonstration.
 
 The verifier replays candidate and fallback actions in isolated ledgers. Generated
 cases contain three common states plus a low-frequency enterprise state (~5%)
@@ -35,3 +35,17 @@ settings for demonstrating mechanics, not production recommendations.
 The report includes cold/steady phase timing, actual fallback sources and usage,
 outcome quality, profile/evaluation evidence, and lifecycle events. Do not turn
 fixture fallback counts into claimed frontier-model savings.
+
+A credential-free real-model run can use a pre-existing local MLX checkpoint:
+
+```bash
+uv pip install 'mlx-lm==0.31.3'
+python -m examples.refund_agent.agent --output .microloop/real-local \
+  --engine laya --checkpoint /absolute/laya/checkpoint \
+  --local-model /absolute/qwen/checkpoint --require-lifecycle
+```
+
+The local fallback caches attention prefixes, not answers. Each fallback still
+performs a fresh model forward pass and produces a token. Laya experiments use
+1,800 active/drift cases to collect adequate randomized comparison evidence at
+low coverage. `--require-lifecycle` makes missing lifecycle gates fail CI.

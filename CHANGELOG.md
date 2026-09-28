@@ -3,7 +3,41 @@
 All notable changes to Microloop are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
-## [0.3.0] (unreleased)
+> Note (2026-09-28 audit): two 0.4.0 blocks overlap below. "[0.4.0]
+> (unreleased)" is the decision-JIT release narrative; "Unreleased (targeting
+> 0.4.0)" preserves the Pass 1–4 trajectory development history. Kept verbatim;
+> see docs/implementation-status-v0.4.md for the map.
+
+## [0.4.0] (unreleased)
+
+### Added
+
+- Explicit typed decision SDK with synchronous and asynchronous fallbacks, durable
+  outcome reporting, exact-state coverage, and local engine dispatch.
+- Real optional Laya-MLX inference with checkpoint integrity and runtime pinning;
+  portable learned exact-state engine kept separately labelled.
+- Frozen calibration profiles, independent replay verification, held-out and fresh
+  shadow evidence, atomic promotion, comparison sampling, and drift demotion.
+- Decision SQLite schema v3, transactional upgrades, audit export, backups,
+  protected evidence retention, per-site profiles, and read-only inspection.
+- Decision CLI, generated refund workload, real remote/local model fallback modes,
+  fixed-call accounting, and a reproducible local inference benchmark.
+
+### Changed
+
+- Legacy Python implementation moved behind `microloop.internal`; v0.x imports,
+  Rust exports, trajectory schema 0.3.0, and episode databases remain compatible.
+- Public documentation now describes verified decision fast paths.
+
+### Fixed
+
+- v1→v2 migration could cascade-delete outcomes and leave a broken foreign key.
+  Upgrades now preserve evidence; v3 repairs affected schema and demotes active
+  paths when evidence was lost. Deleted records require restoration from backup.
+- Missing shadow outcomes, changed verifier identities, storage failures, and
+  invalid engine results cannot silently establish or retain qualification.
+
+## [0.3.0]
 
 The productization release. Microloop is now a developer-ready local reliability
 runtime rather than a benchmark harness.
@@ -69,6 +103,10 @@ runtime rather than a benchmark harness.
   `docs/integration.md`.
 
 ## Unreleased (targeting 0.4.0)
+
+> Context: Pass 1–4 entries below record the trajectory/adaptive-runtime
+> development line, now the compatibility surface (see docs/compatibility.md).
+> The primary v0.4 product is the decision JIT.
 
 ### Added
 
@@ -436,6 +474,9 @@ has been smoke-tested against a stub client but not run against the API.
   line separating Microloop from the agent it observes.
 - Doc titles are now verb phrases naming what the reader gets, and llms.txt is a
   machine-readable index of the documentation.
+
+> Note (2026-09-28 audit): the per-step figures referenced above now live in
+> docs/legacy/README-v0.3.md ("Cost"), not the root README.
 - `microloop inspect` no longer renders a Decision for a terminal. It tells the
   trajectory as a story: only meaningful transitions, in plain language, then one
   outcome line. The fixed-width Status/Worst at/Recovered/Evidence/Action block is

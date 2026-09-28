@@ -11,7 +11,7 @@ calling `Monitor.observe()` and produces no benchmark result. See `make perf`.
 
 ```
 benchmarks/
-├── manifests/    frozen task manifests (dev, validation-pilot, validation-final)
+├── manifests/    frozen task manifests (dev-v1, validation-pilot-v1, validation-final-v1, fault-injection-v1)
 ├── runner/       experiment runner, agent adapters, baselines
 ├── analysis/     reporting, statistics, detector + fault-injection evaluation
 ├── schemas/      authoritative run-result and canonical-event schemas
@@ -64,7 +64,7 @@ report `SIMULATED - NOT EVIDENCE`.
 ```bash
 pip install -e '.[benchmarks]'
 python -m benchmarks.runner.experiment --manifest validation-final-v1 \
-    --provider openai --model gpt-6-astra
+    --provider openai --model <your-model-id>  # a model id your account can call
 python -m benchmarks.analysis.report --results benchmarks/results/raw \
     --manifest validation-final-v1
 ```

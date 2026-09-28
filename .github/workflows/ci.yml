@@ -114,7 +114,7 @@ jobs:
           "${{ matrix.venv }}/python" examples/adaptive-coding-agent/agent.py
       - name: Decision demo runs end to end (exact engine, offline fixture)
         run: |
-          "${{ matrix.venv }}/python" -m examples.refund_agent.agent --output .microloop/ci-smoke
+          "${{ matrix.venv }}/python" -m examples.refund_agent.agent --output .microloop/ci-smoke --require-lifecycle
           "${{ matrix.venv }}/microloop" sites --db .microloop/ci-smoke/decisions.db --json
 
   python:
@@ -139,5 +139,5 @@ jobs:
       - run: pytest python/microloop/tests/
       - run: python examples/coding-agent/agent.py
       - run: python examples/adaptive-coding-agent/agent.py
-      - run: python -m examples.refund_agent.agent --output .microloop/ci-smoke
+      - run: python -m examples.refund_agent.agent --output .microloop/ci-smoke --require-lifecycle
       - run: microloop sites --db .microloop/ci-smoke/decisions.db --json

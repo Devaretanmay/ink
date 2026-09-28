@@ -21,9 +21,6 @@ class EssentialKinds:
     #: state and the files changed. These are what an agent needs to resume.
     All = frozenset({"task", "plan", "decision", "error", "verification", "files"})
 
-    #: Verbatim chatter that is dropped first when the transcript is too long.
-    Disposable = frozenset({"tool", "exploration", "note"})
-
 
 @dataclass
 class Segment:

@@ -3,12 +3,13 @@
 ## Feasibility
 
 - Package: `laya-mlx==0.2.0`, optional dep for darwin arm64, Python >= 3.11, macOS 14+.
-  Installed in both `.venv` (3.14) and `.venv313` (3.13) with `mlx 0.32.2`.
+  Verified under the supported Python range (`requires-python >=3.10, <3.14`).
 - Interface: `laya_mlx.load(checkpoint)` plus `agent.predict(state, questions)`.
   `Microloop` binds it via `LayaEngine` (`python/microloop/microloop/internal/engines.py`).
-- Artifact: `model.safetensors` (843 MB) plus `rl_agent_config.json`,
-  `encoder/config.json`, tokenizer files, `mlx_config.json`. Checkpoint used here:
-  `models--aac6fef--laya-mlx` snapshot `20aed815`.
+- Artifact: `model.safetensors` (~846 MB) plus `rl_agent_config.json`,
+  `encoder/config.json`, tokenizer files, `mlx_config.json`. Historical spike note
+  (this machine only): `models--aac6fef--laya-mlx` snapshot `20aed815`.
+  Runs require an explicit local `--checkpoint` path; nothing downloads weights.
 - Training: none. `LayaEngine.compile` configures the pretrained checkpoint with up
   to three observed examples in the question instructions. Coverage and confidence
   come from observed outcomes, not from weight updates.
@@ -29,19 +30,30 @@ a novel request and on a broken engine without changing the artifact checksum.
 `test_laya_path_benchmark` asserts cold load, warm inference, artifact size, and
 dispatcher overhead.
 
-## Measurements (smoke test, this machine only)
+## Measurements (smoke test, arm64 macOS, 2026-09-28)
 
-`benchmarks/decision_jit.py` on arm64 macOS: cold compile, load, and first
+`benchmarks/decision_jit.py`: cold compile, load, and first
 inference 1.8 s; warm inference p50 33 ms, p95 49 ms (n=30); observe dispatch
 p50 0.11 ms (n=100); artifact descriptor 886 bytes; checkpoint 846 MB;
-process peak RSS ~1 GB. Not product benchmarks.
+process peak RSS ~1 GB. Dated committed evidence may differ slightly
+([laya-benchmark.json](evidence/laya-benchmark.json)); both are smoke figures,
+not product benchmarks.
 
 ## Blockers recorded
 
-- Boolean JSON states (`{"refund": true}`) are out of distribution; Laya answers
-  `refund` for both values and never promotes. Text request states are required.
+- An earlier boolean-state configuration did not distinguish both choices.
+  This is a measured configuration limitation, not proof that all structured
+  states are unsupported. The latest refund run qualified one structured state.
 - The runtime clamps out-of-range checkpoint temperatures, so raw Laya scores are
   never treated as confidence; only held-out quality bounds count.
-- `laya-mlx` was missing from `.venv` (Python 3.14); installed as
-  `laya-mlx-0.2.0` with `mlx-0.32.2`. No `$LAYA_CHECKPOINT` set; tests resolve the
-  Hugging Face cache automatically.
+- `laya-mlx` installs only inside the supported Python range. Runs take an
+  explicit local checkpoint path; tests accept `$LAYA_CHECKPOINT` or fall back
+  to the local Hugging Face cache.
+
+## Current combined experiment
+
+The real local Qwen→Laya refund run completed all lifecycle gates. See
+[validation](validation-v0.4.md) and [benchmark evidence](evidence/laya-benchmark.json)
+for current measurements. The benchmark records process peak RSS as well as cold
+load, warm inference, descriptor size, checkpoint size, and dispatcher overhead.
+A timing ordering (warm < cold) is not asserted as a correctness test.

@@ -29,7 +29,7 @@ test-examples:
 	python examples/coding-agent/agent.py
 	python examples/adaptive-coding-agent/agent.py
 
-# Reproduces the per-step cost and memory figures quoted in README.md.
+# Reproduces the per-step cost and memory figures quoted in docs/legacy/README-v0.3.md.
 perf:
 	python benchmarks/perf.py
 

@@ -7,7 +7,8 @@ Outcome, PromotionRequirements, decision, and record_outcome. Existing v0.3 impo
 remain for compatibility. New integrations should use the decision API.
 
 Read README.md, docs/integration.md, docs/architecture.md, docs/cli.md,
-docs/validation-v0.4.md, and examples/refund_agent/README.md.
+docs/concepts.md, docs/compatibility.md, docs/validation-v0.4.md,
+docs/implementation-status-v0.4.md, docs/laya-path.md, and examples/refund_agent/README.md.
 
 Local-first, explicit sites, conservative exact-state coverage, independent outcome
 verification, randomized fallback comparison, and explicit maintenance. No cloud,

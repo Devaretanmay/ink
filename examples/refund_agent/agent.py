@@ -7,6 +7,7 @@ import json
 import os
 import platform
 import sqlite3
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -215,6 +216,7 @@ def model_fallback(state, model, limit=100):
         output_tokens=usage.get("completion_tokens"),
         provider=base,
         model=model,
+        request_attempts=attempt + 1,
     )
 
 
@@ -229,6 +231,11 @@ def main():
     )
     provider.add_argument(
         "--model", help="Real fallback model; omission selects a labelled fixture"
+    )
+    parser.add_argument(
+        "--require-lifecycle",
+        action="store_true",
+        help="Exit nonzero unless promotion, service, fallback and demotion pass",
     )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
@@ -340,6 +347,7 @@ def main():
         client.store.export(args.output / "history.json")
     ledger.close()
     report["elapsed_seconds"] = time.perf_counter() - start
+    report["acceptance"] = lifecycle_acceptance(report)
     (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
     print(
         json.dumps(
@@ -347,7 +355,28 @@ def main():
         ),
         flush=True,
     )
+    return 1 if args.require_lifecycle and not all(report["acceptance"].values()) else 0
+
+
+def lifecycle_acceptance(report):
+    phases = report.get("phases", {})
+    active = phases.get("active", {})
+    novel = phases.get("novel", {})
+    after = phases.get("after_demotion", {})
+    return {
+        "promoted": report.get("promotion", {}).get("qualified", False),
+        "served_fast_path": active.get("sources", {}).get("fast_path", 0) > 0,
+        "maintained_outcomes": (
+            active.get("quality", -1) >= phases.get("observe", {}).get("quality", 1)
+        ),
+        "steady_path_retained": report.get("steady_evaluation", {}).get("demoted") is False,
+        "novel_fallback": novel.get("decisions", 0) > 0
+        and novel.get("sources", {}).get("fallback") == novel.get("decisions"),
+        "drift_demoted": report.get("drift_evaluation", {}).get("demoted", False),
+        "post_demotion_fallback": after.get("decisions", 0) > 0
+        and after.get("sources", {}).get("fallback") == after.get("decisions"),
+    }
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

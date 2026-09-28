@@ -145,7 +145,6 @@ if HAS_MINISWE:
                 out_str = output.get("output", "") if isinstance(output, dict) else str(output)
                 ret_code = output.get("returncode", 0) if isinstance(output, dict) else 0
 
-                # Capture step into Microloop adapter
                 step_res = self.microloop_adapter.record_step(
                     command=cmd,
                     exit_code=ret_code,

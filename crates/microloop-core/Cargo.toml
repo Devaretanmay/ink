@@ -1,6 +1,6 @@
 [package]
 name = "microloop-core"
-description = "Local reliability runtime for autonomous agents: trajectory progress detection and recovery policy."
+description = "Compatibility trajectory engine for Microloop: progress detection and recovery policy behind the decision-JIT product."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from microloop import Monitor, Policy
+
 
 def monitor_for(
     window: int = 32,
@@ -19,8 +21,6 @@ def monitor_for(
     max_interventions: int = 2,
 ):
     """Build a Monitor in observation-only or recovery mode."""
-    from microloop import Monitor, Policy
-
     policy = None
     if not observer_mode:
         policy = Policy(

@@ -1,8 +1,10 @@
-//! Microloop core: a local reliability runtime for autonomous agents.
+//! Microloop core: compatibility trajectory engine behind the decision-JIT product.
 //!
-//! Microloop watches an agent's execution trajectory, detects when the agent is
+//! This crate watches an agent's execution trajectory, detects when the agent is
 //! looping, stalled, regressing, or operating on stale state, and reports a
-//! configured intervention when progress degrades.
+//! configured intervention when progress degrades. New integrations should use
+//! the decision API (DecisionSite, fast paths, coverage); this surface stays for
+//! existing trajectory users.
 //!
 //! Detection and intervention are deliberately separated:
 //!

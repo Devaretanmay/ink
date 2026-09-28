@@ -336,7 +336,6 @@ def main() -> None:
         print(json.dumps(analysis, indent=2))
         return
 
-    # Print formatted statistical report
     print("\n" + "=" * 80)
     print("      MICROLOOP VALIDATION BENCHMARK: STATISTICAL REPORT")
     print("=" * 80)

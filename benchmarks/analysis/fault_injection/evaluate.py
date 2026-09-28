@@ -126,7 +126,6 @@ def main():
         print(json.dumps(evaluation, indent=2))
         return
 
-    # Print formatted comparative report
     print("\n" + "=" * 78)
     print("      MICROLOOP PASS 5: DETERMINISTIC FAULT INJECTION BENCHMARK REPORT")
     print("=" * 78)

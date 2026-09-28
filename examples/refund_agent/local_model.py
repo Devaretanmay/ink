@@ -76,6 +76,7 @@ class LocalModel:
         return FallbackResult(
             labels[text.strip()],
             model_calls=1,
+            request_attempts=1,
             input_tokens=len(tokens),
             output_tokens=final.generation_tokens,
             provider="local-mlx",
