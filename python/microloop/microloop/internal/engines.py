@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import importlib.metadata
 import math
+import threading
 from collections import Counter
 from pathlib import Path
 from typing import Protocol
@@ -61,9 +62,11 @@ class LayaEngine:
 
     name = "laya"
 
-    def __init__(self, checkpoint=None):
+    def __init__(self, checkpoint=None, *, instructions=None):
         self.checkpoint = str(Path(checkpoint).expanduser().resolve()) if checkpoint else None
+        self.instructions = instructions
         self._agents = {}
+        self._lock = threading.RLock()
 
     @staticmethod
     def _manifest(path):
@@ -104,13 +107,18 @@ class LayaEngine:
             "question": {
                 "type": "choice",
                 "criteria": list(site.choices),
-                "instructions": "Choose the next action. Observed examples: " + canonical(examples),
+                "instructions": self.instructions
+                or ("Choose the next action. Observed examples: " + canonical(examples)),
             },
         }
         self.predict(payload, rows[0]["state"])
         return payload
 
     def predict(self, payload, state):
+        with self._lock:
+            return self._predict(payload, state)
+
+    def _predict(self, payload, state):
         import laya_mlx
 
         path = payload["checkpoint"]

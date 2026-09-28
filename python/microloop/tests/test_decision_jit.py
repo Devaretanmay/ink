@@ -218,3 +218,89 @@ def test_engine_failure_and_immutable_artifact():
         assert result.source == "fallback"
         assert client._artifact(SITE.version)["checksum"] == before
         assert canonical({"b": 1, "a": 2}) == canonical({"a": 2, "b": 1})
+
+
+def test_storage_failure_falls_back_once(tmp_path, monkeypatch):
+    from contextlib import contextmanager
+
+    with Microloop(tmp_path / "outage.db") as client:
+        activate(client)
+        calls = []
+
+        @contextmanager
+        def unavailable():
+            raise sqlite3.OperationalError("disk full")
+            yield  # pragma: no cover
+
+        monkeypatch.setattr(client.store, "transaction", unavailable)
+        result = client.decide(
+            site=SITE, state={"refund": True}, fallback=lambda: calls.append(True) or "refund"
+        )
+        assert calls == [True]
+        assert result.source == "fallback" and not result.recorded
+
+
+def test_fixed_call_metrics_require_measured_usage():
+    from dataclasses import replace
+
+    site = replace(SITE, fallback_model_calls=1)
+    with Microloop(":memory:") as client:
+        with pytest.raises(ValueError, match="fixed model-call"):
+            client.decide(site=site, state={"refund": True}, fallback=lambda: "refund")
+        client.decide(
+            site=site,
+            state={"refund": True},
+            fallback=lambda: FallbackResult("refund", model_calls=1),
+        )
+        assert client.inspect(site)["model_calls_avoided"] == 0
+        assert client.inspect(site)["usage"]["model_calls"] == 1
+
+
+def test_recompile_preserves_old_evidence():
+    with Microloop(":memory:") as client:
+        activate(client)
+        old = client.inspect(SITE)["fast_path"]
+        new = client.compile(SITE, replace_existing=True)
+        assert old != new
+        assert client.inspect(SITE)["state"] == "SHADOW"
+        old_row = client.store.rows("SELECT * FROM artifacts WHERE id=?", (old,))[0]
+        assert old_row["status"] == "RETIRED" and old_row["evidence"]
+
+
+def test_async_inference_does_not_block_event_loop(monkeypatch):
+    import time
+
+    with Microloop(":memory:") as client:
+        calls = []
+
+        def slow(*args):
+            time.sleep(0.05)
+            return None, None, "observe"
+
+        monkeypatch.setattr(client, "_route", slow)
+
+        async def scenario():
+            async def fallback():
+                return "refund"
+
+            async def ticker():
+                await asyncio.sleep(0.01)
+                calls.append("tick")
+
+            task = asyncio.create_task(ticker())
+            await client.decide_async(site=SITE, state={"refund": True}, fallback=fallback)
+            assert calls == ["tick"]
+            await task
+
+        asyncio.run(scenario())
+
+
+def test_contract_cannot_mutate_after_registration():
+    site = DecisionSite("immutable", {"amount": "number?"}, ("yes", "no"))
+    before = site.version
+    with pytest.raises(TypeError):
+        site.state_schema["amount"] = "string"
+    assert site.encode({}) == {"amount": None}
+    assert site.version == before
+    with pytest.raises(ValueError):
+        DecisionSite("bad", {"amount": "number??"}, ("yes", "no"))

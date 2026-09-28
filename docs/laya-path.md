@@ -31,8 +31,10 @@ dispatcher overhead.
 
 ## Measurements (smoke test, this machine only)
 
-arm64, macOS 26.6.2. Cold load 0.54 s, warm inference 96 ms, artifact 843 MB,
-dispatcher overhead 0.23 ms mean on the observe path. Not product benchmarks.
+`benchmarks/decision_jit.py` on arm64 macOS: cold compile, load, and first
+inference 1.8 s; warm inference p50 33 ms, p95 49 ms (n=30); observe dispatch
+p50 0.11 ms (n=100); artifact descriptor 886 bytes; checkpoint 846 MB;
+process peak RSS ~1 GB. Not product benchmarks.
 
 ## Blockers recorded
 

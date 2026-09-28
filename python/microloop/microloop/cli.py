@@ -714,6 +714,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
+    if not argv or argv in (["--help"], ["-h"]):
+        print("Microloop — verified fast paths for repeated agent decisions.\n\n"
+              "Commands: sites, inspect SITE, compile SITE, evaluate SITE, maintenance,\n"
+              "          export PATH, retain. Use COMMAND --help for options.\n\n"
+              "Legacy: inspect --legacy FILE, replay, monitor, explain, stats, doctor.\n"
+              "Use --version to show package and legacy trajectory schema versions.")
+        return 0
     if "--legacy" in argv:
         argv.remove("--legacy")
     elif argv and (argv[0] in {"sites", "compile", "evaluate", "maintenance", "export", "retain"}

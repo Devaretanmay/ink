@@ -17,31 +17,71 @@ def digest(value: Any) -> str:
     return hashlib.sha256(canonical(value).encode()).hexdigest()
 
 
+class _Schema(dict):
+    """Immutable mapping that still round-trips through dataclasses.asdict/JSON."""
+
+    def _immutable(self, *args, **kwargs):
+        raise TypeError("DecisionSite schema is immutable; register a new contract")
+
+    __setitem__ = __delitem__ = clear = pop = popitem = setdefault = update = _immutable
+    __ior__ = _immutable
+
+
 @dataclass(frozen=True)
 class DecisionSite:
     name: str
     state_schema: dict[str, str]
     choices: tuple[str, ...]
     fallback_revision: str = "1"
+    fallback_model_calls: int | None = None
 
     def __post_init__(self):
+        if isinstance(self.choices, str):
+            raise ValueError("Choices must be a sequence of labels, not a string")
         object.__setattr__(self, "choices", tuple(self.choices))
-        object.__setattr__(self, "state_schema", dict(self.state_schema))
-        if not self.name or not self.fallback_revision:
+        object.__setattr__(self, "state_schema", _Schema(self.state_schema))
+        if self.fallback_model_calls is not None and (
+            type(self.fallback_model_calls) is not int or self.fallback_model_calls < 0
+        ):
+            raise ValueError("fallback_model_calls must be a nonnegative fixed call count")
+        if (
+            not isinstance(self.name, str)
+            or not self.name
+            or not isinstance(self.fallback_revision, str)
+            or not self.fallback_revision
+        ):
             raise ValueError("Site name and fallback revision must be nonempty")
         if (
             len(self.choices) < 2
-            or len(set(self.choices)) != len(self.choices)
             or any(not isinstance(c, str) or not c for c in self.choices)
+            or len(set(self.choices)) != len(self.choices)
         ):
             raise ValueError("Choices must contain at least two unique nonempty strings")
         for name, kind in self.state_schema.items():
-            if not name or kind.rstrip("?") not in {"string", "integer", "number", "boolean"}:
+            if (
+                not isinstance(name, str)
+                or not name
+                or not isinstance(kind, str)
+                or kind
+                not in {
+                    "string",
+                    "integer",
+                    "number",
+                    "boolean",
+                    "string?",
+                    "integer?",
+                    "number?",
+                    "boolean?",
+                }
+            ):
                 raise ValueError("Schema fields use string, integer, number, boolean, optionally ?")
 
     @property
     def version(self) -> str:
-        return digest(asdict(self))
+        contract = asdict(self)
+        if self.fallback_model_calls is None:
+            contract.pop("fallback_model_calls")  # Preserve existing v0.4 contract hashes.
+        return digest(contract)
 
     def encode(self, state: dict) -> dict:
         if not isinstance(state, dict) or set(state) - set(self.state_schema):
@@ -140,3 +180,5 @@ class PromotionRequirements:
                 raise ValueError(f"{key} must be between zero and one")
         if not 0 < self.comparison_rate < 1:
             raise ValueError("Active service requires a nonzero fallback comparison sample")
+        if self.evaluation_window < 2 * self.min_samples:
+            raise ValueError("evaluation_window must accommodate both comparison arms")

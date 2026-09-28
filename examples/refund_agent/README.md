@@ -21,7 +21,8 @@ abort visibly. No fabricated usage hides failures.
 Each fresh output directory receives a SQLite decision database, an independently
 executed action ledger, complete exported history, and a report. The workload
 runs 3,000 baseline observations, 600 shadow cases, 600 active cases, novel cases,
-and deliberate drift. Qualification failures remain visible; the script does not
+and deliberate drift. The Laya variant widens the evaluation window for its small
+qualified region. Qualification failures remain visible; the script does not
 force promotion to finish the demonstration.
 
 The verifier replays candidate and fallback actions in isolated ledgers. Generated

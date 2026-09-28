@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 import json
 import math
@@ -145,6 +146,12 @@ class Microloop:
         if fallback.choice not in site.choices:
             raise ValueError("Fallback returned an undeclared choice")
         source = "fast_path" if reason is None else "fallback"
+        if (
+            source == "fallback"
+            and site.fallback_model_calls is not None
+            and fallback.model_calls != site.fallback_model_calls
+        ):
+            raise ValueError("Fallback usage violates the site's fixed model-call contract")
         result = DecisionResult(
             fallback.choice,
             uuid.uuid4().hex,
@@ -225,7 +232,7 @@ class Microloop:
         started = time.perf_counter()
         site = self._site(site, state, choices, fallback_revision)
         state = site.encode(state)
-        artifact, prediction, reason = self._route(site, state)
+        artifact, prediction, reason = await asyncio.to_thread(self._route, site, state)
         if reason is None:
             try:
                 return self._save(
@@ -308,8 +315,9 @@ class Microloop:
                         "Site already has a candidate; explicitly replace to recompile"
                     )
                 db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (previous["id"],))
-                self._event(db, previous["id"], previous["status"], "RETIRED",
-                            {"replaced_by": artifact_id})
+                self._event(
+                    db, previous["id"], previous["status"], "RETIRED", {"replaced_by": artifact_id}
+                )
             db.execute(
                 "INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?)",
                 (
@@ -391,12 +399,15 @@ class Microloop:
             and r["created"] > artifact["epoch"]
             and r["prediction"] is not None
             and r["source"] == "fallback"
-            and r["outcome"] is not None
         ]
         used_tasks = {
             r["task"] for r in history if r["id"] in set(sum(payload["partitions"].values(), []))
         }
         shadow = [r for r in shadow if r["task"] not in used_tasks]
+        if any(
+            r["outcome"] is None for r in shadow if canonical(r["state"]) in profile["coverage"]
+        ):
+            raise ValueError("Missing fresh shadow outcomes; qualification would be biased")
         if len({r["task"] for r in shadow}) < requirements.min_samples:
             raise ValueError("Insufficient fresh shadow tasks with outcomes")
         ids = set(payload["partitions"]["evaluation"])
@@ -485,15 +496,28 @@ class Microloop:
             for r in factual
             if r["outcome"]
         }
+        expected_identities = {
+            (r["candidate"]["verifier"], r["candidate"]["verifier_version"])
+            for r in artifact["profile"]["calibration_evidence"]
+        }
         delta = (sum(values) / len(values) - sum(baseline) / len(baseline)) if enough else None
-        delta_lower = (delta - math.sqrt(math.log(20) / (2 * len(values)))
-                       - math.sqrt(math.log(20) / (2 * len(baseline)))) if enough else None
+        delta_lower = (
+            (
+                delta
+                - math.sqrt(math.log(20) / (2 * len(values)))
+                - math.sqrt(math.log(20) / (2 * len(baseline)))
+            )
+            if enough
+            else None
+        )
         demote = (
             (len(rows) >= req.evaluation_window and (missing > 0 or not enough))
-            or (enough and (lower_bound(values) < req.min_quality
-                           or delta_lower < -req.max_degradation))
+            or (
+                enough
+                and (lower_bound(values) < req.min_quality or delta_lower < -req.max_degradation)
+            )
             or (len(rows) >= req.min_samples and unsupported > req.max_uncovered_rate)
-            or len(identities) > 1
+            or bool(identities - expected_identities)
         )
         evidence = {
             "demoted": demote,
@@ -579,7 +603,15 @@ class Microloop:
             "fallbacks": len(rows) - len(fast),
             "fallbacks_avoided": len(fast),
             "verified_fast_path_decisions": len(verified),
-            "model_calls_avoided": None,  # Fallback invocations need not equal model calls.
+            "model_calls_avoided": len(fast) * site.fallback_model_calls
+            if site.fallback_model_calls is not None
+            else None,
+            "verified_model_calls_avoided": len(verified) * site.fallback_model_calls
+            if site.fallback_model_calls is not None
+            else None,
+            "savings_basis": "declared_and_validated_fixed_call_count"
+            if site.fallback_model_calls is not None
+            else "unknown",
             "outcome_completeness": sum(r["outcome"] is not None for r in rows) / len(rows)
             if rows
             else 0,

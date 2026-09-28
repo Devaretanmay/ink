@@ -10,8 +10,8 @@ Call `client.decide(site=site, state=state, fallback=callback, task_id=...)`.
 `callback()` returns a choice string or `FallbackResult(choice, model_calls=...,
 input_tokens=..., output_tokens=..., cost=..., provider=..., model=...)`.
 Use `decide_async` with an awaited callback. Its cancellation and exceptions propagate.
-Local inference currently runs synchronously even in `decide_async`; applications
-requiring an unblocked event loop should put the client in a dedicated worker.
+Routing runs in a worker thread under `decide_async`; engine `predict` itself stays
+synchronous, so event-loop-heavy hosts should still isolate the client.
 
 Named-site shorthand may infer a primitive schema on first use. Register an
 explicit contract for nullable states and reliable storage-outage fallback.

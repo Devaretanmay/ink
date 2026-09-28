@@ -10,7 +10,7 @@ import sqlite3
 import time
 import urllib.error
 import urllib.request
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
@@ -65,6 +65,8 @@ def pick_case(i):
     if i % 20 == 19:
         return dict(RARE_CASE)
     return dict(CASES[i % len(CASES)])
+
+
 REQUIREMENTS = PromotionRequirements(
     min_samples=100,
     min_quality=0.85,
@@ -151,8 +153,9 @@ def rules(state, limit=100):
 def model_fallback(state, model, limit=100):
     """One real OpenAI-compatible request; usage must be returned by the provider.
 
-    Transient 429/5xx responses retry with backoff (honouring Retry-After);
-    persistent failures raise and abort the run visibly. Nothing is fabricated.
+    Transient 429/5xx responses and network timeouts retry with backoff
+    (honouring Retry-After); persistent failures raise and abort the run
+    visibly. Nothing is fabricated.
     """
     key = os.environ.get("MICROLOOP_API_KEY")
     if not key:
@@ -196,6 +199,11 @@ def model_fallback(state, model, limit=100):
                 raise
             retry_after = error.headers.get("Retry-After")
             time.sleep(float(retry_after) if retry_after else 2.0 * (attempt + 1))
+        except (urllib.error.URLError, TimeoutError) as error:
+            last = error
+            if attempt == 9:
+                raise
+            time.sleep(2.0 * (attempt + 1))
     else:
         raise last
     choice = json.loads(result["choices"][0]["message"]["content"])["choice"]
@@ -215,7 +223,13 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--engine", choices=["exact", "laya"], default="exact")
     parser.add_argument("--checkpoint")
-    parser.add_argument("--model", help="Real fallback model; omission selects a labelled fixture")
+    provider = parser.add_mutually_exclusive_group()
+    provider.add_argument(
+        "--local-model", help="Local MLX fallback checkpoint; makes real model calls"
+    )
+    provider.add_argument(
+        "--model", help="Real fallback model; omission selects a labelled fixture"
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     db = args.output / "decisions.db"
@@ -223,18 +237,49 @@ def main():
         parser.error("Choose a fresh output directory; experiments never overwrite history")
     if args.model and not os.environ.get("MICROLOOP_API_KEY"):
         parser.error("Real-model runs require MICROLOOP_API_KEY; no calls were made")
+    local_model = None
+    if args.local_model:
+        from .local_model import LocalModel
+
+        local_model = LocalModel(args.local_model)
+    site = replace(
+        SITE,
+        fallback_revision=args.model or args.local_model or "fixture-v1",
+        fallback_model_calls=1 if local_model else (None if args.model else 0),
+    )
+    # Laya may qualify a small region. Collect enough active decisions for the
+    # same comparison sample requirement; uncovered traffic alone is not drift
+    # in this explicitly low-coverage experiment.
+    requirements = (
+        replace(REQUIREMENTS, evaluation_window=1800, max_uncovered_rate=1.0)
+        if args.engine == "laya"
+        else REQUIREMENTS
+    )
     ledger = Ledger(args.output / "ledger.db")
     report = {
         "provenance": "generated operational cases",
         "engine": args.engine,
-        "fallback": args.model or "deterministic test fixture (not a model)",
+        "fallback": args.model or args.local_model or "deterministic test fixture (not a model)",
         "hardware": platform.platform(),
-        "requirements": asdict(REQUIREMENTS),
+        "requirements": asdict(requirements),
         "phases": {},
         "production_evidence": False,
     }
     start = time.perf_counter()
-    with Microloop(db, engines=[LayaEngine(args.checkpoint)]) as client:
+    with Microloop(
+        db,
+        engines=[
+            LayaEngine(
+                args.checkpoint,
+                instructions=(
+                    "Refund settled payments up to 100 if no chargeback "
+                    "and merchant configuration is consistent. Unknown payment "
+                    "status: request information if amount is at most 100 "
+                    "and no chargeback. Otherwise send to specialist."
+                ),
+            )
+        ],
+    ) as client:
 
         def batch(name, count, limit=100, novel=False):
             ledger.limit = limit
@@ -251,16 +296,20 @@ def main():
                     return (
                         model_fallback(state, args.model, limit)
                         if args.model
-                        else rules(state, limit)
+                        else (local_model(state, limit) if local_model else rules(state, limit))
                     )
 
                 result = client.decide(
-                    site=SITE, state=state, task_id=f"{name}-{i}", fallback=fallback
+                    site=site, state=state, task_id=f"{name}-{i}", fallback=fallback
                 )
                 elapsed.append(time.perf_counter() - t)
                 outcome = ledger.execute(state, result.choice)
                 client.record_outcome(result.decision_id, **asdict(outcome))
                 success += outcome.quality
+                if (i + 1) % 250 == 0:
+                    print(
+                        json.dumps({"phase": name, "completed": i + 1, "total": count}), flush=True
+                    )
                 sources[result.source] = sources.get(result.source, 0) + 1
             phase = {
                 "decisions": count,
@@ -272,22 +321,22 @@ def main():
             print(json.dumps({name: phase}), flush=True)
 
         batch("observe", 3000)
-        client.compile(SITE, engine=args.engine)
+        client.compile(site, engine=args.engine)
         try:
-            client.calibrate(SITE, verifier=verify, requirements=REQUIREMENTS)
+            client.calibrate(site, verifier=verify, requirements=requirements)
             batch("shadow", 600)
-            evidence = client.evaluate(SITE, verifier=verify)
+            evidence = client.evaluate(site, verifier=verify)
             report["promotion"] = {k: v for k, v in evidence.items() if not k.endswith("records")}
             if evidence["qualified"]:
-                batch("active", 600)
-                report["steady_evaluation"] = client.reevaluate(SITE)
+                batch("active", requirements.evaluation_window)
+                report["steady_evaluation"] = client.reevaluate(site)
                 batch("novel", 6, novel=True)
-                batch("drift", 600, limit=10)
-                report["drift_evaluation"] = client.reevaluate(SITE)
+                batch("drift", requirements.evaluation_window, limit=10)
+                report["drift_evaluation"] = client.reevaluate(site)
                 batch("after_demotion", 3, limit=10)
         except ValueError as error:
             report["qualification_blocker"] = str(error)
-        report["site"] = client.inspect(SITE)
+        report["site"] = client.inspect(site)
         client.store.export(args.output / "history.json")
     ledger.close()
     report["elapsed_seconds"] = time.perf_counter() - start

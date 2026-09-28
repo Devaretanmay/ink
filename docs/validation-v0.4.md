@@ -22,10 +22,12 @@ qualified, 410 of 600 active decisions served as `fast_path` at quality 1.0, all
 novel cases fell back, drift (ledger limit 100 to 10) demoted the path to SHADOW
 with quality 0.57, and post-demotion decisions fell back. Three common regions
 qualified; the ~5% enterprise state keeps falling back for lack of calibration
-support (`uncovered_rate` 0.05). The fallback is a labelled deterministic fixture
-(`model_calls` 0, `provider` fixture), so this run proves mechanics, not
-frontier-model savings. Reports under `.microloop/` are git-ignored and never
-committed; the ledger, exported history, and report travel with each run directory.
+support (`uncovered_rate` 0.05). The fixture fallback declares `model_calls` 0 in
+the site contract, so avoided calls report as `0`, never as savings. Reports
+under `.microloop/` are git-ignored and never committed; the ledger, exported
+history, and report travel with each run directory. The Laya variant of the same
+workload widens the evaluation window for its small qualified region; see the
+agent source and README.
 
 ## Laya evidence
 
@@ -37,15 +39,32 @@ checked-in Laya refund-agent report instead shows SHADOW: structured numeric
 states are out of distribution for the text decision model, so it never
 qualified there. That non-promotion is the system working, not a gap.
 
-## Real-model status: blocked, not attempted
+## Real-model status
 
-No provider credential exists in this environment, so the `--model` path has
-never run here. The code records actual provider usage when it does
-(`agent.py: model_fallback`), but every saved report uses the fixture. Any
-claim of measured model-call reduction requires a credentialed run first.
+Two live fallbacks exist; both label provenance and neither is production traffic.
+
+- `--local-model CHECKPOINT`: real autoregressive MLX generation, one fresh token
+  per call, measured input/output tokens, `model_calls` 1, `provider` local-mlx.
+  Full run (Qwen2.5-Coder-3B-Instruct-4bit, 4,809 decisions): 4,277 measured model
+  calls, 442,723 input tokens, baseline quality 0.683, 2 regions qualified, 271
+  fast-path serves, novel cases fell back, drift demoted to SHADOW, 532 declared
+  calls avoided (398 verified). The imperfect baseline is the finding: weak
+  regions never qualify, strong ones do.
+- `--model MODEL`: OpenAI-compatible HTTP fallback recording provider usage.
+  Smoked live against Groq (`openai/gpt-oss-20b`): key valid, 3 of 4 states
+  correct, per-call token usage captured. Findings: provider WAF blocks the
+  default urllib agent (fixed with an explicit `User-Agent`); transient 429s and
+  socket timeouts occur even at low pace (fixed with documented backoff retry).
+  A full 4,809-call Groq run died at 443 decisions on a socket timeout before the
+  retry fix; it has not been rerun yet. Rotate any key pasted into chat.
+
+Any claim of measured model-call reduction requires a completed run first.
+Fixture runs prove mechanics only.
 
 ## Metric honesty
 
-`model_calls_avoided` is always null; fallback invocations need not equal model
-calls. Fast-path counts, usage sums over known fields only, and outcome deltas
-are reported separately. Missing outcomes stay distinct from unsuccessful ones.
+`model_calls_avoided` reports only under a declared fixed-call site contract
+(`fallback_model_calls`); otherwise it stays null. Fallback invocations need not
+equal model calls. Fast-path counts, usage sums over known fields only, and
+outcome deltas are reported separately. Missing outcomes stay distinct from
+unsuccessful ones.

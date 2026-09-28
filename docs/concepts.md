@@ -18,7 +18,9 @@
 Measured model usage comes only from `FallbackResult`. A string-returning fallback
 has unknown model usage. `fallbacks_avoided` counts bypassed callable invocations;
 `verified_fast_path_decisions` counts successful outcome-bearing fast-path choices.
-`model_calls_avoided` remains unknown because skipped callables may have variable
-inference behavior. Token/cost savings are not fabricated from fixture runs.
+`model_calls_avoided` is reported only when the site declares a fixed
+`fallback_model_calls` contract, with `savings_basis` naming the claim; otherwise
+it stays unknown because skipped callables may have variable inference behavior.
+Token/cost savings are not fabricated from fixture runs.
 
 The old runtime vocabulary is documented in [legacy concepts](legacy/concepts.md).

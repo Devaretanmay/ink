@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
 from .contracts import canonical
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 SCHEMA = [
     """CREATE TABLE sites(version TEXT PRIMARY KEY, name TEXT NOT NULL,
@@ -58,6 +59,10 @@ def _migrate_1_to_2(db):
     ).fetchone()[0]
     if orphan_events:
         raise ValueError(f"Cannot migrate {orphan_events} orphan lifecycle events")
+    # Renaming a referenced parent rewrites the child's FK; dropping it would
+    # cascade-delete outcomes. Preserve/rebuild the child within this transaction.
+    db.execute("CREATE TEMP TABLE saved_outcomes AS SELECT * FROM outcomes")
+    db.execute("DROP TABLE outcomes")
     db.execute("DROP INDEX IF EXISTS one_candidate")
     db.execute("DROP INDEX IF EXISTS decision_site_time")
     for table, definition in (
@@ -68,19 +73,52 @@ def _migrate_1_to_2(db):
         columns = [r[1] for r in db.execute(f"PRAGMA table_info({table})").fetchall()]
         names = ",".join(columns)
         db.execute(f"ALTER TABLE {table} RENAME TO {table}_legacy_v1")
-        db.execute(definition.replace(f"CREATE TABLE {table}", f"CREATE TABLE {table}"))
+        db.execute(definition)
         db.execute(f"INSERT INTO {table}({names}) SELECT {names} FROM {table}_legacy_v1")
         db.execute(f"DROP TABLE {table}_legacy_v1")
     db.execute([s for s in SCHEMA if "one_candidate" in s][0])
     db.execute([s for s in SCHEMA if "decision_site_time" in s][0])
+    db.execute(next(s for s in SCHEMA if s.startswith("CREATE TABLE outcomes")))
+    db.execute("INSERT INTO outcomes SELECT * FROM saved_outcomes")
+    db.execute("DROP TABLE saved_outcomes")
 
 
-MIGRATIONS = {1: _migrate_1_to_2}
+def _migrate_2_to_3(db):
+    """Repair the outcome FK from the original v1→v2 migration, if affected.
+
+    Deleted evidence cannot be reconstructed. Demote any affected active paths;
+    new factual evidence must be collected before qualification can succeed.
+    """
+    targets = {r[2] for r in db.execute("PRAGMA foreign_key_list(outcomes)")}
+    if targets == {"decisions"}:
+        return
+    db.execute("CREATE TEMP TABLE saved_outcomes AS SELECT * FROM outcomes")
+    db.execute("DROP TABLE outcomes")
+    db.execute(next(s for s in SCHEMA if s.startswith("CREATE TABLE outcomes")))
+    db.execute("INSERT INTO outcomes SELECT * FROM saved_outcomes")
+    db.execute("DROP TABLE saved_outcomes")
+    now = time.time()
+    for row in db.execute("SELECT id FROM artifacts WHERE status='ACTIVE'").fetchall():
+        db.execute("UPDATE artifacts SET status='SHADOW',epoch=? WHERE id=?", (now, row[0]))
+        db.execute(
+            "INSERT INTO events(artifact,created,previous,current,detail) VALUES (?,?,?,?,?)",
+            (
+                row[0],
+                now,
+                "ACTIVE",
+                "SHADOW",
+                canonical({"reason": "legacy_migration_lost_outcomes"}),
+            ),
+        )
+
+
+MIGRATIONS = {1: _migrate_1_to_2, 2: _migrate_2_to_3}
 
 
 class DecisionStore:
     def __init__(self, path=".microloop/decisions.db", *, readonly=False):
         self.path = str(path)
+        self.readonly = readonly
         if self.path != ":memory:" and not readonly:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
@@ -194,10 +232,7 @@ class DecisionStore:
 
     def close(self):
         with self.lock:
-            try:
-                self.conn.execute("PRAGMA wal_checkpoint(PASSIVE)")
-            finally:
-                self.conn.close()
+            self.conn.close()
 
 
 def split_history(rows):
@@ -210,5 +245,4 @@ def split_history(rows):
     for index, part in enumerate(sections):
         for row in part:
             memberships.setdefault(row["task"], set()).add(index)
-    return [[row for row in part if len(memberships[row["task"]]) == 1]
-            for part in sections]
+    return [[row for row in part if len(memberships[row["task"]]) == 1] for part in sections]

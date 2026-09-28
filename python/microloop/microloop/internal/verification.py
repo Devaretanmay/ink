@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from copy import deepcopy
 from dataclasses import asdict
 
 from .contracts import Outcome, canonical, digest
@@ -31,12 +32,12 @@ def verify_rows(rows, engine, payload, verifier):
         if key not in payload["coverage"]:
             continue
         choice, raw = engine.predict(payload["engine_data"], row["state"])
-        if choice not in payload["choices"]:
+        if choice not in payload["choices"] or not math.isfinite(raw) or not 0 <= raw <= 1:
             raise ValueError("Engine returned an undeclared choice")
         # Verify both actions in the same replay environment; never transfer a factual
         # fallback outcome to an unexecuted candidate, including when they agree.
-        candidate = verifier(row["state"], choice)
-        baseline = verifier(row["state"], row["choice"])
+        candidate = verifier(deepcopy(row["state"]), choice)
+        baseline = verifier(deepcopy(row["state"]), row["choice"])
         if not isinstance(candidate, Outcome) or not isinstance(baseline, Outcome):
             raise TypeError("Verifier must return Outcome with independent evidence")
         identity = (candidate.verifier, candidate.verifier_version)

@@ -52,15 +52,23 @@ def profile_history(rows):
     usage["rows_with_usage"] = sum(
         1
         for r in rows
-        if isinstance(r.get("usage"), dict) and any(v is not None for v in r["usage"].values())
+        if isinstance(r.get("usage"), dict)
+        and any(
+            r["usage"].get(key) is not None
+            for key in ("model_calls", "input_tokens", "output_tokens", "cost")
+        )
     )
 
     elapsed = [r["elapsed"] for r in rows if isinstance(r.get("elapsed"), (int, float))]
     lat = _percentiles(elapsed)
 
     distinct_tasks = len(set(tasks)) if rows else 0
+    times = [r["created"] for r in rows]
+    duration = max(times) - min(times) if times else 0
     return {
         "observations": observations,
+        "observation_span_seconds": duration,
+        "decisions_per_second": (observations - 1) / duration if duration else None,
         "distinct_tasks": distinct_tasks,
         "single_use_tasks": distinct_tasks == observations if rows else True,
         "unique_states": len(state_counts),
@@ -76,4 +84,8 @@ def profile_history(rows):
         "usage": usage,
         "elapsed_p50": lat["p50"],
         "elapsed_p95": lat["p95"],
+        "latency_by_source": {
+            source: _percentiles([r["elapsed"] for r in rows if r["source"] == source])
+            for source in ("fallback", "fast_path")
+        },
     }

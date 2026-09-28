@@ -4,7 +4,7 @@ The Python `Microloop` client owns site registration, dispatch, compilation,
 verification, and maintenance. Rust's existing trajectory and controller exports
 remain compatibility infrastructure; the decision JIT does not depend on them
 for qualification. Package version (0.4.0) is independent of the trajectory
-schema (0.3.0) and the decision-store schema (version 2).
+schema (0.3.0) and the decision-store schema (version 3).
 
 ## Data flow
 
@@ -26,7 +26,7 @@ schema (0.3.0) and the decision-store schema (version 2).
 verification calculations. Legacy trajectory/controller code lives alongside
 these modules behind unchanged compatibility imports.
 
-SQLite schema version 2 contains sites, decisions, factual outcomes, immutable
+SQLite schema version 3 contains sites, decisions, factual outcomes, immutable
 artifacts, profiles, promotion evidence, and append-only lifecycle events. WAL,
 foreign keys, bounded lock waits, and transactions protect concurrent connections.
 The previous episode database is separate. Read-only CLI queries open the decision

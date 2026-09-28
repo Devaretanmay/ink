@@ -19,7 +19,9 @@ def run(client, count, prefix="task", bad=False, record=True):
     for i in range(count):
         state = {"refund": i % 2 == 0}
         result = client.decide(
-            site=SITE, state=state, task_id=f"{prefix}-{i}",
+            site=SITE,
+            state=state,
+            task_id=f"{prefix}-{i}",
             fallback=lambda state=state: FallbackResult(
                 "refund" if state["refund"] else "specialist", model_calls=1
             ),
@@ -96,3 +98,32 @@ def test_promotion_guards_and_fresh_requalification():
         assert client.reevaluate(SITE)["demoted"]
         with pytest.raises(ValueError, match="fresh shadow"):
             client.evaluate(SITE, verifier=verify)
+
+
+def test_partial_missing_outcomes_block_promotion():
+    with Microloop(":memory:") as client:
+        run(client, 300, "observe")
+        client.compile(SITE)
+        client.calibrate(SITE, verifier=verify, requirements=REQ)
+        run(client, 100, "shadow")
+        run(client, 1, "missing", record=False)
+        with pytest.raises(ValueError, match="Missing fresh shadow"):
+            client.evaluate(SITE, verifier=verify)
+
+
+def test_changed_verifier_demotes_even_when_all_scores_pass():
+    with Microloop(":memory:") as client:
+        run(client, 300, "observe")
+        client.compile(SITE)
+        client.calibrate(SITE, verifier=verify, requirements=REQ)
+        run(client, 100, "shadow")
+        assert client.evaluate(SITE, verifier=verify)["qualified"]
+        result = run(client, 1, "changed", record=False)[0]
+        client.record_outcome(
+            result.decision_id,
+            quality=1.0,
+            verifier="different",
+            verifier_version="2",
+            evidence={"ok": True},
+        )
+        assert client.reevaluate(SITE)["demoted"]
