@@ -1,7 +1,8 @@
-"""Task 3: real Laya-backed candidate, restart serve, novel fallback.
+"""Integral decision-engine candidate, restart serve, novel fallback.
 
-Skips when laya-mlx or a local checkpoint is unavailable.
-Checkpoint: $LAYA_CHECKPOINT or Hugging Face cache for aac6fef/laya-mlx.
+Skips when MLX or a local checkpoint is unavailable.
+Checkpoint: managed `microloop model-install` dir, $MICROLOOP_CHECKPOINT,
+$LAYA_CHECKPOINT (legacy), or the pinned base-checkpoint HF cache.
 """
 
 import importlib.util
@@ -13,7 +14,7 @@ from pathlib import Path
 import pytest
 from microloop import DecisionSite, Microloop, PromotionRequirements
 
-SITE = DecisionSite("laya.path", {"request": "string"}, ("refund", "specialist"))
+SITE = DecisionSite("decision.path", {"request": "string"}, ("refund", "specialist"))
 REQ = PromotionRequirements(6, 0.5, 0.5, 0.6, 0.25, 3, 50)
 
 REFUND_TEXT = "I was billed twice. Please refund the duplicate charge."
@@ -29,7 +30,11 @@ def _expected(state):
 
 
 def _checkpoint():
-    env = os.environ.get("LAYA_CHECKPOINT")
+    from microloop.internal.model.registry import model_path
+
+    if (model_path() / "model.safetensors").is_file():
+        return str(model_path())
+    env = os.environ.get("MICROLOOP_CHECKPOINT") or os.environ.get("LAYA_CHECKPOINT")
     if env and Path(env).expanduser().exists():
         return str(Path(env).expanduser().resolve())
     base = Path("~/.cache/huggingface/hub/models--aac6fef--laya-mlx/snapshots").expanduser()
@@ -47,18 +52,18 @@ def _verify(state, choice):
     return Outcome(float(choice == expected), "ledger", "1", {"expected": expected})
 
 
-needs_laya = pytest.mark.skipif(
-    importlib.util.find_spec("laya_mlx") is None or _checkpoint() is None,
-    reason="laya-mlx or local checkpoint unavailable",
+needs_decision = pytest.mark.skipif(
+    importlib.util.find_spec("mlx") is None or _checkpoint() is None,
+    reason="MLX or local checkpoint unavailable",
 )
 
 
-@needs_laya
-def test_laya_compile_persist_restart_serve(tmp_path):
-    from microloop.internal.engines import LayaEngine
+@needs_decision
+def test_decision_compile_persist_restart_serve(tmp_path):
+    from microloop.internal.engines import DecisionModelEngine
 
     checkpoint = _checkpoint()
-    path = tmp_path / "laya.db"
+    path = tmp_path / "decision.db"
 
     def run(client, count, prefix):
         for i in range(count):
@@ -69,9 +74,9 @@ def test_laya_compile_persist_restart_serve(tmp_path):
             )
             client.record_outcome(result.decision_id, **_verify(state, result.choice).__dict__)
 
-    with Microloop(path, engines=[LayaEngine(checkpoint)]) as client:
+    with Microloop(path, engines=[DecisionModelEngine(checkpoint)]) as client:
         run(client, 200, "observe")
-        artifact = client.compile(SITE, engine="laya")
+        artifact = client.compile(SITE)
         assert artifact
         client.calibrate(SITE, verifier=_verify, requirements=REQ)
         run(client, 60, "shadow")
@@ -80,7 +85,7 @@ def test_laya_compile_persist_restart_serve(tmp_path):
         assert client.inspect(SITE)["state"] == "ACTIVE"
 
     # Restart: persisted artifact serves known states locally.
-    with Microloop(path, engines=[LayaEngine(checkpoint)]) as client:
+    with Microloop(path, engines=[DecisionModelEngine(checkpoint)]) as client:
         assert client.inspect(SITE)["state"] == "ACTIVE"
         seen = {r.source for r in (
             client.decide(site=SITE, state=_state(0), fallback=lambda: "refund")
@@ -95,7 +100,7 @@ def test_laya_compile_persist_restart_serve(tmp_path):
         assert novel.fallback_reason in ("observe", "outside_coverage")
         # Broken engine falls back without breaking the artifact.
         before = client._artifact(SITE.version)["checksum"]
-        client.engines["laya"] = _Broken()
+        client.engines["decision"] = _Broken()
         broken = client.decide(site=SITE, state=_state(0), fallback=lambda: "refund")
         assert broken.source == "fallback"
         assert broken.fallback_reason == "engine_or_store_unavailable"
@@ -107,16 +112,16 @@ class _Broken:
         raise RuntimeError("engine is down")
 
 
-@needs_laya
-def test_laya_path_benchmark(tmp_path):
+@needs_decision
+def test_decision_path_benchmark(tmp_path):
     """Cold load, warm inference, artifact size, dispatcher overhead."""
-    from microloop.internal.engines import LayaEngine
+    from microloop.internal.engines import DecisionModelEngine
 
     checkpoint = _checkpoint()
     t0 = time.perf_counter()
-    import laya_mlx
+    from microloop.internal.model.agent import load
 
-    agent = laya_mlx.load(checkpoint)
+    agent = load(checkpoint)
     cold = time.perf_counter() - t0
     question = {"decision": {"type": "choice", "criteria": ["refund", "specialist"],
                              "instructions": "Choose the next action."}}
@@ -125,11 +130,11 @@ def test_laya_path_benchmark(tmp_path):
     warm = time.perf_counter() - t0
     size_mb = Path(checkpoint, "model.safetensors").stat().st_size / 1e6
 
-    with Microloop(tmp_path / "bench.db", engines=[LayaEngine(checkpoint)]) as client:
+    with Microloop(tmp_path / "bench.db", engines=[DecisionModelEngine(checkpoint)]) as client:
         t0 = time.perf_counter()
         client.decide(site=SITE, state=_state(0), fallback=lambda: "refund")
         overhead = time.perf_counter() - t0
     report = {"cold_s": cold, "warm_s": warm, "size_mb": size_mb, "dispatch_s": overhead}
-    (tmp_path / "laya_bench.json").write_text(json.dumps(report))
+    (tmp_path / "decision_bench.json").write_text(json.dumps(report))
     assert cold > 0 and warm > 0 and overhead > 0
     assert size_mb > 100

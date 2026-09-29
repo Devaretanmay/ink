@@ -15,7 +15,7 @@ observe → candidate → shadow → verified → active
 
 ## Development version: 0.4.0
 
-Build this checkout with Python 3.10–3.13 and Rust:
+Build this checkout with Python 3.11–3.13 and Rust:
 
 ```bash
 uv venv --python 3.13
@@ -23,15 +23,26 @@ uv pip install maturin pytest ruff
 maturin develop --manifest-path python/microloop/Cargo.toml
 ```
 
-Laya-MLX is optional and currently requires Apple Silicon and Python 3.11+:
+Microloop Decision v1 is the integral neural engine. Its inference code is
+vendored inside Microloop; no external neural package is imported or required.
+Supported neural targets: Apple Silicon macOS 14+ and Linux x86_64 with glibc
+2.35+ (CPU). Linux execution validation is pending; Windows uses the portable
+`exact` engine only.
+
+Provision the pinned model once (about 846 MB):
 
 ```bash
-uv pip install 'laya-mlx==0.2.0'
+microloop model-install
+# Or copy an existing verified checkpoint without a network request:
+microloop model-install --checkpoint /absolute/local/checkpoint
 ```
 
-Microloop never downloads checkpoints automatically. Supply a complete local
-checkpoint to the Laya engine. The portable `exact` engine is a separate learned
-frequency table, not Laya.
+Setup verifies every file against bundled SHA-256 hashes and installs atomically.
+Decision requests never download weights. `MICROLOOP_MODEL_DIR` overrides the
+model directory. Missing or failed inference keeps the original fallback in charge.
+Base weights are pinned (provenance in NOTICE) and are not claimed as newly
+trained; see `docs/laya-path.md` for the ownership roadmap.
+The deterministic `exact` engine remains as the portable fallback and test reference.
 
 ## Use inside an existing agent
 
@@ -84,7 +95,7 @@ Sites without a reliable independent verifier remain fallback-driven.
 ```bash
 microloop sites
 microloop inspect refund.next_action --json
-microloop compile refund.next_action --engine exact
+microloop compile refund.next_action
 microloop evaluate refund.next_action --verifier my_app:verify --requirements requirements.json
 microloop maintenance
 ```
@@ -114,6 +125,7 @@ explain the boundary. The old episode database is unchanged.
 - [Concepts](docs/concepts.md)
 
 Run `make check` for Rust/Python checks, existing examples, and wheel construction.
-Laya and provider-backed experiments are opt-in and separate from offline CI.
+The neural engine is integral (no engine flag on the CLI); provider-backed
+experiments are opt-in and separate from offline CI.
 
 Apache-2.0. Checkpoint licenses remain the responsibility of their distributors.

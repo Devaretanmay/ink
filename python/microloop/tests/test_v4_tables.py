@@ -44,9 +44,9 @@ def test_coverage_counters_live_and_outcome_updates():
 def test_promotion_drift_lineage_tables():
     with Microloop(":memory:") as client:
         run(client, 300, "observe")
-        first = client.compile(SITE)
+        first = client.compile(SITE, engine="exact")
         run(client, 20, "more")
-        second = client.compile(SITE, replace_existing=True)
+        second = client.compile(SITE, replace_existing=True, engine="exact")
         assert client.lineage(SITE) == [
             {"parent": first, "child": second, "created": client.lineage(SITE)[0]["created"]}
         ]

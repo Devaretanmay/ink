@@ -3,14 +3,22 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.metadata
 import math
+import sys
 import threading
 from collections import Counter
 from pathlib import Path
 from typing import Protocol
 
 from .contracts import canonical
+
+
+def _require_neural_platform():
+    if sys.platform == "win32":
+        raise OSError(
+            "microloop-decision-v1 requires Linux or macOS (MLX has no Windows build); "
+            "use engine='exact' on Windows"
+        )
 
 
 class DecisionEngine(Protocol):
@@ -21,7 +29,7 @@ class DecisionEngine(Protocol):
 
 
 class ExactEngine:
-    """Portable learned frequency table; deliberately not marketed as Laya."""
+    """Portable learned frequency table; works on every platform including Windows."""
 
     name = "exact"
 
@@ -45,25 +53,27 @@ class ExactEngine:
         return entry["choice"], entry["probability"]
 
 
-class LayaEngine:
-    """Laya-MLX with a local checkpoint and an example-configured typed question.
+class DecisionModelEngine:
+    """Integral Microloop Decision v1 neural engine.
 
-    Feasibility: optional package ``laya-mlx==0.2.0`` (darwin arm64, Python >=3.11,
-    macOS 14+); interface ``laya_mlx.load(checkpoint)`` plus
-    ``agent.predict(state, questions)``; artifact ``model.safetensors`` with
-    ``rl_agent_config.json``, ``encoder/config.json``, tokenizer files.
-    Upstream weights ``convaiinnovations/laya`` declare Apache-2.0; the MLX port
-    is independent and the cached checkpoint ships no license file, so
-    redistribution rights stay unverified. This configures a pretrained model;
-    it does not claim to fine-tune its weights. The runtime clamps out-of-range
-    temperatures, so raw scores stay uncalibrated; coverage and empirical
-    confidence are learned separately from observed outcomes.
+    The inference code is vendored under ``microloop.internal.model`` and the
+    checkpoint is provisioned via ``microloop model-install``. Scores remain
+    uncalibrated until independent outcome qualification.
     """
 
-    name = "laya"
+    name = "decision"
+
+    # Stored artifacts written before the rename carry ``engine: "laya"``.
+    LEGACY_KEYS = ("laya", "microloop-decision-v1")
 
     def __init__(self, checkpoint=None, *, instructions=None):
-        self.checkpoint = str(Path(checkpoint).expanduser().resolve()) if checkpoint else None
+        _require_neural_platform()
+        from .model.registry import model_path
+
+        self.checkpoint = (
+            str(Path(checkpoint).expanduser().resolve()) if checkpoint else str(model_path())
+        )
+        self._managed_checkpoint = checkpoint is None
         self.instructions = instructions
         self._agents = {}
         self._lock = threading.RLock()
@@ -77,7 +87,9 @@ class LayaEngine:
         ]
         required += sorted((root / "tokenizer").glob("*"))
         if len(required) < 4 or not all(p.is_file() for p in required):
-            raise FileNotFoundError("Laya requires a complete local checkpoint and tokenizer")
+            raise FileNotFoundError(
+                "Microloop model is missing or incomplete; run microloop model-install"
+            )
         result = {}
         for file in required:
             h = hashlib.sha256()
@@ -88,8 +100,11 @@ class LayaEngine:
         return result
 
     def compile(self, site, rows):
-        if not self.checkpoint:
-            raise ValueError("Pass LayaEngine(checkpoint=...) with a local checkpoint")
+        from .model import RUNTIME_VERSION
+        from .model.registry import verify
+
+        if self._managed_checkpoint:
+            verify(self.checkpoint)
         examples = []
         seen = set()
         for row in rows:
@@ -103,7 +118,8 @@ class LayaEngine:
             "engine": self.name,
             "checkpoint": self.checkpoint,
             "manifest": self._manifest(self.checkpoint),
-            "runtime_version": importlib.metadata.version("laya-mlx"),
+            "runtime_version": RUNTIME_VERSION,
+            "model": "microloop-decision-v1",
             "question": {
                 "type": "choice",
                 "criteria": list(site.choices),
@@ -119,16 +135,18 @@ class LayaEngine:
             return self._predict(payload, state)
 
     def _predict(self, payload, state):
-        import laya_mlx
+        from .model import RUNTIME_VERSION
+        from .model.agent import load
 
+        _require_neural_platform()
         path = payload["checkpoint"]
         key = (path, canonical(payload["manifest"]), payload["runtime_version"])
         if key not in self._agents:
-            if importlib.metadata.version("laya-mlx") != payload["runtime_version"]:
-                raise ValueError("Laya runtime version changed; recompile and requalify")
+            if RUNTIME_VERSION != payload["runtime_version"]:
+                raise ValueError("Microloop runtime version changed; recompile and requalify")
             if self._manifest(path) != payload["manifest"]:
-                raise ValueError("Laya checkpoint integrity mismatch")
-            self._agents[key] = laya_mlx.load(path)
+                raise ValueError("Microloop checkpoint integrity mismatch")
+            self._agents[key] = load(path)
         answer = self._agents[key].predict(state, {"decision": payload["question"]})["answers"][
             "decision"
         ]
@@ -137,3 +155,14 @@ class LayaEngine:
         if not math.isfinite(probability) or not 0 <= probability <= 1:
             raise ValueError("Invalid engine probability")
         return choice, probability
+
+
+# Private compatibility alias for existing integrations. Stored artifact keys
+# "laya" and "microloop-decision-v1" resolve to the integral decision engine.
+LayaEngine = DecisionModelEngine
+ENGINE_ALIASES = {"laya": "decision", "microloop-decision-v1": "decision"}
+
+
+def resolve_engine_key(key):
+    """Map historical engine keys onto the current integral key."""
+    return ENGINE_ALIASES.get(key, key)

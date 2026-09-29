@@ -1,8 +1,8 @@
 """Public-data threshold calibration (Banking77, CC-BY-4.0).
 
-Measures Laya agreement against versioned intent mapping on a calibration split,
-freezes promotion gate thresholds, then confirms once on untouched test data.
-Public provenance only; never customer traffic. macOS arm64 with laya-mlx.
+Measures Microloop Decision v1 agreement against versioned intent mapping on a
+calibration split, freezes promotion gate thresholds, then confirms once on
+untouched test data. Public provenance only; never customer traffic.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-from microloop.internal.engines import LayaEngine
+from microloop.internal.engines import DecisionModelEngine
 from microloop.internal.verification import lower_bound
 
 HERE = Path(__file__).resolve().parent
@@ -72,7 +72,7 @@ def main():
     test = load_rows(fetch(TEST_URL, HERE / "data" / "test.csv"), expected)
     rng = random.Random(args.seed)
     calibration = rng.sample(train, min(args.calibration_n, len(train)))
-    engine = LayaEngine(args.checkpoint)
+    engine = DecisionModelEngine(args.checkpoint)
     examples = [{"state": {"request": r["text"]}, "choice": r["choice"]} for r in calibration[:3]]
     site = type("Site", (), {"choices": ("refund", "request_information", "specialist")})()
     payload = engine.compile(site, examples)

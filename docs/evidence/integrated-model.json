@@ -1,0 +1,172 @@
+{
+  "model": "microloop-decision-v1",
+  "runtime": "microloop-decision-v1.0;mlx=0.32.2;numpy=2.5.3;tokenizers=0.23.2;Darwin-arm64",
+  "python_tests_passed": 157,
+  "python_tests_skipped": 0,
+  "external_laya_package_present": false,
+  "wheel_sha256": "5e82380d9450b8b881d7e368648a191b201279de10fb5a6388316bb6af35a859",
+  "bundled_license_notice_manifest_verified": true,
+  "linux_dependency_resolution": "passed, x86_64 manylinux_2_35 Python3.13",
+  "linux_execution": "not run",
+  "cpu_inference": "passed on macOS float32",
+  "full_demo_scope": "Generated operational ledger with fixture fallback; real bundled neural inference. Run before dependency fingerprint suffix was added; final-wheel real lifecycle tests also pass.",
+  "full_demo": {
+    "provenance": "generated operational cases",
+    "engine": "laya",
+    "fallback": "deterministic test fixture (not a model)",
+    "phases": {
+      "observe": {
+        "decisions": 3000,
+        "sources": {
+          "fallback": 3000
+        },
+        "quality": 1.0,
+        "median_seconds": 0.00016966700786724687
+      },
+      "shadow": {
+        "decisions": 600,
+        "sources": {
+          "fallback": 600
+        },
+        "quality": 1.0,
+        "median_seconds": 0.00898970800335519
+      },
+      "active": {
+        "decisions": 1800,
+        "sources": {
+          "fast_path": 405,
+          "fallback": 1395
+        },
+        "quality": 1.0,
+        "median_seconds": 0.007051167020108551
+      },
+      "novel": {
+        "decisions": 6,
+        "sources": {
+          "fallback": 6
+        },
+        "quality": 1.0,
+        "median_seconds": 0.006452916975831613
+      },
+      "drift": {
+        "decisions": 1800,
+        "sources": {
+          "fast_path": 421,
+          "fallback": 1379
+        },
+        "quality": 0.7661111111111111,
+        "median_seconds": 0.010031000012531877
+      },
+      "after_demotion": {
+        "decisions": 3,
+        "sources": {
+          "fallback": 3
+        },
+        "quality": 1.0,
+        "median_seconds": 0.01515116699738428
+      }
+    },
+    "requirements": {
+      "min_samples": 100,
+      "min_quality": 0.85,
+      "min_confidence": 0.85,
+      "max_degradation": 0.2,
+      "comparison_rate": 0.3,
+      "min_region_samples": 100,
+      "evaluation_window": 1800,
+      "max_uncovered_rate": 1.0
+    },
+    "promotion": {
+      "profile_id": "4337aeaaa75c20aad83bc0d49937fa56d76de3581bd861e16c146ab7c2dc4dff",
+      "holdout": {
+        "samples": 190,
+        "quality_lower": 0.9112108904029508,
+        "quality": 1.0,
+        "baseline_quality": 1.0,
+        "delta": 0.0,
+        "delta_lower": -0.17757821919409844,
+        "agreement": 1.0
+      },
+      "shadow": {
+        "samples": 190,
+        "quality_lower": 0.9112108904029508,
+        "quality": 1.0,
+        "baseline_quality": 1.0,
+        "delta": 0.0,
+        "delta_lower": -0.17757821919409844,
+        "agreement": 1.0
+      },
+      "qualified": true,
+      "regions": {
+        "{\"amount\":42.5,\"chargeback\":false,\"customer_tier\":\"pro\",\"merchant_consistent\":true,\"payment_status\":\"settled\"}": {
+          "holdout": {
+            "samples": 190,
+            "quality_lower": 0.9112108904029508,
+            "quality": 1.0,
+            "baseline_quality": 1.0,
+            "delta": 0.0,
+            "delta_lower": -0.17757821919409844,
+            "agreement": 1.0
+          },
+          "shadow": {
+            "samples": 190,
+            "quality_lower": 0.9112108904029508,
+            "quality": 1.0,
+            "baseline_quality": 1.0,
+            "delta": 0.0,
+            "delta_lower": -0.17757821919409844,
+            "agreement": 1.0
+          }
+        }
+      }
+    },
+    "steady_evaluation": {
+      "demoted": false,
+      "active_samples": 405,
+      "comparison_samples": 165,
+      "missing_outcomes": 0,
+      "quality_lower": 0.9391852410543114,
+      "delta": 0.0,
+      "delta_lower": -0.1560931751086751,
+      "uncovered_rate": 0.6833333333333333
+    },
+    "drift_evaluation": {
+      "demoted": true,
+      "active_samples": 421,
+      "comparison_samples": 149,
+      "missing_outcomes": 0,
+      "quality_lower": 0.0,
+      "delta": -1.0,
+      "delta_lower": -1.1599115573819518,
+      "uncovered_rate": 0.6833333333333333
+    },
+    "acceptance": {
+      "promoted": true,
+      "served_fast_path": true,
+      "maintained_outcomes": true,
+      "steady_path_retained": true,
+      "novel_fallback": true,
+      "drift_demoted": true,
+      "post_demotion_fallback": true
+    },
+    "site_summary": {
+      "state": "SHADOW",
+      "observations": 7209,
+      "unique_states": 10,
+      "coverage": 0.11457899847412956,
+      "fallbacks": 6383,
+      "verified_fast_path_decisions": 405,
+      "model_calls_avoided": 0,
+      "outcome_completeness": 1.0,
+      "usage": {
+        "model_calls": 0,
+        "input_tokens": null,
+        "output_tokens": null,
+        "cost": null,
+        "request_attempts": null
+      }
+    }
+  },
+  "release_published": false,
+  "full_demo_report_sha256": "812ec57a7f2c4356bcc7bb9a8e6a08c4f1cfa36dd1a44ebfb59bdf1790582688"
+}

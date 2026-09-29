@@ -15,7 +15,7 @@ from dataclasses import asdict, replace
 from pathlib import Path
 
 from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
-from microloop.internal.engines import LayaEngine
+from microloop.internal.engines import DecisionModelEngine
 
 SITE = DecisionSite(
     "refund.next_action",
@@ -223,7 +223,7 @@ def model_fallback(state, model, limit=100):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--engine", choices=["exact", "laya"], default="exact")
+    parser.add_argument("--engine", choices=["exact", "decision"], default="decision")
     parser.add_argument("--checkpoint")
     provider = parser.add_mutually_exclusive_group()
     provider.add_argument(
@@ -254,12 +254,12 @@ def main():
         fallback_revision=args.model or args.local_model or "fixture-v1",
         fallback_model_calls=1 if local_model else (None if args.model else 0),
     )
-    # Laya may qualify a small region. Collect enough active decisions for the
+    # The decision engine may qualify a small region. Collect enough active decisions for the
     # same comparison sample requirement; uncovered traffic alone is not drift
     # in this explicitly low-coverage experiment.
     requirements = (
         replace(REQUIREMENTS, evaluation_window=1800, max_uncovered_rate=1.0)
-        if args.engine == "laya"
+        if args.engine == "decision"
         else REQUIREMENTS
     )
     ledger = Ledger(args.output / "ledger.db")
@@ -276,7 +276,7 @@ def main():
     with Microloop(
         db,
         engines=[
-            LayaEngine(
+            DecisionModelEngine(
                 args.checkpoint,
                 instructions=(
                     "Refund settled payments up to 100 if no chargeback "

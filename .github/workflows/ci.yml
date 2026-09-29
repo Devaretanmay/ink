@@ -32,7 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -55,24 +55,19 @@ jobs:
       - run: cargo test --workspace
 
   # The package ships a native PyO3 extension, so an install of the built wheel
-  # is verified on all three platforms, not just the one cargo test runs on.
+  # is verified on the two supported runtime platforms.
   # This catches ABI and loader problems that `cargo test` cannot see.
   wheel:
     name: wheel install (${{ matrix.os }})
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         include:
-          # Windows puts venv executables in Scripts/, not bin/. Every step below
-          # runs under bash, so interpreter and console-script paths must be
-          # OS-aware or the Windows job dies with exit 127.
           - os: ubuntu-latest
             venv: .wheeltest/bin
           - os: macos-latest
             venv: .wheeltest/bin
-          - os: windows-latest
-            venv: .wheeltest/Scripts
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -105,6 +100,8 @@ jobs:
         run: |
           "${{ matrix.venv }}/microloop" inspect python/microloop/tests/fixtures/sample_trajectory.jsonl
           "${{ matrix.venv }}/microloop" replay python/microloop/tests/fixtures/sample_trajectory.jsonl --json
+      - name: Provision the integrated model for real inference tests
+        run: '"${{ matrix.venv }}/microloop" model-install'
       - name: Test suite passes against the installed wheel
         run: |
           "${{ matrix.venv }}/python" -m pytest python/microloop/tests/
@@ -114,7 +111,7 @@ jobs:
           "${{ matrix.venv }}/python" examples/adaptive-coding-agent/agent.py
       - name: Decision demo runs end to end (exact engine, offline fixture)
         run: |
-          "${{ matrix.venv }}/python" -m examples.refund_agent.agent --output .microloop/ci-smoke --require-lifecycle
+          "${{ matrix.venv }}/python" -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
           "${{ matrix.venv }}/microloop" sites --db .microloop/ci-smoke/decisions.db --json
 
   python:
@@ -124,7 +121,7 @@ jobs:
       fail-fast: false
       matrix:
         # The supported range declared in python/microloop/pyproject.toml.
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -139,5 +136,5 @@ jobs:
       - run: pytest python/microloop/tests/
       - run: python examples/coding-agent/agent.py
       - run: python examples/adaptive-coding-agent/agent.py
-      - run: python -m examples.refund_agent.agent --output .microloop/ci-smoke --require-lifecycle
+      - run: python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
       - run: microloop sites --db .microloop/ci-smoke/decisions.db --json

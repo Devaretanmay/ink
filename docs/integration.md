@@ -37,9 +37,10 @@ environment, not call the original model or assume agreement means success.
 Microloop trusts the application's verifier; unsuitable verifiers cannot establish
 real outcome quality. Side-effectful production actions must never be replayed.
 
-For Laya, construct `LayaEngine(checkpoint=local_path)` from the private engine
-module and pass it in `Microloop(engines=[...])`; select `engine="laya"` at compile.
-This backend is optional and private while its interface matures.
+The integral neural engine (`DecisionModelEngine`, engine key `decision`) ships
+inside Microloop as Microloop Decision v1. Run `microloop model-install` once;
+neural compilation is the default. Historical engine key `laya` still resolves
+to the same integral engine for saved artifacts. See [model setup](laya-path.md).
 
 `compile(..., replace_existing=True)` retires the old path and starts over.
 Requalification after demotion requires fresh shadow outcomes; it cannot reactivate

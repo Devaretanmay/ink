@@ -10,12 +10,17 @@ All notable changes to Microloop are documented here. This project follows
 
 ## [0.4.0] (unreleased)
 
+- Integrated Microloop Decision v1: bundled Laya-derived neural inference,
+  mandatory runtime dependencies, neural compilation by default, explicit
+  checksum-verified model provisioning. Linux/macOS runtime targets; Windows
+  removed from wheel CI. Upstream attribution retained; weights unchanged.
+
 ### Added
 
 - Explicit typed decision SDK with synchronous and asynchronous fallbacks, durable
   outcome reporting, exact-state coverage, and local engine dispatch.
-- Real optional Laya-MLX inference with checkpoint integrity and runtime pinning;
-  portable learned exact-state engine kept separately labelled.
+- Integrated Laya-derived inference with checkpoint integrity and runtime pinning;
+  deterministic exact-state reference retained for explicit internal tests.
 - Frozen calibration profiles, independent replay verification, held-out and fresh
   shadow evidence, atomic promotion, comparison sampling, and drift demotion.
 - Decision SQLite schema v3, transactional upgrades, audit export, backups,

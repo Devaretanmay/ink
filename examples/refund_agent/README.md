@@ -1,15 +1,20 @@
+The default engine is now the bundled Microloop Decision v1 neural runtime.
+Run `microloop model-install` once before the demo. `--engine exact` is only an
+explicit deterministic test reference. Historical results below retain their
+original runtime identity.
+
 # Refund decision JIT example
 
 Run from the repository root after installing this checkout:
 
 ```bash
-python -m examples.refund_agent.agent --output .microloop/refund-exact
-python -m examples.refund_agent.agent --output .microloop/refund-laya \
-  --engine laya --checkpoint /absolute/local/checkpoint
+python -m examples.refund_agent.agent --output .microloop/refund-exact --engine exact
+python -m examples.refund_agent.agent --output .microloop/refund-decision \
+  --engine decision --checkpoint /absolute/local/checkpoint
 ```
 
 Both commands use generated cases and a labelled deterministic fallback fixture.
-The Laya variant performs real checkpoint inference, but the original fallback is
+The decision variant performs real checkpoint inference, but the original fallback is
 still a fixture. Neither is customer-production evidence.
 
 For a real original model, set `MICROLOOP_API_KEY` and optionally
@@ -21,7 +26,7 @@ abort visibly. No fabricated usage hides failures.
 Each fresh output directory receives a SQLite decision database, an independently
 executed action ledger, complete exported history, and a report. The workload
 runs 3,000 baseline observations, 600 shadow cases, then active, novel, drift,
-and after-demotion phases sized by the evaluation window (600 exact; 1,800 Laya,
+and after-demotion phases sized by the evaluation window (600 exact; 1,800 decision,
 see the agent REQUIREMENTS override). Qualification failures remain visible; the
 script does not force promotion to finish the demonstration.
 
@@ -41,11 +46,11 @@ A credential-free real-model run can use a pre-existing local MLX checkpoint:
 ```bash
 uv pip install 'mlx-lm==0.31.3'
 python -m examples.refund_agent.agent --output .microloop/real-local \
-  --engine laya --checkpoint /absolute/laya/checkpoint \
+  --engine decision --checkpoint /absolute/decision/checkpoint \
   --local-model /absolute/qwen/checkpoint --require-lifecycle
 ```
 
 The local fallback caches attention prefixes, not answers. Each fallback still
-performs a fresh model forward pass and produces a token. Laya experiments use
+performs a fresh model forward pass and produces a token. Decision experiments use
 1,800 active/drift cases to collect adequate randomized comparison evidence at
 low coverage. `--require-lifecycle` makes missing lifecycle gates fail CI.

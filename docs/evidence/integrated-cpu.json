@@ -1,0 +1,28 @@
+{
+  "host": "macOS arm64",
+  "device": "CPU",
+  "dtype": "float32",
+  "elapsed_seconds": 6.736975709005492,
+  "result": {
+    "model": "microloop-decision-v1",
+    "answers": {
+      "decision": {
+        "type": "choice",
+        "confidence": 0.5856,
+        "action": {
+          "act_probability": 1.0
+        },
+        "choice": "refund",
+        "probabilities": {
+          "refund": 0.9165,
+          "specialist": 0.0835
+        }
+      }
+    },
+    "usage": {
+      "input_tokens": 27,
+      "output_tokens": 0
+    }
+  },
+  "scope": "CPU smoke on macOS, not Linux execution evidence"
+}

@@ -39,12 +39,13 @@ all evidence for sites with artifacts.
 
 Training, calibration, and evaluation are chronological; tasks crossing split
 boundaries are purged. Compilation uses only factual fallback choices with
-outcomes. Laya uses a pretrained local checkpoint configured with up to three
-training examples; it does not fine-tune weights. The exact engine fits a frequency
+outcomes. The decision engine uses a pinned local checkpoint configured with up
+to three training examples; v1 does not fine-tune weights (see `laya-path.md`
+for the ownership roadmap). The exact engine fits a frequency
 table. Both use identical typed-state coverage and qualification logic.
 
 An independent replay verifier executes/checks each proposed action and the
-fallback choice separately. Raw Laya scores stay uncalibrated (the MLX runtime
+fallback choice separately. Raw neural scores stay uncalibrated (the MLX runtime
 clamps out-of-range checkpoint temperatures); only held-out quality bounds count
 as confidence. Outcome evidence is never copied from one action to
 another. Bounded task-level scores use one-sided 95% Hoeffding bounds; independence
@@ -63,6 +64,6 @@ serving never slows for qualification work. Demotion
 resets the shadow evidence epoch. Recompilation retires the previous
 artifact and starts qualification from scratch.
 
-Laya runtime version and checkpoint hashes are bound to the artifact. The engine
+Microloop runtime version and checkpoint hashes are bound to the artifact. The engine
 checks them on load, keeps loaded weights local, and abstains on inference errors.
 No model artifacts, state, or evidence are uploaded by the runtime.

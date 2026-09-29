@@ -1,0 +1,16 @@
+{
+  "hardware": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+  "machine": "arm64",
+  "runtime": "microloop-decision-v1.0;mlx=0.32.2;numpy=2.5.3;tokenizers=0.23.2;Darwin-arm64",
+  "cold_compile_load_and_first_inference_seconds": 1.6199394169962034,
+  "warm_inference_p50_seconds": 0.05078097901423462,
+  "warm_inference_p95_seconds": 0.0623694579990115,
+  "warm_samples": 30,
+  "observe_dispatch_p50_seconds": 0.00011920850374735892,
+  "artifact_descriptor_bytes": 926,
+  "checkpoint_bytes": 846195590,
+  "process_peak_rss_bytes": 969097216,
+  "prediction": "refund",
+  "raw_probability": 0.7725,
+  "scope": "Local smoke measurement; generated state, no frontier-model benchmark"
+}

@@ -9,6 +9,7 @@ does not reproduce the original agent execution: no model is called and no tools
 run. A trajectory recorded by an older engine may therefore classify differently
 today.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -300,13 +301,13 @@ def _report(records: list[dict[str, Any]], monitor: Monitor, verbose: bool) -> N
     for decision in decisions:
         issue = decision.status != ProgressState.Healthy
         entered = issue and decision.status != previous
-        resumed = (
-            not issue and previous is not None and previous != ProgressState.Healthy
-        )
+        resumed = not issue and previous is not None and previous != ProgressState.Healthy
         headline = (
             _ISSUE_PHRASE.get(decision.status, decision.status)
             if entered
-            else "progress resumed" if resumed else None
+            else "progress resumed"
+            if resumed
+            else None
         )
         if headline is not None:
             shown += 1
@@ -583,9 +584,7 @@ def _stats(args: argparse.Namespace) -> int:
         for name, bucket in sorted(arms.items()):
             cost = bucket.get("cost_per_success")
             price = "n/a" if cost is None else f"${cost:.2f}"
-            print(
-                f"  {name:<22}{bucket['episodes']:<8}{bucket['successful']:<12}{price}"
-            )
+            print(f"  {name:<22}{bucket['episodes']:<8}{bucket['successful']:<12}{price}")
 
     segments = summary.get("segments") or {}
     if segments:
@@ -697,18 +696,14 @@ def build_parser() -> argparse.ArgumentParser:
     explain_parser.add_argument(
         "--json", action="store_true", help="print the exact representation"
     )
-    stats_parser = sub.add_parser(
-        "stats", help="Legacy: summarize the local episode store"
-    )
+    stats_parser = sub.add_parser("stats", help="Legacy: summarize the local episode store")
     stats_parser.add_argument(
         "database",
         nargs="?",
         default=None,
         help="path to the episode database (default .microloop/episodes.db)",
     )
-    stats_parser.add_argument(
-        "--json", action="store_true", help="print the aggregate as JSON"
-    )
+    stats_parser.add_argument("--json", action="store_true", help="print the aggregate as JSON")
     sub.add_parser("doctor", help="check the native runtime")
     return parser
 
@@ -716,18 +711,38 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv in (["--help"], ["-h"]):
-        print("Microloop — verified fast paths for repeated agent decisions.\n\n"
-              "Commands: sites, inspect SITE, compile SITE, evaluate SITE, maintenance,\n"
-              "          export PATH, retain. Use COMMAND --help for options.\n\n"
-              "Legacy: inspect --legacy FILE, replay, monitor, explain, stats, doctor.\n"
-              "Use --version to show package and legacy trajectory schema versions.")
+        print(
+            "Microloop — verified fast paths for repeated agent decisions.\n\n"
+            "Commands: model-install, model-train, sites, inspect SITE,\n"
+            "          compile SITE, evaluate SITE, maintenance, export, retain.\n"
+            "          Use COMMAND --help for options.\n\n"
+            "Legacy: inspect --legacy FILE, replay, monitor, explain, stats, doctor.\n"
+            "Use --version to show package and legacy trajectory schema versions."
+        )
         return 0
     if "--legacy" in argv:
         argv.remove("--legacy")
-    elif argv and (argv[0] in {"sites", "compile", "evaluate", "maintenance", "export", "retain"}
-                   or (argv[0] == "inspect" and len(argv) > 1
-                       and ("--db" in argv or not any(
-                           Path(a).is_file() for a in argv[1:] if not a.startswith("-"))))):
+    elif argv and (
+        argv[0]
+        in {
+            "sites",
+            "compile",
+            "evaluate",
+            "maintenance",
+            "export",
+            "retain",
+            "model-install",
+            "model-train",
+        }
+        or (
+            argv[0] == "inspect"
+            and len(argv) > 1
+            and (
+                "--db" in argv
+                or not any(Path(a).is_file() for a in argv[1:] if not a.startswith("-"))
+            )
+        )
+    ):
         return decision_main(argv)
     parser = build_parser()
     args = parser.parse_args(argv)

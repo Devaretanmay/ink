@@ -1,0 +1,12 @@
+{
+  "distribution": "laya-mlx",
+  "version": "0.2.0",
+  "source": "https://github.com/mizorewww/laya-mlx",
+  "original_source_sha256": {
+    "agent.py": "1d9fab623984894593d37e975d23a9b15f8cd51f319b544584905421e488e208",
+    "common.py": "9f92b3250218e9842b582d448e21fe29a11cb7ab79b634787c7a9c1f3c7ec07c",
+    "model.py": "24ef50d4e53e0b12528cffd46cc463c0b8fbea8f052e80f8bf40a68aa692c7ea",
+    "prepared.py": "4c06336381c8b7ce0795b5d3c6f9500aff044de66ef10136d49f98f4da095b13",
+    "tokenizer.py": "4fbf5adb601c2ef9d8caf439f473606dd4c109743d82cdbf492283e66bb218a5"
+  }
+}

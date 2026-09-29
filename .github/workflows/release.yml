@@ -46,15 +46,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         include:
-          # Windows puts venv executables in Scripts/, not bin/.
           - os: ubuntu-latest
             venv: .wheeltest/bin
           - os: macos-latest
             venv: .wheeltest/bin
-          - os: windows-latest
-            venv: .wheeltest/Scripts
     defaults:
       run:
         shell: bash
@@ -76,6 +73,11 @@ jobs:
         run: |
           "${{ matrix.venv }}/microloop" --version
           "${{ matrix.venv }}/microloop" doctor
+      - name: Verify bundled neural inference
+        run: |
+          "${{ matrix.venv }}/python" -m pip install pytest
+          "${{ matrix.venv }}/microloop" model-install
+          "${{ matrix.venv }}/python" -m pytest python/microloop/tests/test_decision_path.py
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}

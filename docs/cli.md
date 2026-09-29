@@ -3,8 +3,9 @@
 ```bash
 microloop sites --db .microloop/decisions.db --json
 microloop inspect refund.next_action --db .microloop/decisions.db --json
-microloop compile refund.next_action --engine exact
-microloop compile refund.next_action --engine laya --checkpoint /local/checkpoint --replace
+microloop model-install
+microloop compile refund.next_action
+microloop compile refund.next_action --checkpoint /local/checkpoint --replace
 microloop evaluate refund.next_action --verifier my_app:verify --requirements requirements.json
 microloop maintenance
 microloop maintenance --verifier my_app:verify --requirements requirements.json

@@ -1,0 +1,8 @@
+{
+  "download": "Empty independent HF cache, anonymous pinned revision",
+  "installed_checkpoint_verified": true,
+  "runtime": "microloop-decision-v1.0;mlx=0.32.2;numpy=2.5.3;tokenizers=0.23.2;Darwin-arm64",
+  "choice": "refund",
+  "raw_probability": 0.8508,
+  "weights_sha256": "b9c07bf14be2fa5c78a9193a3e6d840ac80e89e62fc40f425834c3d8a6eaa3de"
+}

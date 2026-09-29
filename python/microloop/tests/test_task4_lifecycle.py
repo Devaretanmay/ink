@@ -38,11 +38,11 @@ def run(client, count, prefix="task", bad=False, record=True):
 def test_maintenance_full_cycle_compile_promote_demote():
     with Microloop(":memory:") as client:
         run(client, 300, "observe")
-        first = client.maintenance(verifier=verify, requirements=REQ)
+        first = client.maintenance(verifier=verify, requirements=REQ, engine="exact")
         assert "compiled" in first[SITE.name]
         assert client.inspect(SITE)["state"] == "SHADOW"
         run(client, 100, "shadow")
-        second = client.maintenance(verifier=verify, requirements=REQ)
+        second = client.maintenance(verifier=verify, requirements=REQ, engine="exact")
         assert second[SITE.name]["qualified"]
         assert client.inspect(SITE)["state"] == "ACTIVE"
         # Active service mixes fast paths with comparison fallbacks.
@@ -51,7 +51,7 @@ def test_maintenance_full_cycle_compile_promote_demote():
         assert any(r.fallback_reason == "comparison" for r in served)
         # Deliberate drift returns the path to shadow via maintenance alone.
         run(client, 100, "drift", bad=True)
-        third = client.maintenance()
+        third = client.maintenance(engine="exact")
         assert third[SITE.name]["demoted"]
         assert client.inspect(SITE)["state"] == "SHADOW"
         assert run(client, 1, "after")[0].source == "fallback"
@@ -60,7 +60,7 @@ def test_maintenance_full_cycle_compile_promote_demote():
 def test_shadow_runs_prediction_beside_fallback():
     with Microloop(":memory:") as client:
         run(client, 300, "observe")
-        client.compile(SITE)
+        client.compile(SITE, engine="exact")
         result = run(client, 1, "shadow-one")[0]
         assert result.source == "fallback"
         assert result.fallback_reason == "shadow"
@@ -74,7 +74,7 @@ def test_shadow_runs_prediction_beside_fallback():
 def test_no_activation_without_outcomes_via_maintenance():
     with Microloop(":memory:") as client:
         run(client, 300, "observe", record=False)
-        outcome = client.maintenance(verifier=verify, requirements=REQ)
+        outcome = client.maintenance(verifier=verify, requirements=REQ, engine="exact")
         assert "pending" in outcome[SITE.name]
         assert client.inspect(SITE)["state"] == "OBSERVE"
         assert client.inspect(SITE)["outcome_completeness"] == 0
@@ -83,7 +83,7 @@ def test_no_activation_without_outcomes_via_maintenance():
 def test_promotion_guards_and_fresh_requalification():
     with Microloop(":memory:") as client:
         run(client, 300, "observe")
-        client.compile(SITE)
+        client.compile(SITE, engine="exact")
         client.calibrate(SITE, verifier=verify, requirements=REQ)
         run(client, 100, "shadow")
         assert client.evaluate(SITE, verifier=verify)["qualified"]
@@ -103,7 +103,7 @@ def test_promotion_guards_and_fresh_requalification():
 def test_partial_missing_outcomes_block_promotion():
     with Microloop(":memory:") as client:
         run(client, 300, "observe")
-        client.compile(SITE)
+        client.compile(SITE, engine="exact")
         client.calibrate(SITE, verifier=verify, requirements=REQ)
         run(client, 100, "shadow")
         run(client, 1, "missing", record=False)
@@ -114,7 +114,7 @@ def test_partial_missing_outcomes_block_promotion():
 def test_changed_verifier_demotes_even_when_all_scores_pass():
     with Microloop(":memory:") as client:
         run(client, 300, "observe")
-        client.compile(SITE)
+        client.compile(SITE, engine="exact")
         client.calibrate(SITE, verifier=verify, requirements=REQ)
         run(client, 100, "shadow")
         assert client.evaluate(SITE, verifier=verify)["qualified"]
@@ -132,21 +132,26 @@ def test_changed_verifier_demotes_even_when_all_scores_pass():
 def test_maintenance_waits_for_compilation_support():
     with Microloop(":memory:") as client:
         run(client, 10, "early")
-        result = client.maintenance(verifier=verify, requirements=REQ)
+        result = client.maintenance(verifier=verify, requirements=REQ, engine="exact")
         assert "pending" in result[SITE.name]
         assert client.inspect(SITE)["state"] == "OBSERVE"
         run(client, 300, "ready")
-        assert "compiled" in client.maintenance(verifier=verify, requirements=REQ)[SITE.name]
+        assert (
+            "compiled"
+            in client.maintenance(verifier=verify, requirements=REQ, engine="exact")[SITE.name]
+        )
 
 
 def test_early_candidate_can_be_replaced_when_evidence_arrives():
     with Microloop(":memory:") as client:
         run(client, 10, "early")
-        first = client.compile(SITE)
+        first = client.compile(SITE, engine="exact")
         run(client, 300, "enough")
-        result = client.maintenance(verifier=verify, requirements=REQ)
+        result = client.maintenance(verifier=verify, requirements=REQ, engine="exact")
         assert "pending" in result[SITE.name]  # Replacement still needs fresh shadow traffic.
         assert client.inspect(SITE)["fast_path"] != first
         assert client.inspect(SITE)["profile"] is not None
         run(client, 100, "fresh")
-        assert client.maintenance(verifier=verify, requirements=REQ)[SITE.name]["qualified"]
+        assert client.maintenance(verifier=verify, requirements=REQ, engine="exact")[SITE.name][
+            "qualified"
+        ]

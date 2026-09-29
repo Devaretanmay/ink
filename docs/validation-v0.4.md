@@ -1,3 +1,7 @@
+> Historical local-model run below used the external runtime before integration.
+> Current Microloop Decision v1 ships the inference source directly. See
+> `integrated-model-v0.4.md` for fresh-wheel validation of the bundled runtime.
+
 # Microloop v0.4 validation
 
 ## Verified local model workload

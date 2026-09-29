@@ -1,4 +1,4 @@
-"""Repeatable real Laya load/inference measurements; never asserts latency claims."""
+"""Repeatable Microloop Decision v1 load/inference measurements; never asserts latency claims."""
 
 import argparse
 import json
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from microloop import DecisionSite, Microloop
 from microloop.internal.contracts import canonical
-from microloop.internal.engines import LayaEngine
+from microloop.internal.engines import DecisionModelEngine
 
 
 def main():
@@ -18,9 +18,9 @@ def main():
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    site = DecisionSite("benchmark.laya", {"request": "string"}, ("refund", "specialist"))
+    site = DecisionSite("benchmark.decision", {"request": "string"}, ("refund", "specialist"))
     state = {"request": "I was billed twice. Please refund the duplicate charge."}
-    engine = LayaEngine(args.checkpoint)
+    engine = DecisionModelEngine(args.checkpoint)
     start = time.perf_counter()
     artifact = engine.compile(site, [{"state": state, "choice": "refund"}])
     cold = time.perf_counter() - start

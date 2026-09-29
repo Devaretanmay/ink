@@ -42,7 +42,7 @@ def run(client, count, prefix="task", bad=False):
 
 def activate(client):
     run(client, 300, "observe")
-    client.compile(SITE)
+    client.compile(SITE, engine="exact")
     client.calibrate(SITE, verifier=verify, requirements=REQ)
     run(client, 100, "shadow")
     assert client.evaluate(SITE, verifier=verify)["qualified"]
@@ -119,7 +119,7 @@ def test_lifecycle_restart_corruption_and_demotion(tmp_path):
 def test_missing_outcomes_and_unqualified_profile():
     with Microloop(":memory:") as client:
         run(client, 300)
-        client.compile(SITE)
+        client.compile(SITE, engine="exact")
         with pytest.raises(ValueError, match="calibrated"):
             client.evaluate(SITE, verifier=verify)
         client.calibrate(SITE, verifier=verify, requirements=REQ)
@@ -133,7 +133,7 @@ def test_missing_outcomes_and_unqualified_profile():
 def test_disagreement_does_not_inherit_good_outcome():
     with Microloop(":memory:") as client:
         run(client, 300)
-        client.compile(SITE)
+        client.compile(SITE, engine="exact")
 
         def bad_candidate(state, choice):
             return Outcome(0, "independent", "1", {"executed": choice})
@@ -260,7 +260,7 @@ def test_recompile_preserves_old_evidence():
     with Microloop(":memory:") as client:
         activate(client)
         old = client.inspect(SITE)["fast_path"]
-        new = client.compile(SITE, replace_existing=True)
+        new = client.compile(SITE, replace_existing=True, engine="exact")
         assert old != new
         assert client.inspect(SITE)["state"] == "SHADOW"
         old_row = client.store.rows("SELECT * FROM artifacts WHERE id=?", (old,))[0]

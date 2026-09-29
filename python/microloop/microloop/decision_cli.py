@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .decision_api import Microloop
 from .internal.contracts import PromotionRequirements
-from .internal.engines import LayaEngine
+from .internal.engines import DecisionModelEngine
 
 
 def load_callable(spec):
@@ -25,19 +25,57 @@ def main(argv):
     parser = argparse.ArgumentParser(prog="microloop")
     parser.add_argument(
         "command",
-        choices=["sites", "inspect", "compile", "evaluate", "maintenance", "export", "retain"],
+        choices=[
+            "sites",
+            "inspect",
+            "compile",
+            "evaluate",
+            "maintenance",
+            "export",
+            "retain",
+            "model-install",
+            "model-train",
+        ],
     )
     parser.add_argument("site", nargs="?")
     parser.add_argument("--db", default=".microloop/decisions.db")
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--engine", choices=["exact", "laya"], default="exact")
     parser.add_argument("--checkpoint")
     parser.add_argument("--replace", action="store_true", help="Retire the current candidate")
     parser.add_argument("--verifier", help="Explicit trusted Python module:callable")
     parser.add_argument("--requirements", help="JSON file with experiment requirements")
     parser.add_argument("--before", type=float, help="Retention cutoff as Unix timestamp")
+    parser.add_argument("--data", help="JSONL rows for model-train: state/choices/choice")
+    parser.add_argument("--output", help="Output directory for model-train checkpoint")
+    parser.add_argument("--steps", type=int, default=50)
+    parser.add_argument("--lr", type=float, default=1e-4)
+    parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args(argv)
     try:
+        if args.command == "model-install":
+            from .internal.model.registry import install
+
+            print(
+                json.dumps(
+                    {"model": "microloop-decision-v1", "path": str(install(args.checkpoint))}
+                )
+            )
+            return 0
+        if args.command == "model-train":
+            from .internal.model.training import finetune
+
+            if not args.data or not args.output:
+                raise ValueError("model-train requires --data JSONL and --output directory")
+            rows = [
+                json.loads(line)
+                for line in Path(args.data).read_text().splitlines()
+                if line.strip()
+            ]
+            card = finetune(
+                args.checkpoint, rows, args.output, steps=args.steps, lr=args.lr, seed=args.seed
+            )
+            print(json.dumps(card, indent=2))
+            return 0
         if args.command in {"sites", "inspect"} and not Path(args.db).is_file():
             if args.command == "sites":
                 print("[]" if args.json else "No decision sites recorded.")
@@ -45,7 +83,7 @@ def main(argv):
             raise ValueError("Decision database does not exist")
         with Microloop(
             args.db,
-            engines=[LayaEngine(args.checkpoint)],
+            engines=[DecisionModelEngine(args.checkpoint)],
             readonly=args.command in {"sites", "inspect", "export"},
         ) as client:
             requirements = (
@@ -61,7 +99,7 @@ def main(argv):
             elif args.command == "compile":
                 result = {
                     "artifact": client.compile(
-                        args.site, engine=args.engine, replace_existing=args.replace
+                        args.site, engine="decision", replace_existing=args.replace
                     )
                 }
             elif args.command == "evaluate":
@@ -76,7 +114,7 @@ def main(argv):
                 result = client.evaluate(site, verifier=verifier)
             elif args.command == "maintenance":
                 result = client.maintenance(
-                    verifier=verifier, requirements=requirements, engine=args.engine
+                    verifier=verifier, requirements=requirements, engine="decision"
                 )
             elif args.command == "export":
                 if not args.site:

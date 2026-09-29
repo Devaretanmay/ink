@@ -23,7 +23,7 @@ from .internal.contracts import (
     digest,
 )
 from .internal.decision_store import DecisionStore, split_history
-from .internal.engines import ExactEngine, LayaEngine
+from .internal.engines import DecisionModelEngine, ExactEngine, resolve_engine_key
 from .internal.profiler import profile_history
 from .internal.verification import grouped_quality, lower_bound, passes, statistics, verify_rows
 
@@ -31,7 +31,12 @@ from .internal.verification import grouped_quality, lower_bound, passes, statist
 class Microloop:
     def __init__(self, path=".microloop/decisions.db", *, engines=(), readonly=False):
         self.store = DecisionStore(path, readonly=readonly)
-        self.engines = {e.name: e for e in (ExactEngine(), LayaEngine(), *engines)}
+        integral = {e.name: e for e in (ExactEngine(), DecisionModelEngine(), *engines)}
+        # Historical artifacts carry engine="laya"; resolve them to the integral engine.
+        for alias, current in (("laya", "decision"), ("microloop-decision-v1", "decision")):
+            if alias not in integral and current in integral:
+                integral[alias] = integral[current]
+        self.engines = integral
         self._contracts = {}
 
     def close(self):
@@ -125,7 +130,7 @@ class Microloop:
             region = coverage.get(canonical(state))
             if region is None:
                 return artifact, None, "outside_coverage"
-            engine = self.engines[payload["engine_data"]["engine"]]
+            engine = self.engines[resolve_engine_key(payload["engine_data"]["engine"])]
             choice, probability = engine.predict(payload["engine_data"], state)
             if (
                 choice not in site.choices
@@ -306,8 +311,9 @@ class Microloop:
             (artifact, time.time(), previous, current, canonical(detail)),
         )
 
-    def compile(self, site, *, engine="exact", replace_existing=False):
+    def compile(self, site, *, engine="decision", replace_existing=False):
         site = self._resolve(site)
+        engine = resolve_engine_key(engine)
         rows = self.store.history(site.version)
         # Candidate labels come only from executed fallback choices with outcomes.
         eligible = [r for r in rows if r["source"] == "fallback" and r["outcome"] is not None]
@@ -377,7 +383,10 @@ class Microloop:
         ids = set(payload["partitions"]["calibration"])
         rows = [r for r in self.store.history(site.version) if r["id"] in ids]
         records = verify_rows(
-            rows, self.engines[payload["engine_data"]["engine"]], payload, verifier
+            rows,
+            self.engines[resolve_engine_key(payload["engine_data"]["engine"])],
+            payload,
+            verifier,
         )
         regions = {}
         for record in records:
@@ -444,7 +453,7 @@ class Microloop:
             raise ValueError("Insufficient fresh shadow tasks with outcomes")
         ids = set(payload["partitions"]["evaluation"])
         holdout = [r for r in history if r["id"] in ids]
-        engine = self.engines[payload["engine_data"]["engine"]]
+        engine = self.engines[resolve_engine_key(payload["engine_data"]["engine"])]
         held_records = verify_rows(holdout, engine, payload, verifier)
         shadow_records = verify_rows(shadow, engine, payload, verifier)
         held_stats, shadow_stats = statistics(held_records), statistics(shadow_records)
@@ -593,8 +602,9 @@ class Microloop:
             )
         return evidence
 
-    def maintenance(self, *, verifier=None, requirements=None, engine="exact"):
+    def maintenance(self, *, verifier=None, requirements=None, engine="decision"):
         results = {}
+        engine = resolve_engine_key(engine)
         for row in self.sites():
             site = DecisionSite(**row["contract"])
             try:

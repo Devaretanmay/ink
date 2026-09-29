@@ -46,7 +46,7 @@ already deleted by an older run cannot be invented; restore a backup or recollec
 
 | # | Delivered | Evidence |
 |---|---|---|
-| 1 | Pinned optional Laya runtime; checkpoint format and license notes | `laya-path.md` |
+| 1 | Bundled Laya-derived runtime; pinned model setup and attribution | `laya-path.md` |
 | 2 | Real configured checkpoint persisted/reloaded/inferred | Laya tests and real model run |
 | 3 | Private compile/predict engine protocol | Exact and Laya implementations |
 | 4 | Original fallback retained | Failure and novelty tests |
