@@ -10,11 +10,9 @@ env:
 # context is not available in a job-level `if`.
 #
 #   gh variable set PUBLISH_PYPI true        # requires a PyPI trusted publisher
-#   gh variable set PUBLISH_CRATES true     # requires a CARGO_REGISTRY_TOKEN
 #
-# Both are unset by default, so tagging produces verified wheels and artifacts
-# but publishes nothing. v0.3.0 was uploaded directly with a scoped API token
-# because no trusted publisher had been registered for this repository yet.
+# Unset by default, so tagging produces verified wheels and artifacts
+# but publishes nothing.
 
 jobs:
   # Nothing is published until the full gate passes: fmt, clippy, the whole-tree
@@ -37,7 +35,7 @@ jobs:
       - run: maturin build --manifest-path python/microloop/Cargo.toml --out dist
       - run: pip install dist/*.whl
       - run: pytest python/microloop/tests/
-      - run: python examples/coding-agent/agent.py
+      - run: python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
 
   wheels:
     name: wheels (${{ matrix.os }})
@@ -72,7 +70,6 @@ jobs:
       - name: Installed console script runs
         run: |
           "${{ matrix.venv }}/microloop" --version
-          "${{ matrix.venv }}/microloop" doctor
       - name: Verify bundled neural inference
         run: |
           "${{ matrix.venv }}/python" -m pip install pytest
@@ -87,7 +84,7 @@ jobs:
   # rather than silent.
   release-summary:
     name: release summary
-    needs: [verify, wheels, publish-pypi, publish-crates]
+    needs: [verify, wheels, publish-pypi]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -96,12 +93,6 @@ jobs:
           echo "verify:     ${{ needs.verify.result }}"
           echo "wheels:     ${{ needs.wheels.result }}"
           echo "pypi:       ${{ needs.publish-pypi.result }}"
-          echo "crates.io:  ${{ needs.publish-crates.result }}"
-          if [ "${{ needs.publish-crates.result }}" != "success" ]; then
-            echo "NOTE: crates.io publishing is disabled by design until a"
-            echo "      registry token is configured. Wheels were still built,"
-            echo "      verified, and published to PyPI."
-          fi
 
   publish-pypi:
     name: publish (pypi)
@@ -121,15 +112,3 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
-
-  publish-crates:
-    name: publish (crates.io)
-    needs: verify
-    if: vars.PUBLISH_CRATES == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-      - run: cargo publish -p microloop-core --locked

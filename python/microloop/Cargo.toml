@@ -1,6 +1,6 @@
 [package]
 name = "microloop-python"
-description = "Python bindings for Microloop (decision JIT plus trajectory compatibility core)."
+description = "Python bindings for Microloop (decision JIT)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -13,9 +13,4 @@ name = "microloop_core"
 crate-type = ["cdylib"]
 
 [dependencies]
-# Renamed to avoid colliding with this crate's own lib name (`microloop_core`),
-# which the `#[pymodule]` init symbol must use.
-microloop = { package = "microloop-core", path = "../../crates/microloop-core" }
 pyo3 = { version = "0.21.2", features = ["extension-module", "abi3-py310"] }
-serde.workspace = true
-serde_json.workspace = true

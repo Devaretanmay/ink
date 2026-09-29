@@ -3,8 +3,9 @@ Copyright 2026 Tanmay Devare
 
 This product includes software developed as part of the Microloop project.
 
-The bundled Python extension is built from the Rust crate `microloop-core` in
-this repository and is distributed under the same license.
+The bundled Python extension is a minimal native module (package version
+only) built from `python/microloop/src` in this repository and is distributed
+under the same license.
 
 Microloop Decision v1 includes a modified Laya-derived neural runtime.
 See microloop/internal/model/NOTICE, LICENSE, and upstream.json for attribution

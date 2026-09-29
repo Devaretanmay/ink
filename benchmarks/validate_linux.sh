@@ -23,7 +23,7 @@ python3 -m venv /tmp/validation-env
 export PATH="/tmp/validation-env/bin:$PATH"
 pip install -q maturin pytest
 mkdir /tmp/project
-for entry in Cargo.toml Cargo.lock LICENSE NOTICE README.md pyproject.toml crates python examples integrations; do
+for entry in Cargo.toml Cargo.lock LICENSE NOTICE README.md pyproject.toml crates python examples; do
     cp -R "/source/$entry" /tmp/project/
 done
 cd /tmp/project

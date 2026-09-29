@@ -92,23 +92,12 @@ jobs:
       - name: Installed console script runs
         run: |
           "${{ matrix.venv }}/microloop" --version
-          "${{ matrix.venv }}/microloop" doctor
       - name: Public API imports from the installed package
         run: |
           "${{ matrix.venv }}/python" -c "import microloop; print(microloop.__version__)"
-      - name: CLI subcommands run against the installed wheel
-        run: |
-          "${{ matrix.venv }}/microloop" inspect python/microloop/tests/fixtures/sample_trajectory.jsonl
-          "${{ matrix.venv }}/microloop" replay python/microloop/tests/fixtures/sample_trajectory.jsonl --json
-      - name: Provision the integrated model for real inference tests
-        run: '"${{ matrix.venv }}/microloop" model-install'
       - name: Test suite passes against the installed wheel
         run: |
           "${{ matrix.venv }}/python" -m pytest python/microloop/tests/
-      - name: The documented examples run
-        run: |
-          "${{ matrix.venv }}/python" examples/coding-agent/agent.py
-          "${{ matrix.venv }}/python" examples/adaptive-coding-agent/agent.py
       - name: Decision demo runs end to end (exact engine, offline fixture)
         run: |
           "${{ matrix.venv }}/python" -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
@@ -134,7 +123,5 @@ jobs:
       # Lint the whole tracked repository, not only python/.
       - run: ruff check .
       - run: pytest python/microloop/tests/
-      - run: python examples/coding-agent/agent.py
-      - run: python examples/adaptive-coding-agent/agent.py
       - run: python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
       - run: microloop sites --db .microloop/ci-smoke/decisions.db --json

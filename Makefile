@@ -22,19 +22,17 @@ test-rust:
 test-python:
 	pytest python/microloop/tests/
 
-# Both examples are deterministic and offline. Running them in CI keeps the
-# documented public API honest and pins the adaptive example's result: it asserts
-# that intervening as fast as a run stalls loses a task that doing nothing wins.
+# The decision demo is deterministic and offline. Running it in CI keeps the
+# documented public API honest.
 test-examples:
-	python examples/coding-agent/agent.py
-	python examples/adaptive-coding-agent/agent.py
+	python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
 
 # Reproduces the per-step cost and memory figures quoted in docs/legacy/README-v0.3.md.
 perf:
 	python benchmarks/perf.py
 
 build:
-	cargo build --release -p microloop-core
+	cargo build --release -p microloop-python
 
 wheel:
 	maturin build --manifest-path python/microloop/Cargo.toml

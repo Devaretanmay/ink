@@ -1,20 +1,18 @@
-# v0.3 compatibility and infrastructure inventory
+# v0.3 compatibility: removed
 
-| Existing component | v0.4 treatment |
-|---|---|
-| Rust trajectory engine, detectors, controller | Preserved, unchanged public crate exports |
-| Python Monitor, Event, Policy, progress types | Implementation in `internal.legacy`; root imports retained |
-| Runtime state, usage, episodes, outcomes, adapters | Implementation in `internal.runtime`; old module paths retained |
-| EpisodeStore, controller traces, adaptation history | Implementation in `internal.episode_store`; old store import retained |
-| Existing verifiers | Retained for legacy runs; not automatically accepted as decision outcome verifiers |
-| Old CLI views and coding examples | Compatibility tools; no longer primary product examples |
-| Decision contracts, profiler, engine, verifier, store | New Python-owned decision subsystem |
+The pre-0.4 trajectory surface (`Monitor`, `Event`, `Decision`, `Policy`,
+`ProgressState`, `InterventionAction`, the `Runtime*` controllers/adapters,
+`EpisodeStore`, `microloop.compat`, `microloop.store`, `microloop.runtime`,
+and the legacy CLI views `replay`, `monitor`, `explain`, `stats`, `doctor`)
+was removed. The decision API (`Microloop`, `DecisionSite`, `decision`,
+`record_outcome`) is the only runtime surface.
 
-Trajectory schema stays `0.3.0`; package version is independent. Decision history
-uses a separate versioned SQLite schema (currently version 4, with transactional 1→2→3→4 migrations). Existing `.microloop/episodes.db` is never
-renamed or rewritten by the new decision client. Site summaries come from
-`internal.profiler`; calibration profiles stay frozen on artifacts.
+Details:
 
-Old imports remain aliases to the moved classes. Avoid depending on class
-`__module__` strings or private helpers. The implementation preserves existing test
-coverage rather than removing old functionality to simplify the product story.
+- The Rust trajectory engine (`microloop-core`) was removed with its Python
+  bindings. The native extension now exposes only `microloop_core.version()`.
+- Trajectory schema `0.3.0` is no longer read. Existing
+  `.microloop/episodes.db` files are left untouched on disk but never opened.
+- Decision history keeps its own versioned SQLite schema (currently version 4,
+  with transactional 1→2→3→4 migrations) under `.microloop/decisions.db`.
+- `docs/legacy/` preserves the v0.3 documentation as history.

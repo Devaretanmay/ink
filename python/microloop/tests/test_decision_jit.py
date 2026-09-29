@@ -182,16 +182,6 @@ def test_transactions_and_concurrent_connections(tmp_path):
     db.close()
 
 
-def test_compatibility_identity():
-    from microloop import Monitor
-    from microloop.internal.legacy import Monitor as InternalMonitor
-    from microloop.internal.runtime.state import RuntimeState as InternalState
-    from microloop.runtime.state import RuntimeState
-
-    assert Monitor is InternalMonitor
-    assert RuntimeState is InternalState
-
-
 def test_cli(tmp_path, capsys):
     from microloop.cli import main
 

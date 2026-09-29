@@ -23,7 +23,3 @@ once and exits; schedule it in your host application.
 
 Retention removes old decisions only for sites without artifacts. Export preserves
 all local audit tables in a versioned JSON document.
-
-Legacy commands remain supported. Use `microloop inspect --legacy trajectory.jsonl`
-for explicit trajectory inspection. Existing file-based inspection is recognized
-for compatibility; `--db` explicitly selects decision-site inspection.
