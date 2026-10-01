@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "microloop"
-version = "0.4.0"
+version = "0.5.0"
 description = "Verified local fast paths for repeated agent decisions"
 authors = [{ name = "Microloop Team" }]
 license = "Apache-2.0"

@@ -8,7 +8,16 @@ All notable changes to Microloop are documented here. This project follows
 > 0.4.0)" preserves the Pass 1–4 trajectory development history. Kept verbatim;
 > see docs/implementation-status-v0.4.md for the map.
 
-## [0.4.0] (unreleased)
+## [0.5.0] - 2026-10-02
+
+### Added
+- Zero-touch DecisionSite discovery and trace ingestion supporting OpenTelemetry (OTLP), LangSmith, and LiteLLM trace logs.
+- Economic DecisionSite profiling (`microloop profile` / `microloop discover`) with repetition estimation, drift sensitivity, and net value ROI projections.
+- Multi-site fleet management and 100k semantic-region scale local verification with zero cloud dependencies.
+- Production pilot integration patterns across autonomous agent loops, customer service routing, and triage workflows.
+- Public benchmark claim governance and rigorous false-serve avoidance metrics.
+
+## [0.4.0] - 2026-09-28
 
 - Integrated Microloop Decision v1: bundled Laya-derived neural inference,
   mandatory runtime dependencies, neural compilation by default, explicit
