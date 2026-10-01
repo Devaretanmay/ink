@@ -80,7 +80,6 @@ def compute_metrics(head, a_arr, p_arr, n_arr, categories):
     negation_indices = [i for i, c in enumerate(categories) if c == "negation"]
     negation_sims = [neg_sims[i] for i in negation_indices]
 
-    # Separation margin
     margins = [p - n for p, n in zip(pos_sims, neg_sims)]
     
     return {
@@ -102,7 +101,6 @@ def train():
     triplets = load_dataset()
     print(f"Loaded {len(triplets)} contrastive triplets.")
 
-    # Cache 1024-d raw embeddings
     print("=== Step 2: Caching 1024-d Raw Embeddings ===")
     anchors = [t["anchor"] for t in triplets]
     positives = [t["positive"] for t in triplets]
@@ -115,7 +113,6 @@ def train():
     n_feats = np.stack([encode(t) for t in negatives])
     print(f"Features extracted in {(time.time() - t0):.2f}s. Shape: {a_feats.shape}")
 
-    # Baseline Raw Cosines before projection
     raw_pos = [float(np.dot(a_feats[i], p_feats[i])) for i in range(len(triplets))]
     raw_neg = [float(np.dot(a_feats[i], n_feats[i])) for i in range(len(triplets))]
     neg_idx = [i for i, c in enumerate(categories) if c == "negation"]
@@ -127,12 +124,10 @@ def train():
     print(f"  Negation Cosine Mean: {np.mean(raw_negation):.4f} (Isotropic collapse!)")
     print(f"  Raw Accuracy (Pos > Neg): {np.mean([p > n for p, n in zip(raw_pos, raw_neg)]):.2%}")
 
-    # Convert to MLX arrays
     a_arr = mx.array(a_feats)
     p_arr = mx.array(p_feats)
     n_arr = mx.array(n_feats)
 
-    # Initialize Projection Head
     print("\n=== Step 3: Training Contrastive Projection Head ===")
     head = ContrastiveProjectionHead(in_features=1024, hidden_dim=256, out_dim=128)
     optimizer = opt.Adam(learning_rate=3e-3)
@@ -144,13 +139,11 @@ def train():
         zn = model(n)
         pos_sim = mx.sum(za * zp, axis=-1)
         neg_sim = mx.sum(za * zn, axis=-1)
-        # Triplet margin loss: max(0, neg_sim - pos_sim + margin)
         losses = mx.maximum(0.0, neg_sim - pos_sim + margin)
         return mx.mean(losses)
 
     loss_and_grad = nn.value_and_grad(head, loss_fn)
 
-    # Train loop
     epochs = 80
     for epoch in range(1, epochs + 1):
         loss, grads = loss_and_grad(head, a_arr, p_arr, n_arr)

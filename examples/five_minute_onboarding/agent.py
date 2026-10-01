@@ -8,7 +8,6 @@ from pathlib import Path
 
 from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
 
-# 1. Define DecisionSite discovered from `microloop discover traces.jsonl`
 site = DecisionSite(
     name="support.route",
     state_schema={"intent": "string", "tier": "string"},
@@ -56,7 +55,6 @@ def main():
         print("   State Schema :", site.state_schema)
         print("   Choices      :", site.choices)
 
-        # Step A: Warmup observation phase
         print("\n2. OBSERVATION PHASE: Recording baseline agent calls...")
         intents = ["billing", "shipping", "legal"]
         for i in range(300):
@@ -78,12 +76,10 @@ def main():
 
         print(f"   Recorded 300 observations. Profile state: {ml.inspect(site)['state']}")
 
-        # Step B: Autonomous Shadow Compilation & Qualification
         print("\n3. SHADOW QUALIFICATION: Compiling local fast path...")
         reqs = PromotionRequirements(10, 0.5, 0.5, 0.6, 0.25, 5, 100)
         ml.maintenance(sites=[site], verifier=verifier, requirements=reqs, engine="exact")
 
-        # Record shadow verification traffic
         for i in range(100):
             st = {"intent": intents[i % 2], "tier": "standard"}
             res = ml.decide(
@@ -101,13 +97,11 @@ def main():
                 evidence=out.evidence,
             )
 
-        # Tick 2: Qualify and promote
         ml.maintenance(sites=[site], verifier=verifier, requirements=reqs, engine="exact")
         state_status = ml.inspect(site)["state"]
         print(f"   Artifact qualified! Current site status: {state_status}")
         assert state_status == "ACTIVE", f"Expected ACTIVE, got {state_status}"
 
-        # Step C: Live Local Serving Comparison
         print("\n4. SERVING LOCAL FAST PATHS:")
         test_state = {"intent": "billing", "tier": "standard"}
 
@@ -126,7 +120,6 @@ def main():
         print("   Avoided Model Calls : 1")
         print("   Avoided Cost        : $0.0004")
 
-        # Step D: View Local ROI
         print("\n5. LOCAL ROI SUMMARY (via microloop value):")
         inspect_data = ml.inspect(site)
         print(f"   Total Observations   : {inspect_data['observations']}")

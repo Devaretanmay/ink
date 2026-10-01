@@ -9,8 +9,11 @@ import sqlite3
 from pathlib import Path
 
 from .decision_api import Microloop
+from .discovery import discover_from_file
 from .internal.contracts import PromotionRequirements
 from .internal.engines import DecisionModelEngine
+from .internal.model.registry import install
+from .internal.model.training import finetune
 
 
 def load_callable(spec):
@@ -61,10 +64,6 @@ def main(argv):
     args = parser.parse_args(argv)
     try:
         if args.command == "model-install":
-            from .internal.model.registry import (
-                install,  # Heavy model deps loaded only when needed.
-            )
-
             print(
                 json.dumps(
                     {"model": "microloop-decision-v1", "path": str(install(args.checkpoint))}
@@ -72,10 +71,6 @@ def main(argv):
             )
             return 0
         if args.command == "model-train":
-            from .internal.model.training import (
-                finetune,  # Heavy model deps loaded only when needed.
-            )
-
             if not args.data or not args.output:
                 raise ValueError("model-train requires --data JSONL and --output directory")
             rows = [
@@ -89,8 +84,6 @@ def main(argv):
             print(json.dumps(card, indent=2))
             return 0
         if args.command == "discover":
-            from .discovery import discover_from_file
-
             if not args.site:
                 raise ValueError("discover requires a trace file path (JSON or JSONL)")
             candidates = discover_from_file(args.site)

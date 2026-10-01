@@ -361,7 +361,6 @@ def calibrate_semantic_boundaries(
             for _, vec in other_group
         ]
 
-        # Select medoid with highest intra-class similarity
         best_idx = 0
         best_sim_sum = -1.0
         for i, (_member_rec, member_vec) in enumerate(group):
@@ -372,13 +371,11 @@ def calibrate_semantic_boundaries(
 
         medoid_rec, medoid_vec = group[best_idx]
 
-        # Calculate distance to nearest negative example
         neg_dist = 1.0
         if other_vecs:
             neg_sims = [float(np.dot(medoid_vec, ov)) for ov in other_vecs]
             neg_dist = float(max(0.05, 1.0 - max(neg_sims)))
 
-        # Calibrated radius is bounded by negative margin
         radius = min(max_radius, max(0.15, neg_dist * 0.6))
 
         region = SemanticRegion(

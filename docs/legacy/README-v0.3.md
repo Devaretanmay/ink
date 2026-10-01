@@ -66,8 +66,8 @@ for step in agent.steps():
         agent.inject(decision.recovery_context)
 ```
 
-`agent` stands for whatever loop you already have. For a runnable version see
-[`examples/coding-agent`](../../examples/coding-agent).
+`agent` stands for whatever loop you already have. For runnable versions see
+[`examples/`](../../examples).
 
 ## Why not just put this in a prompt?
 
@@ -178,7 +178,7 @@ runtime. See [cli.md](cli.md).
 
 ## Real integrations and the first experiment
 
-Provider code lives outside the package, in [`integrations/`](../../integrations):
+Provider code lives in [`examples/`](../../examples):
 a coding harness whose task, workspace, tools and tests the harness owns, and an
 OpenAI Agents SDK integration that registers the SDK's lifecycle hooks without
 forking its runner. Both use a provider-neutral `TieredAdapter` that performs the
@@ -264,11 +264,11 @@ scope, failure counts and environment state when you have them.
 
 Point an agent at [`llms.txt`](../../llms.txt) for a machine-readable index.
 
-[CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) · [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
+[CONTRIBUTING.md](../../CONTRIBUTING.md) · [SECURITY.md](../../SECURITY.md) · [CODE_OF_CONDUCT.md](../../CODE_OF_CONDUCT.md)
 
 ## Evaluation
 
-The reproducible evaluation harness lives in [`benchmarks/`](benchmarks/).
+The reproducible evaluation harness lives in [`benchmarks/`](../../benchmarks/).
 Published results will only include runs carrying real-provider provenance.
 
 ## Development
@@ -278,8 +278,8 @@ pip install -e '.[dev]'
 make check
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## License
 
-[Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
+[Apache-2.0](../../LICENSE). See [NOTICE](../../NOTICE) for attribution.

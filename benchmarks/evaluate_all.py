@@ -7,14 +7,14 @@ import math
 import resource
 import sys
 import time
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
 
-from microloop.internal.contracts import DecisionSite
+from microloop.internal.contracts import DecisionSite, canonical
 from microloop.internal.engines import ExactEngine
 from microloop.internal.model.agent import Agent
 from microloop.internal.model.registry import model_path
@@ -85,7 +85,6 @@ def compute_metrics(y_true, y_pred, probs, choices):
 
 class ClassicalBaseline:
     def __init__(self):
-        from collections import defaultdict
         self.word_counts = defaultdict(Counter)
         self.class_counts = Counter()
         self.vocab = set()
@@ -180,7 +179,6 @@ def main():
     exact_covered = 0
     for r in subset_3way:
         t_start = time.time()
-        from microloop.internal.contracts import canonical
         key = canonical(r["state"])
         if key in exact_payload["table"]:
             c, p = exact.predict(exact_payload, r["state"])

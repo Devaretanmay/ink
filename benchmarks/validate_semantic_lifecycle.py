@@ -58,7 +58,6 @@ def test_complete_semantic_lifecycle():
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "lifecycle.db")
         with Microloop(db_path) as client:
-            # 1. OBSERVE: Record historical observation data
             print("=== Step 2: OBSERVE - Recording historical observations ===")
             training_queries = [
                 ("I was charged twice on my card", "refund"),
@@ -82,7 +81,6 @@ def test_complete_semantic_lifecycle():
                     evidence=out.evidence,
                 )
 
-            # 2. COMPILE: Compile candidate artifact
             print("=== Step 3: COMPILE - Compiling candidate artifact ===")
             artifact_id = client.compile(site, engine="exact")
             inspect_info = client.inspect(site)
@@ -90,7 +88,6 @@ def test_complete_semantic_lifecycle():
             assert inspect_info["state"] == "SHADOW"
             print(f"Candidate compiled: {artifact_id[:12]} (state={inspect_info['state']})")
 
-            # 3. CALIBRATE: Calibrate exact and semantic boundaries
             print("=== Step 4: CALIBRATE - Calibrating boundaries (Regions start in SHADOW) ===")
             profile = client.calibrate(site, verifier=verifier, requirements=req)
             cov_engine_data = profile["coverage_engine"]
@@ -104,7 +101,6 @@ def test_complete_semantic_lifecycle():
                 assert sr["status"] == "SHADOW"
                 assert sr["radius"] <= sr["negative_margin"]
 
-            # 4. SHADOW TRAFFIC: Novel unseen semantic queries arrive during shadow phase
             print("=== Step 5: SHADOW TRAFFIC - Unseen queries during shadow evaluation ===")
             unseen_refund = [
                 "I was charged twice on my subscription",

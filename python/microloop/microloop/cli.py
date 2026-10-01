@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 
+from . import __version__
 from .decision_cli import main as decision_main
 
 
@@ -18,8 +19,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if argv in (["--version"], ["-V"]):
-        from . import __version__  # Deferred to avoid loading the Rust extension for --help.
-
         print(f"microloop {__version__}")
         return 0
     return decision_main(argv)

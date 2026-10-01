@@ -30,6 +30,5 @@ class UninstrumentedAgentOrchestrator:
 
     def execute_step(self, task_context: dict[str, Any]) -> dict[str, Any]:
         tool = self.mock_llm_tool_select(task_context)
-        # Simulated tool execution:
         success = True
         return {"tool": tool, "success": success, "step": task_context.get("step", 1)}

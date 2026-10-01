@@ -73,7 +73,6 @@ def get_neural_encoder(checkpoint_dir):
         input_ids = mx.array([ids])
         mask = mx.ones((1, len(ids)), dtype=mx.bool_)
         h = agent.model.encoder(input_ids, mask)
-        # Mean pooling over token embeddings
         pooled = np.array(h.mean(axis=1))[0].astype(np.float32)
         norm = np.linalg.norm(pooled)
         if norm > 0:
@@ -98,20 +97,17 @@ def main():
     print("SEMANTIC REPRESENTATION COMPARISON (SPARSE vs NEURAL vs HYBRID)")
     print("=" * 60)
     
-    # 1. Sparse TF-IDF
     t0 = time.time()
     sparse_model = SparseTFIDF(max_features=1500)
     sparse_model.fit(train_texts)
     sparse_train_vecs = [sparse_model.transform(t) for t in train_texts]
     sparse_fit_time = (time.time() - t0) * 1000
     
-    # Measure sparse transform latency
     t0 = time.time()
     for t in train_texts[:100]:
         sparse_model.transform(t)
     sparse_latency_ms = (time.time() - t0) / 100 * 1000
     
-    # 2. Neural ModernBERT
     checkpoint_dir = Path(".microloop/models/microloop-decision-v1").resolve()
     t0 = time.time()
     neural_encode, agent = get_neural_encoder(checkpoint_dir)
@@ -122,12 +118,10 @@ def main():
         neural_encode(t)
     neural_latency_ms = (time.time() - t0) / 50 * 1000
     
-    # Pre-encode reference train vectors
     neural_train_vecs = [neural_encode(t) for t in train_texts[:300]]
     train_choices = [train_rows[i]["choice"] for i in range(len(neural_train_vecs))]
     sparse_ref_vecs = sparse_train_vecs[:300]
     
-    # Evaluate Retrieval on Test Subset
     def eval_retrieval(kind):
         correct_same_choice = 0
         margins = []

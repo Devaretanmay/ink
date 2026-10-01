@@ -46,7 +46,6 @@ class IntegratedAgentOrchestrator:
             "step": int(task_context.get("step", 1)),
         }
 
-        # Bounded local decision JIT
         decision = self.ml.decide(
             site=self.site.name,
             state=clean_state,
@@ -55,11 +54,9 @@ class IntegratedAgentOrchestrator:
         elapsed_ms = (time.perf_counter() - started) * 1000
         self.latencies.append(elapsed_ms)
 
-        # Realistic tool execution:
         tool = decision.choice
         success = True
 
-        # Delayed outcome recording (downstream factual verification)
         if not interrupted:
             self.ml.record_outcome(
                 decision.decision_id,

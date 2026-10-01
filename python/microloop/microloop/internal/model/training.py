@@ -24,6 +24,7 @@ import shutil
 from pathlib import Path
 
 from .agent import Agent, collate_items
+from .registry import model_path
 
 TRAINABLE_PREFIXES = ("head.", "scorer.")
 HELD_OUT_FRACTION = 0.2
@@ -229,6 +230,4 @@ def _sha(path) -> str:
 
 
 def _managed():
-    from .registry import model_path  # Deferred: only needed for default checkpoint lookup.
-
     return str(model_path())

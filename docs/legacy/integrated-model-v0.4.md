@@ -39,14 +39,14 @@ The public BANKING77 probe scored 120/120 on its untouched three-intent test
 subset. No confidence threshold met the predeclared statistical qualification
 bound. Production promotion stays off; public label agreement cannot replace
 customer outcomes or establish exact-state fast-path coverage. See the
-[reproduction and calibration plan](../benchmarks/public_support/README.md).
+[reproduction and calibration plan](../../benchmarks/public_support/README.md).
 
 Saved evidence:
 
-- [Wheel and lifecycle results](evidence/integrated-model.json)
-- [Final runtime benchmark](evidence/integrated-benchmark.json)
-- [CPU smoke](evidence/integrated-cpu.json)
-- [Public benchmark and frozen thresholds](evidence/public-banking77-integrated.json)
+- [Wheel and lifecycle results](../evidence/integrated-model.json)
+- [Final runtime benchmark](../evidence/integrated-benchmark.json)
+- [CPU smoke](../evidence/integrated-cpu.json)
+- [Public benchmark and frozen thresholds](../evidence/public-banking77-integrated.json)
 
 v0.4 remains unreleased. Cloud-provider E2E, actual customer outcomes, production
 qualification and Linux execution are still separate validation gates.

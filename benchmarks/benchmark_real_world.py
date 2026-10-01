@@ -106,9 +106,7 @@ class RealWorldLLMClient:
         return choice, lat, inp_tokens, out_tokens
 
 
-# ---------------------------------------------------------------------------
 # Workload 1: Support Ticket Action Routing
-# ---------------------------------------------------------------------------
 def generate_support_workload(seed: int = 42) -> tuple[list[dict], Callable[[dict, bool], str]]:
     rng = random.Random(seed)
 
@@ -176,9 +174,7 @@ def generate_support_workload(seed: int = 42) -> tuple[list[dict], Callable[[dic
     return items, policy
 
 
-# ---------------------------------------------------------------------------
 # Workload 2: Agent Tool Selection
-# ---------------------------------------------------------------------------
 def generate_tool_workload(seed: int = 142) -> tuple[list[dict], Callable[[dict, bool], str]]:
     rng = random.Random(seed)
 
@@ -243,9 +239,7 @@ def generate_tool_workload(seed: int = 142) -> tuple[list[dict], Callable[[dict,
     return items, policy
 
 
-# ---------------------------------------------------------------------------
 # Workload 3: Workflow Escalation Routing
-# ---------------------------------------------------------------------------
 def generate_escalation_workload(seed: int = 242) -> tuple[list[dict], Callable[[dict, bool], str]]:
     rng = random.Random(seed)
 
@@ -308,9 +302,7 @@ def generate_escalation_workload(seed: int = 242) -> tuple[list[dict], Callable[
     return items, policy
 
 
-# ---------------------------------------------------------------------------
 # Benchmark Arms
-# ---------------------------------------------------------------------------
 class ExactCacheArm:
     def __init__(self):
         self.cache: dict[str, str] = {}
@@ -539,9 +531,7 @@ class MicroloopArm:
         return dec.choice, dec.source
 
 
-# ---------------------------------------------------------------------------
 # Runner
-# ---------------------------------------------------------------------------
 def run_workload_benchmark(
     name: str,
     dataset: list[dict],

@@ -89,7 +89,6 @@ def run_selective_compilation_study():
     for strat_name, target_sites in strategies.items():
         db_path = db_root / f"{strat_name}.db"
         with Microloop(str(db_path)) as client:
-            # 1. Register sites
             for cfg in fleet:
                 site = DecisionSite(
                     name=cfg["name"],
@@ -98,7 +97,6 @@ def run_selective_compilation_study():
                 )
                 client.register(site)
 
-            # 2. Record historical observations (300 samples per site)
             for cfg in fleet:
                 s_name = cfg["name"]
                 choices = cfg["choices"]
@@ -129,10 +127,8 @@ def run_selective_compilation_study():
             reqs = PromotionRequirements(10, 0.5, 0.5, 0.6, 0.25, 5, 100)
             target_site_objs = [client._resolve(name) for name in target_sites]
 
-            # Tick 1: Compile candidates
             client.maintenance(sites=target_site_objs, verifier=verifier_func, requirements=reqs, engine="exact")
 
-            # Run shadow observations for target sites
             for name in target_sites:
                 site_cfg = next(c for c in fleet if c["name"] == name)
                 for i in range(100):

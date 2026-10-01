@@ -75,17 +75,14 @@ def execute_pilot_a(db_dir: Path):
         {"intent": "search_documentation", "step": 1},
     ]
 
-    # Baseline: 200 requests
     for _ in range(200):
         t = random.choice(task_pool)
         baseline.execute_step(t)
 
-    # Microloop: Stage 1 - Observe 200 requests (collect initial data)
     for i in range(200):
         t = random.choice(task_pool)
         integrated.execute_step(t, interrupted=(i % 10 == 0))
 
-    # Compile & Shadow Qualification
     req = PromotionRequirements(6, 0.5, 0.5, 0.75, 0.25, 3, 50)
     client.compile(integrated.site.name, engine="exact")
 
@@ -94,14 +91,12 @@ def execute_pilot_a(db_dir: Path):
 
     client.calibrate(integrated.site.name, verifier=verifier, requirements=req)
 
-    # Shadow traffic: 60 requests
     for _ in range(60):
         t = random.choice(task_pool)
         integrated.execute_step(t)
 
     client.evaluate(integrated.site.name, verifier=verifier, auto_promote=True)
 
-    # Stage 2 - Active Serving: 150 requests
     fast_serves = 0
     active_latencies = []
     for _ in range(150):
@@ -157,12 +152,10 @@ def execute_pilot_b(db_dir: Path):
         {"ticket_text": "cannot login error 500 server crash on checkout", "customer_tier": "pro"},
     ]
 
-    # Baseline: 200 requests
     for _ in range(200):
         t = random.choice(tickets)
         baseline.process_ticket(t)
 
-    # Microloop: Stage 1 - Observe 200 requests
     for _ in range(200):
         t = random.choice(tickets)
         integrated.process_ticket(t)
@@ -175,14 +168,12 @@ def execute_pilot_b(db_dir: Path):
 
     client.calibrate(integrated.site.name, verifier=verifier, requirements=req)
 
-    # Shadow: 60 requests
     for _ in range(60):
         t = random.choice(tickets)
         integrated.process_ticket(t)
 
     client.evaluate(integrated.site.name, verifier=verifier, auto_promote=True)
 
-    # Active Serving pre-drift: 120 requests
     pre_drift_serves = 0
     active_latencies = []
     for _ in range(120):
@@ -194,9 +185,7 @@ def execute_pilot_b(db_dir: Path):
         if res["decision_source"] == "fast_path":
             pre_drift_serves += 1
 
-    # POLICY DRIFT EXPERIMENT:
-    # Compare passive drift vs explicit invalidation
-    # 1. Passive drift: policy_v2=True for 40 requests, comparison traffic notices drift
+    # Compare passive drift vs explicit invalidation:
     passive_drift_detected = False
     for i in range(40):
         t = random.choice(tickets)
@@ -206,7 +195,6 @@ def execute_pilot_b(db_dir: Path):
             if drift.get("demoted"):
                 passive_drift_detected = True
 
-    # 2. Explicit invalidation test: client.invalidate()
     explicit_inval = client.invalidate(integrated.site.name, reason="fraud_policy_v2_migration")
 
     stats = client.inspect(integrated.site.name)
@@ -264,17 +252,14 @@ def execute_pilot_c(db_dir: Path):
         },
     ]
 
-    # Baseline: 200 requests ($0.015 each)
     for _ in range(200):
         ctx = random.choice(scenarios)
         baseline.execute_ci_repair_step(ctx)
 
-    # Microloop: Stage 1 - Observe 200 requests
     for _ in range(200):
         ctx = random.choice(scenarios)
         integrated.execute_ci_repair_step(ctx)
 
-    # Compile & Shadow Qualification
     req = PromotionRequirements(6, 0.5, 0.5, 0.75, 0.20, 3, 50)
     client.compile(integrated.site.name, engine="exact")
 
@@ -283,14 +268,12 @@ def execute_pilot_c(db_dir: Path):
 
     client.calibrate(integrated.site.name, verifier=verifier, requirements=req)
 
-    # Shadow: 60 requests
     for _ in range(60):
         ctx = random.choice(scenarios)
         integrated.execute_ci_repair_step(ctx)
 
     client.evaluate(integrated.site.name, verifier=verifier, auto_promote=True)
 
-    # Active Serving: 100 requests
     active_serves = 0
     active_latencies = []
     for _ in range(100):
@@ -302,7 +285,6 @@ def execute_pilot_c(db_dir: Path):
         if res["decision_source"] == "fast_path":
             active_serves += 1
 
-    # Maintenance invocation UX test
     maint_stats = client.maintenance(time_budget_sec=1.0, verifier=verifier, requirements=req)
     compact_stats = client.compact(integrated.site.name, keep_recent=50, vacuum=True)
 
@@ -342,7 +324,6 @@ def main():
     print("PHASE 10: EXTERNAL PILOT EVALUATION HARNESS")
     print("=================================================================")
 
-    # Step 1: Discovery Audit across all pilots
     print("\n[Step 1] Auditing Discovery Precision & Rejections...")
     audit = run_discovery_audit()
     print("Discovery Audit Results:")
@@ -353,7 +334,6 @@ def main():
         print(f"    Investigate: {data['investigate']}")
         print(f"    Ignored    : {data['ignored']}")
 
-    # Setup temp pilot db dir
     pilot_db_dir = Path("pilots/results/db")
     if pilot_db_dir.exists():
         shutil.rmtree(pilot_db_dir)

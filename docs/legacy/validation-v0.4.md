@@ -6,7 +6,7 @@
 
 ## Verified local model workload
 
-[Machine-readable evidence](evidence/local-model-laya.json) records a complete run
+[Machine-readable evidence](../evidence/local-model-laya.json) records a complete run
 of **7,209 generated operational cases** with actual local model inference:
 
 - Original fallback: Qwen2.5-Coder-3B-Instruct-4bit through MLX-LM.
@@ -69,7 +69,7 @@ that stayed in shadow.
 
 ## Automated checks
 
-[Final release-check record](evidence/release-checks.json): **150 Python tests passed
+[Final release-check record](../evidence/release-checks.json): **150 Python tests passed
 against a fresh installed wheel as of the recorded commit therein**, including real Laya tests (zero skips). **95
 Rust tests passed**; formatting, Clippy, lint, legacy examples, installed CLI,
 SQLite integrity/foreign-key checks, and all installed-demo lifecycle gates passed.
@@ -87,7 +87,7 @@ See [the 60-subtask audit](implementation-status-v0.4.md) for the implementation
 
 ## Local inference measurements
 
-[Benchmark evidence](evidence/laya-benchmark.json): 30 warm samples, median 46.41 ms,
+[Benchmark evidence](../evidence/laya-benchmark.json): 30 warm samples, median 46.41 ms,
 p95 48.67 ms. Compile, integrity hashing, load, and first inference together:
 1.83 s. Observe-only dispatcher median: 61.75 µs. Checkpoint files: 846.20 MB;
 process peak RSS: 982.19 MB. These are smoke measurements on macOS arm64, not

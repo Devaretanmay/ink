@@ -62,7 +62,6 @@ class IntegratedCodingAgent:
         elapsed_ms = (time.perf_counter() - started) * 1000
         self.latencies.append(elapsed_ms)
 
-        # Downstream factual test outcome
         self.ml.record_outcome(
             decision.decision_id,
             quality=1.0,

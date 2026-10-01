@@ -94,7 +94,6 @@ def run_benchmark():
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "benchmark.db")
         with Microloop(db_path) as client:
-            # Populate baseline history
             for query, choice in seed_queries * 80:
                 res = client.decide(site=site, state={"request": query}, fallback=lambda c=choice: c)
                 client.record_outcome(
@@ -108,7 +107,6 @@ def run_benchmark():
             client.compile(site, engine="exact")
             client.calibrate(site, verifier=verifier, requirements=req)
 
-            # Fresh shadow traffic for full qualification
             for query, choice in seed_queries * 25:
                 res = client.decide(site=site, state={"request": query}, fallback=lambda c=choice: c)
                 client.record_outcome(
@@ -118,7 +116,6 @@ def run_benchmark():
                     verifier_version="1",
                     evidence={"shadow": True},
                 )
-            # Add semantic shadow samples for qualification
             sem_shadow = [
                 ("Duplicate charge showing on my credit card statement.", "refund"),
                 ("Please return the money from the second accidental payment.", "refund"),
@@ -136,17 +133,14 @@ def run_benchmark():
                     evidence={"sem_shadow": True},
                 )
 
-            # Evaluate to promote for Arm D
             eval_res = client.evaluate(site, verifier=verifier)
             artifact = client._artifact(site.version)
             cov_engine_dict = artifact["profile"]["coverage_engine"]
             vectorizer = TextVectorizer.from_dict(cov_engine_dict["vectorizer"])
             raw_regions = [SemanticRegion.from_dict(r) for r in cov_engine_dict["semantic_regions"]]
 
-    # Build reference vectors for seed queries (for Arm B)
     seed_vecs = [(vectorizer.transform(q), c) for q, c in seed_queries]
 
-    # Run evaluations across all 4 arms
     arms = ["arm_a_exact", "arm_b_naive_sim", "arm_c_semantic_unqualified", "arm_d_full_microloop"]
     results = {arm: {"total": len(items), "fast_served": 0, "correct_fast": 0, "false_served": 0, "abstained": 0, "latencies_us": []} for arm in arms}
 

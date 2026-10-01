@@ -81,7 +81,6 @@ def main():
     sparse_train_vecs = [sparse_vectorizer.transform(t) for t in train_texts]
     sparse_fit_time_ms = (time.perf_counter() - t0) * 1000
 
-    # Measure sparse transform latency
     t0 = time.perf_counter()
     for t in train_texts[:100]:
         sparse_vectorizer.transform(t)
@@ -92,13 +91,11 @@ def main():
     weights_path = Path(".microloop/models/contrastive_head.npz").resolve()
     contrastive_model = ContrastiveModel(str(ckpt_dir), str(weights_path))
 
-    # Pre-encode training vectors
     print("=== Step 3: Encoding Training Vectors for All Models ===")
-    raw_train_vecs = [contrastive_model.encode_raw(t) for t in train_texts[:150]]  # 150 representative seeds
+    raw_train_vecs = [contrastive_model.encode_raw(t) for t in train_texts[:150]]
     proj_train_vecs = [contrastive_model.encode_projected(t) for t in train_texts[:150]]
     train_subset_choices = train_choices[:150]
 
-    # Measure inference latencies
     t0 = time.perf_counter()
     for t in train_texts[:10]:
         contrastive_model.encode_raw(t)

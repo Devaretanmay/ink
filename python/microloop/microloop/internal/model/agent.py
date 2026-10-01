@@ -22,6 +22,7 @@ from .common import (
 )
 from .model import DecisionModel, EncoderConfig, sanitize_weights
 from .prepared import PrefixCache
+from .registry import model_path
 from .tokenizer import Tokenizer
 
 DTYPES = {"float32": mx.float32, "float16": mx.float16, "bfloat16": mx.bfloat16}
@@ -89,8 +90,6 @@ class Agent:
                 "use engine='exact' on Windows"
             )
         if model_id_or_path is None:
-            from .registry import model_path  # Deferred: only needed when no explicit path given.
-
             model_id_or_path = str(model_path())
         if dtype is None:
             dtype = "float16"

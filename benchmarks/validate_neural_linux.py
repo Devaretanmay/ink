@@ -24,7 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloo
 from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
 from microloop.internal.engines import DecisionModelEngine
 from microloop.internal.model import RUNTIME_VERSION
-from microloop.internal.model.agent import Agent
+from microloop.internal.model.agent import Agent, collate_items
 from microloop.internal.model.registry import model_path
 
 SITE = DecisionSite("linux.neural.site", {"request": "string"}, ("refund", "request_information", "specialist"))
@@ -78,7 +78,6 @@ def main():
         its, ins = agent.prepare(s, q)
         batch_items.extend(its)
         internal.extend(ins)
-    from microloop.internal.model.agent import collate_items
     collated = collate_items(batch_items, agent.tok.pad_token_id)
     logits, act = agent.forward(collated)
     dt_batch = (time.time() - t0) * 1000

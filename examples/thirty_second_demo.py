@@ -62,9 +62,6 @@ def main():
             {"text": "High value damaged shipment escalation.", "amount": 450},
         ]
 
-        # -------------------------------------------------------------
-        # ACT 1: OBSERVE & PROFILE SITE ECONOMICS
-        # -------------------------------------------------------------
         print("\n[ACT 1: OBSERVE & PROFILE ECONOMICS]")
         print("  Observing agent decisions executing remote LLM fallback...")
         for i in range(90):
@@ -92,9 +89,6 @@ def main():
         print(f"  -> Economic Recommendation: '{prof.recommendation.upper()}'")
         print(f"  -> Amortization Horizon: ~{prof.break_even_decisions} decisions")
 
-        # -------------------------------------------------------------
-        # ACT 2: COMPILE & SHADOW QUALIFICATION
-        # -------------------------------------------------------------
         print("\n[ACT 2: COMPILE & SHADOW QUALIFICATION]")
         print("  Compiling fast-path candidate and calibrating negative margins...")
         client.compile(site, engine="exact")
@@ -134,9 +128,6 @@ def main():
         print(f"  -> Shadow Qualification: Qualified={eval_res['qualified']}")
         print(f"  -> Artifact Promoted: ID={art['id'][:12]}... | Status={art['status']}")
 
-        # -------------------------------------------------------------
-        # ACT 3: INSTANT SERVING & DRIFT DEMOTION
-        # -------------------------------------------------------------
         print("\n[ACT 3: LOCAL FAST-PATH SERVING & DRIFT PROTECTION]")
         print("  Serving verified decisions locally (skipping cloud LLM):")
         test_state = patterns[0]
