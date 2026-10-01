@@ -12,8 +12,8 @@ def main(argv: list[str] | None = None) -> int:
     if not argv or argv in (["--help"], ["-h"]):
         print(
             "Microloop — verified fast paths for repeated agent decisions.\n\n"
-            "Commands: model-install, model-train, sites, inspect SITE,\n"
-            "          compile SITE, evaluate SITE, maintenance, export, retain.\n"
+            "Commands: discover TRACES, sites, inspect SITE, compile SITE, evaluate SITE,\n"
+            "          maintenance, export, retain, value, model-install, model-train.\n"
             "          Use COMMAND --help for options."
         )
         return 0

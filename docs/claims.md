@@ -92,6 +92,9 @@ Universal claims without qualification are prohibited in all documentation, READ
 
 ## 3. Mandatory Public Communication Guidelines
 
-1. **Never make universal claims:** Do not claim *"Microloop cuts LLM costs by 80%"*. State: *"Microloop cuts LLM calls by 75–85% on repetitive bounded decisions in steady state; on exploratory workloads, reduction is near 0%."*
-2. **Always report false serves alongside call reduction:** Any report of avoided calls must state the verified false-serve rate.
-3. **Always report qualification overhead:** Net savings must account for the 50 samples per choice required for shadow qualification.
+1. **Recommended Pitch Statements:**
+   - *"Microloop reduced false serves by 99.6% versus naive semantic caching in a 2,100-decision policy-drift benchmark."*
+   - *"For repetitive workloads, we measured 80.7% model-call avoidance at 100k decisions under stable Zipfian traffic."*
+2. **Never make universal claims:** Do not claim *"Microloop cuts LLM costs by 80%"*. State: *"Microloop cuts LLM calls by 75–85% on repetitive bounded decisions in steady state; on exploratory workloads, reduction is near 0%."*
+3. **Always report false serves alongside call reduction:** Any report of avoided calls must state the verified false-serve rate (e.g. 0.19% under live policy drift).
+4. **Always report qualification overhead:** Net savings must account for the 50 samples per choice required for shadow qualification.

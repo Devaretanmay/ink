@@ -36,11 +36,18 @@ def main(argv):
             "model-install",
             "model-train",
             "discover",
+            "value",
         ],
     )
     parser.add_argument("site", nargs="?")
     parser.add_argument("--db", default=".microloop/decisions.db")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--profile", action="store_true", help="Include deep economic profile in discover"
+    )
+    parser.add_argument(
+        "--snippet", action="store_true", help="Print integration code snippet for discovered sites"
+    )
     parser.add_argument("--checkpoint")
     parser.add_argument("--replace", action="store_true", help="Retire the current candidate")
     parser.add_argument("--verifier", help="Explicit trusted Python module:callable")
@@ -86,8 +93,112 @@ def main(argv):
 
             if not args.site:
                 raise ValueError("discover requires a trace file path (JSON or JSONL)")
-            candidates = [c.to_dict() for c in discover_from_file(args.site)]
-            print(json.dumps(candidates, indent=2))
+            candidates = discover_from_file(args.site)
+            if args.json:
+                print(json.dumps([c.to_dict() for c in candidates], indent=2))
+                return 0
+            print(f"Found {len(candidates)} candidate call sites.\n")
+            for i, c in enumerate(candidates, 1):
+                rec_label = (
+                    "STRONG CANDIDATE"
+                    if c.recommendation == "compile"
+                    else c.recommendation.upper()
+                )
+                print(f"{i}. {c.site_name}")
+                print(f"   traffic: {c.call_frequency:,.0f}/day ({c.total_calls} observed)")
+                print(
+                    f"   repetition: {c.repetition_rate:.1%}"
+                    + (
+                        f" (templated: {c.templated_repetition_rate:.1%})"
+                        if c.templated_repetition_rate > c.repetition_rate
+                        else ""
+                    )
+                )
+                print(f"   choices: {len(c.choices)} {c.choices[:5]}")
+                vr = c.verifier_readiness.upper()
+                print(f"   verifier readiness: {vr} ({c.verifier_coverage:.1%} coverage)")
+                print(f"   model latency: {c.p50_latency_ms:.1f}ms")
+                print(f"   estimated break-even: {c.break_even_decisions} decisions")
+                print(f"   estimated annual savings: ${c.estimated_annual_savings:,.2f}")
+                print(f"   recommendation: {rec_label}")
+                print(f"   reason: {c.reason}")
+                if c.volatile_fields:
+                    print(
+                        f"   volatile fields: {c.volatile_fields} (recommend excluding from state)"
+                    )
+                if args.profile:
+                    print(
+                        f"   [PROFILE] entropy: {c.output_entropy:.2f} bits | "
+                        f"stability: {c.categorical_stability:.1%}"
+                    )
+                    print(
+                        f"   [PROFILE] qual cost: ${c.qualification_cost_usd:.4f} | "
+                        f"avg cost: ${c.avg_cost:.6f}"
+                    )
+                if args.snippet and c.snippet:
+                    print("   [INTEGRATION SNIPPET]:")
+                    for sline in c.snippet.splitlines():
+                        print(f"     {sline}")
+                print()
+            return 0
+        if args.command == "value":
+            if not Path(args.db).is_file():
+                if args.json:
+                    print(
+                        json.dumps(
+                            {"error": "Decision database does not exist", "database": args.db}
+                        )
+                    )
+                else:
+                    print(f"No decision database found at {args.db}.")
+                return 0
+            with Microloop(args.db, readonly=True) as client:
+                sites = client.sites()
+                compiled_count = sum(1 for s in sites if s.get("fast_path") is not None)
+                active_count = sum(1 for s in sites if s.get("state") == "ACTIVE")
+                avoided_total = sum(s.get("fallbacks_avoided", 0) for s in sites)
+                fallback_total = sum(s.get("fallbacks", 0) for s in sites)
+                comparison_total = sum(
+                    s.get("profiler", {}).get("reasons", {}).get("comparison", 0) for s in sites
+                )
+                cost_saved = sum(
+                    s.get("fallbacks_avoided", 0)
+                    * s.get("profiler", {}).get("fallback_cost_per_decision", 0.002)
+                    for s in sites
+                )
+                past_break_even = sum(
+                    1
+                    for s in sites
+                    if s.get("fallbacks_avoided", 0)
+                    >= s.get("profiler", {}).get("break_even_decisions", 999999)
+                )
+                val_data = {
+                    "database": args.db,
+                    "registered_sites": len(sites),
+                    "compiled_sites": compiled_count,
+                    "active_sites": active_count,
+                    "model_calls_avoided": avoided_total,
+                    "estimated_cost_saved_usd": round(cost_saved, 4),
+                    "fallback_calls": fallback_total,
+                    "comparison_calls": comparison_total,
+                    "sites_past_break_even": f"{past_break_even}/{len(sites)}",
+                }
+                if args.json:
+                    print(json.dumps(val_data, indent=2))
+                else:
+                    print("=" * 45)
+                    print("MICROLOOP VALUE REPORT")
+                    print("=" * 45)
+                    print(f"Database              : {args.db}")
+                    print(f"Registered sites      : {len(sites)}")
+                    print(f"Compiled sites        : {compiled_count}")
+                    print(f"Active sites          : {active_count}")
+                    print(f"Model calls avoided   : {avoided_total:,}")
+                    print(f"Estimated cost saved  : ${cost_saved:,.4f}")
+                    print(f"Fallback calls        : {fallback_total:,}")
+                    print(f"Comparison calls      : {comparison_total:,}")
+                    print(f"Sites past break-even : {past_break_even}/{len(sites)}")
+                    print("=" * 45)
             return 0
         if args.command in {"sites", "inspect"} and not Path(args.db).is_file():
             if args.command == "sites":

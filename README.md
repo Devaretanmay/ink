@@ -59,7 +59,7 @@ python examples/thirty_second_demo.py
 The demo executes three distinct acts:
 - **Act 1: Observation & Economics:** Records baseline decisions and profiles repeat rate, entropy, and break-even horizon.
 - **Act 2: Shadow Qualification:** Compiles candidate fast paths and qualifies against holdout verification evidence.
-- **Act 3: Local Serving & Drift Protection:** Serves verified decisions in <0.5ms. Injects an upstream policy drift, autonomously demotes the stale path via comparison traffic, and safely returns to fallback with zero corrupted serves.
+- **Act 3: Local Serving & Drift Protection:** Serves verified decisions in <0.5ms. Injects an upstream policy drift, autonomously demotes the stale path via comparison traffic, and safely returns to fallback with 99.6% fewer false serves than naive caching.
 
 ---
 

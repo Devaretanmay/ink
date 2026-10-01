@@ -1,0 +1,52 @@
+{
+  "top_1": {
+    "strategy": "top_1",
+    "compiled_sites": 1,
+    "qualification_overhead_calls": 150,
+    "served_fast_paths": 922,
+    "net_calls_avoided": 772,
+    "net_cost_savings_usd": 0.31,
+    "false_serves": 0,
+    "database_size_kb": 17120.0
+  },
+  "top_3": {
+    "strategy": "top_3",
+    "compiled_sites": 3,
+    "qualification_overhead_calls": 450,
+    "served_fast_paths": 2768,
+    "net_calls_avoided": 2318,
+    "net_cost_savings_usd": 0.93,
+    "false_serves": 0,
+    "database_size_kb": 18724.0
+  },
+  "top_5": {
+    "strategy": "top_5",
+    "compiled_sites": 5,
+    "qualification_overhead_calls": 750,
+    "served_fast_paths": 4198,
+    "net_calls_avoided": 3448,
+    "net_cost_savings_usd": 1.38,
+    "false_serves": 0,
+    "database_size_kb": 20480.0
+  },
+  "recommended_only": {
+    "strategy": "recommended_only",
+    "compiled_sites": 9,
+    "qualification_overhead_calls": 1350,
+    "served_fast_paths": 7212,
+    "net_calls_avoided": 5862,
+    "net_cost_savings_usd": 2.34,
+    "false_serves": 0,
+    "database_size_kb": 23852.0
+  },
+  "compile_all": {
+    "strategy": "compile_all",
+    "compiled_sites": 14,
+    "qualification_overhead_calls": 3000,
+    "served_fast_paths": 10850,
+    "net_calls_avoided": 7850,
+    "net_cost_savings_usd": 3.14,
+    "false_serves": 0,
+    "database_size_kb": 30488.0
+  }
+}

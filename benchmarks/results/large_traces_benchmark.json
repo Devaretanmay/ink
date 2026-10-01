@@ -1,0 +1,470 @@
+{
+  "10000": {
+    "records": 10000,
+    "elapsed_seconds": 0.9513,
+    "throughput_rec_per_sec": 10512.3,
+    "peak_memory_mb": 3.8,
+    "candidate_count": 4,
+    "candidates": [
+      {
+        "site_name": "support.route",
+        "call_frequency": 21608.64,
+        "repetition_rate": 0.8725,
+        "output_entropy": 1.585,
+        "verifiability": 0.8,
+        "estimated_annual_savings": 2614.93,
+        "recommendation": "compile",
+        "reason": "Strong candidate: 87.2% repetition, bounded choices (3), break-even in ~181 decisions.",
+        "total_calls": 2500,
+        "unique_inputs": 630,
+        "choices": [
+          "refund",
+          "agent",
+          "faq"
+        ],
+        "p50_latency_ms": 139.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.715,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "verifier_ready",
+        "verifier_coverage": 0.8,
+        "suggested_verifiers": [
+          "db"
+        ],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 181,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"support.route\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('refund', 'agent', 'faq',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "agent.tool_select",
+        "call_frequency": 21608.64,
+        "repetition_rate": 0.7125,
+        "output_entropy": 1.585,
+        "verifiability": 1.0,
+        "estimated_annual_savings": 2135.39,
+        "recommendation": "compile",
+        "reason": "Strong candidate: 71.2% repetition, bounded choices (3), break-even in ~222 decisions.",
+        "total_calls": 2500,
+        "unique_inputs": 970,
+        "choices": [
+          "calc",
+          "finish",
+          "search"
+        ],
+        "p50_latency_ms": 140.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.585,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "verifier_ready",
+        "verifier_coverage": 1.0,
+        "suggested_verifiers": [
+          "db"
+        ],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 222,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"agent.tool_select\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('calc', 'finish', 'search',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "free_text.reply",
+        "call_frequency": 21608.64,
+        "repetition_rate": 0.9975,
+        "output_entropy": 4.6439,
+        "verifiability": 0.0,
+        "estimated_annual_savings": 2989.43,
+        "recommendation": "ignore",
+        "reason": "High output entropy (4.64 bits, 25 choices, avg length 8 chars); free-form generation is not bounded.",
+        "total_calls": 2500,
+        "unique_inputs": 2415,
+        "choices": [
+          "reply_3",
+          "reply_7",
+          "reply_11",
+          "reply_15",
+          "reply_19",
+          "reply_23",
+          "reply_27",
+          "reply_31",
+          "reply_35",
+          "reply_39"
+        ],
+        "p50_latency_ms": 140.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.0325,
+        "categorical_stability": 0.12,
+        "verifier_readiness": "no_verifier",
+        "verifier_coverage": 0.0,
+        "suggested_verifiers": [],
+        "volatile_fields": [
+          "item_key",
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float"
+        },
+        "break_even_decisions": 528,
+        "qualification_cost_usd": 0.2,
+        "snippet": "site = DecisionSite(\n    name=\"free_text.reply\",\n    state_schema={\n        \"amount\": \"float\"\n    },\n    choices=('reply_3', 'reply_7', 'reply_11', 'reply_15', 'reply_19', 'reply_23', 'reply_27', 'reply_31', 'reply_35', 'reply_39',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "ticket.priority",
+        "call_frequency": 21608.64,
+        "repetition_rate": 0.8725,
+        "output_entropy": 1.585,
+        "verifiability": 0.0,
+        "estimated_annual_savings": 2614.93,
+        "recommendation": "investigate",
+        "reason": "No factual outcome verifier detected in traces; shadow qualification requires independent verification.",
+        "total_calls": 2500,
+        "unique_inputs": 630,
+        "choices": [
+          "high",
+          "low",
+          "med"
+        ],
+        "p50_latency_ms": 139.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.715,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "no_verifier",
+        "verifier_coverage": 0.0,
+        "suggested_verifiers": [],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 181,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"ticket.priority\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('high', 'low', 'med',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      }
+    ]
+  },
+  "100000": {
+    "records": 100000,
+    "elapsed_seconds": 4.3717,
+    "throughput_rec_per_sec": 22874.4,
+    "peak_memory_mb": 7.46,
+    "candidate_count": 4,
+    "candidates": [
+      {
+        "site_name": "support.route",
+        "call_frequency": 21600.86,
+        "repetition_rate": 0.8725,
+        "output_entropy": 1.585,
+        "verifiability": 0.8,
+        "estimated_annual_savings": 2613.98,
+        "recommendation": "compile",
+        "reason": "Strong candidate: 87.2% repetition, bounded choices (3), break-even in ~181 decisions.",
+        "total_calls": 25000,
+        "unique_inputs": 3330,
+        "choices": [
+          "refund",
+          "agent",
+          "faq"
+        ],
+        "p50_latency_ms": 139.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.715,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "verifier_ready",
+        "verifier_coverage": 0.8,
+        "suggested_verifiers": [
+          "db"
+        ],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 181,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"support.route\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('refund', 'agent', 'faq',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "agent.tool_select",
+        "call_frequency": 21600.86,
+        "repetition_rate": 0.7125,
+        "output_entropy": 1.585,
+        "verifiability": 1.0,
+        "estimated_annual_savings": 2134.62,
+        "recommendation": "compile",
+        "reason": "Strong candidate: 71.2% repetition, bounded choices (3), break-even in ~222 decisions.",
+        "total_calls": 25000,
+        "unique_inputs": 7270,
+        "choices": [
+          "calc",
+          "finish",
+          "search"
+        ],
+        "p50_latency_ms": 140.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.585,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "verifier_ready",
+        "verifier_coverage": 1.0,
+        "suggested_verifiers": [
+          "db"
+        ],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 222,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"agent.tool_select\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('calc', 'finish', 'search',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "free_text.reply",
+        "call_frequency": 21600.86,
+        "repetition_rate": 0.9975,
+        "output_entropy": 4.6439,
+        "verifiability": 0.0,
+        "estimated_annual_savings": 2988.35,
+        "recommendation": "ignore",
+        "reason": "High output entropy (4.64 bits, 25 choices, avg length 8 chars); free-form generation is not bounded.",
+        "total_calls": 25000,
+        "unique_inputs": 24015,
+        "choices": [
+          "reply_3",
+          "reply_7",
+          "reply_11",
+          "reply_15",
+          "reply_19",
+          "reply_23",
+          "reply_27",
+          "reply_31",
+          "reply_35",
+          "reply_39"
+        ],
+        "p50_latency_ms": 140.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.0325,
+        "categorical_stability": 0.12,
+        "verifier_readiness": "no_verifier",
+        "verifier_coverage": 0.0,
+        "suggested_verifiers": [],
+        "volatile_fields": [
+          "item_key",
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float"
+        },
+        "break_even_decisions": 528,
+        "qualification_cost_usd": 0.2,
+        "snippet": "site = DecisionSite(\n    name=\"free_text.reply\",\n    state_schema={\n        \"amount\": \"float\"\n    },\n    choices=('reply_3', 'reply_7', 'reply_11', 'reply_15', 'reply_19', 'reply_23', 'reply_27', 'reply_31', 'reply_35', 'reply_39',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "ticket.priority",
+        "call_frequency": 21600.86,
+        "repetition_rate": 0.8725,
+        "output_entropy": 1.585,
+        "verifiability": 0.0,
+        "estimated_annual_savings": 2613.98,
+        "recommendation": "investigate",
+        "reason": "No factual outcome verifier detected in traces; shadow qualification requires independent verification.",
+        "total_calls": 25000,
+        "unique_inputs": 3330,
+        "choices": [
+          "high",
+          "low",
+          "med"
+        ],
+        "p50_latency_ms": 139.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.715,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "no_verifier",
+        "verifier_coverage": 0.0,
+        "suggested_verifiers": [],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 181,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"ticket.priority\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('high', 'low', 'med',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      }
+    ]
+  },
+  "1000000": {
+    "records": 1000000,
+    "elapsed_seconds": 32.7086,
+    "throughput_rec_per_sec": 30573.0,
+    "peak_memory_mb": 16.87,
+    "candidate_count": 4,
+    "candidates": [
+      {
+        "site_name": "support.route",
+        "call_frequency": 21600.09,
+        "repetition_rate": 0.8725,
+        "output_entropy": 1.585,
+        "verifiability": 0.8,
+        "estimated_annual_savings": 2613.89,
+        "recommendation": "compile",
+        "reason": "Strong candidate: 87.2% repetition, bounded choices (3), break-even in ~181 decisions.",
+        "total_calls": 250000,
+        "unique_inputs": 30330,
+        "choices": [
+          "refund",
+          "agent",
+          "faq"
+        ],
+        "p50_latency_ms": 139.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.715,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "verifier_ready",
+        "verifier_coverage": 0.8,
+        "suggested_verifiers": [
+          "db"
+        ],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 181,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"support.route\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('refund', 'agent', 'faq',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "agent.tool_select",
+        "call_frequency": 21600.09,
+        "repetition_rate": 0.7125,
+        "output_entropy": 1.585,
+        "verifiability": 1.0,
+        "estimated_annual_savings": 2134.54,
+        "recommendation": "compile",
+        "reason": "Strong candidate: 71.2% repetition, bounded choices (3), break-even in ~222 decisions.",
+        "total_calls": 250000,
+        "unique_inputs": 50000,
+        "choices": [
+          "calc",
+          "finish",
+          "search"
+        ],
+        "p50_latency_ms": 140.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.585,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "verifier_ready",
+        "verifier_coverage": 1.0,
+        "suggested_verifiers": [
+          "db"
+        ],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 222,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"agent.tool_select\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('calc', 'finish', 'search',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "free_text.reply",
+        "call_frequency": 21600.09,
+        "repetition_rate": 0.9975,
+        "output_entropy": 4.6439,
+        "verifiability": 0.0,
+        "estimated_annual_savings": 2988.24,
+        "recommendation": "ignore",
+        "reason": "High output entropy (4.64 bits, 25 choices, avg length 8 chars); free-form generation is not bounded.",
+        "total_calls": 250000,
+        "unique_inputs": 50000,
+        "choices": [
+          "reply_3",
+          "reply_7",
+          "reply_11",
+          "reply_15",
+          "reply_19",
+          "reply_23",
+          "reply_27",
+          "reply_31",
+          "reply_35",
+          "reply_39"
+        ],
+        "p50_latency_ms": 140.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.0325,
+        "categorical_stability": 0.12,
+        "verifier_readiness": "no_verifier",
+        "verifier_coverage": 0.0,
+        "suggested_verifiers": [],
+        "volatile_fields": [
+          "item_key",
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float"
+        },
+        "break_even_decisions": 528,
+        "qualification_cost_usd": 0.2,
+        "snippet": "site = DecisionSite(\n    name=\"free_text.reply\",\n    state_schema={\n        \"amount\": \"float\"\n    },\n    choices=('reply_3', 'reply_7', 'reply_11', 'reply_15', 'reply_19', 'reply_23', 'reply_27', 'reply_31', 'reply_35', 'reply_39',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      },
+      {
+        "site_name": "ticket.priority",
+        "call_frequency": 21600.09,
+        "repetition_rate": 0.8725,
+        "output_entropy": 1.585,
+        "verifiability": 0.0,
+        "estimated_annual_savings": 2613.89,
+        "recommendation": "investigate",
+        "reason": "No factual outcome verifier detected in traces; shadow qualification requires independent verification.",
+        "total_calls": 250000,
+        "unique_inputs": 30330,
+        "choices": [
+          "high",
+          "low",
+          "med"
+        ],
+        "p50_latency_ms": 139.0,
+        "avg_cost": 0.0004,
+        "templated_repetition_rate": 0.715,
+        "categorical_stability": 1.0,
+        "verifier_readiness": "no_verifier",
+        "verifier_coverage": 0.0,
+        "suggested_verifiers": [],
+        "volatile_fields": [
+          "session_id"
+        ],
+        "suggested_state_schema": {
+          "amount": "float",
+          "item_key": "string"
+        },
+        "break_even_decisions": 181,
+        "qualification_cost_usd": 0.06,
+        "snippet": "site = DecisionSite(\n    name=\"ticket.priority\",\n    state_schema={\n        \"amount\": \"float\",\n        \"item_key\": \"string\"\n    },\n    choices=('high', 'low', 'med',),\nresult = ml.decide(site=site.name, state=state, fallback=current_model_call)\n# Execute action and record outcome receipt:\nml.record_outcome(\n    result.decision_id,\n    quality=1.0 if outcome_verified else 0.0,\n    verifier=\"task_verifier\",\n    verifier_version=\"1\",\n    evidence={\"status\": \"verified\"},\n)"
+      }
+    ]
+  }
+}
