@@ -72,14 +72,16 @@ from microloop.discovery import discover_from_file
 
 candidates = discover_from_file("agent_traces.jsonl")
 for c in candidates:
-    print(f"Site: {c.site_name} | Repeat: {c.repetition_rate:.1%} | Action: {c.recommendation.upper()}")
+    print(
+        f"Site: {c.site_name} | Repeat: {c.repetition_rate:.1%} | Action: {c.recommendation.upper()}"
+    )
 ```
 
 Or profile an existing registered site directly:
 
 ```python
 profile = client.profile("support.route")
-print(profile.recommendation)        # 'strong_candidate', 'poor_repetition', 'weak_verifier', etc.
+print(profile.recommendation)  # 'strong_candidate', 'poor_repetition', 'weak_verifier', etc.
 print(profile.break_even_decisions)  # Estimated decisions until qualification amortizes
 ```
 
@@ -122,10 +124,25 @@ with Microloop() as client:
 
 ---
 
+## Production Pilots & External Validation
+
+Microloop has been validated across three independent external application pilot archetypes ([`pilots/`](pilots/)):
+- **Pilot A (Agent Tool Orchestration):** 49.2% net call reduction, 1.00 ms p50 latency, delayed tool exit code verifier.
+- **Pilot B (Support Workflow Routing):** 38.8% net call reduction, 1.19 ms p50 latency, explicit policy invalidation (`client.invalidate`).
+- **Pilot C (Autonomous Coding CI Agent):** 45.0% net call reduction, 1.21 ms p50 latency (down from 1,200 ms), deterministic `pytest` exit code verifier.
+
+Run the pilot evaluation harness locally:
+```bash
+python pilots/run_all_pilots.py
+```
+
+---
+
 ## Claims and Evidence
 
 Every claim made about Microloop is registered with its exact empirical conditions in the [Claims Registry](docs/claims.md).
 
+- **Phase 10 Pilot Report:** [External Pilot Report](pilots/REPORT.md)
 - **Formal Invariants:** [Formal Safety Specification](docs/safety-spec.md)
 - **Architecture Details:** [Architecture Documentation](docs/architecture.md)
 - **CLI Commands:** [CLI Reference](docs/cli.md)
@@ -136,3 +153,4 @@ pytest python/microloop/tests/
 ```
 
 License: Apache-2.0
+

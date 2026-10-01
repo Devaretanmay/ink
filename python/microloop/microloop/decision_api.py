@@ -148,9 +148,7 @@ class Microloop:
                 "SELECT SUM(fast_served) as fast_count FROM state_coverage WHERE site=?",
                 (artifact["site"],),
             )
-            verified_count = (
-                cov_row[0]["fast_count"] if cov_row and cov_row[0]["fast_count"] else 0
-            )
+            verified_count = cov_row[0]["fast_count"] if cov_row and cov_row[0]["fast_count"] else 0
             min_samples = req.get("min_samples", 10)
             if verified_count >= 2 * min_samples:
                 scale = math.sqrt((2 * min_samples) / verified_count)
@@ -204,10 +202,9 @@ class Microloop:
             state_in = state
             has_proto = region and "prototype_state" in region
             if (is_semantic_shadow or level == "semantic") and has_proto:
-                if (
-                    payload["engine_data"].get("engine") == "exact"
-                    and canonical(state) not in payload["engine_data"].get("table", {})
-                ):
+                if payload["engine_data"].get("engine") == "exact" and canonical(
+                    state
+                ) not in payload["engine_data"].get("table", {}):
                     state_in = region["prototype_state"]
             choice, probability = engine.predict(payload["engine_data"], state_in)
             if (
@@ -785,6 +782,41 @@ class Microloop:
             )
         return evidence
 
+    def invalidate(
+        self,
+        site: str | DecisionSite,
+        *,
+        reason: str = "policy_revision",
+        action: str = "demote",
+    ) -> dict:
+        site = self._resolve(site)
+        artifact = self._artifact(site.version)
+        if artifact is None or artifact["status"] not in ("ACTIVE", "VERIFIED"):
+            return {"site": site.name, "invalidated": False, "reason": "no_active_artifact"}
+        target_status = "RETIRED" if action == "retire" else "SHADOW"
+        now = time.time()
+        with self.store.transaction() as db:
+            db.execute(
+                "UPDATE artifacts SET status=?, epoch=? WHERE id=?",
+                (target_status, now, artifact["id"]),
+            )
+            self._event(
+                db,
+                artifact["id"],
+                artifact["status"],
+                target_status,
+                {"reason": reason, "explicit": True},
+            )
+        return {
+            "site": site.name,
+            "version": site.version,
+            "artifact": artifact["id"],
+            "previous_status": artifact["status"],
+            "new_status": target_status,
+            "reason": reason,
+            "invalidated": True,
+        }
+
     def maintenance(
         self,
         sites: list[str | DecisionSite] | None = None,
@@ -871,7 +903,8 @@ class Microloop:
                             cov_engine = CoverageEngine.from_dict(cov_data)
                             history = self.store.history(site.version)
                             recent_counterexamples = [
-                                r for r in history[-50:]
+                                r
+                                for r in history[-50:]
                                 if r.get("outcome") and r["outcome"].get("quality", 1.0) < 0.5
                             ]
                             tightened_any = False
@@ -883,13 +916,15 @@ class Microloop:
                                     tightened_any = True
                                     with self.store.transaction() as db:
                                         self._event(
-                                            db, cur["id"], "ACTIVE", "ACTIVE",
+                                            db,
+                                            cur["id"],
+                                            "ACTIVE",
+                                            "ACTIVE",
                                             {"event": "region_tightened", "regions": tightened},
                                         )
 
-                            if (
-                                req_dict.get("allow_region_split", True)
-                                and not req_dict.get("high_risk", False)
+                            if req_dict.get("allow_region_split", True) and not req_dict.get(
+                                "high_risk", False
                             ):
                                 min_reg_s = req_dict.get("min_region_samples", 5)
                                 split_candidates = []
@@ -963,9 +998,7 @@ class Microloop:
                             self.compile(site, engine=engine, replace_existing=True)
                             self.calibrate(site, verifier=verifier, requirements=requirements)
                     req_dict = (
-                        artifact["profile"].get("requirements", {})
-                        if artifact["profile"]
-                        else {}
+                        artifact["profile"].get("requirements", {}) if artifact["profile"] else {}
                     )
                     if artifact["profile"] is not None and (
                         req_dict.get("high_risk", False)
@@ -1375,12 +1408,8 @@ class Microloop:
         quality_lower = lower_bound(outcomes) if outcomes else 0.0
 
         comparisons = [r for r in matched_rows if r.get("reason") == "comparison"]
-        disagreements = [
-            r for r in comparisons if r.get("outcome") and r["choice"] != reg.choice
-        ]
-        disagreement_rate = (
-            len(disagreements) / len(comparisons) if comparisons else 0.0
-        )
+        disagreements = [r for r in comparisons if r.get("outcome") and r["choice"] != reg.choice]
+        disagreement_rate = len(disagreements) / len(comparisons) if comparisons else 0.0
 
         dist_mean = float(np.mean(dists)) if dists else 0.0
         dist_p95 = float(np.percentile(dists, 95)) if dists else 0.0
@@ -1415,10 +1444,7 @@ class Microloop:
         if not cov_data:
             return []
         cov_engine = CoverageEngine.from_dict(cov_data)
-        return [
-            self.region_health(site, reg.region_id)
-            for reg in cov_engine.semantic_regions
-        ]
+        return [self.region_health(site, reg.region_id) for reg in cov_engine.semantic_regions]
 
 
 _default_client = None

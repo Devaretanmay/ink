@@ -113,6 +113,67 @@ def test_generate_snippet():
     assert "ml.decide" in snippet
     assert "ml.record_outcome" in snippet
 
+    # Snippet with suggested volatile exclusions
+    vol_snippet = generate_snippet(
+        "support.route",
+        {"text": "string"},
+        ["refund", "escalate"],
+        volatile_fields=["session_id", "timestamp"],
+    )
+    assert "Suggested exclusions detected in telemetry" in vol_snippet
+    assert "session_id" in vol_snippet
+    assert "timestamp" in vol_snippet
+
+
+def test_explicit_invalidation(tmp_path):
+    from microloop import Outcome, PromotionRequirements
+    db_path = tmp_path / "invalidation_test.db"
+    site = DecisionSite("inval_site", {"cat": "string"}, ("a", "b"))
+    with Microloop(str(db_path)) as client:
+        client.register(site)
+        for i in range(120):
+            res = client.decide(
+                site=site.name,
+                state={"cat": f"c_{i % 2}"},
+                fallback=lambda i=i: "a" if (i % 2 == 0) else "b",
+            )
+            client.record_outcome(
+                decision_id=res.decision_id,
+                quality=1.0,
+                verifier="test_v",
+                verifier_version="1",
+                evidence={"ok": True},
+            )
+        req = PromotionRequirements(6, 0.5, 0.5, 0.75, 0.25, 3, 50)
+        client.compile(site.name, engine="exact")
+        def verifier(s, c):
+            return Outcome(1.0, "test_v", "1", {"ok": True})
+        client.calibrate(site.name, verifier=verifier, requirements=req)
+        for i in range(50):
+            res = client.decide(
+                site=site.name,
+                state={"cat": f"c_{i % 2}"},
+                fallback=lambda i=i: "a" if (i % 2 == 0) else "b",
+            )
+            client.record_outcome(
+                decision_id=res.decision_id,
+                quality=1.0,
+                verifier="test_v",
+                verifier_version="1",
+                evidence={"ok": True},
+            )
+        eval_res = client.evaluate(site.name, verifier=verifier, auto_promote=True)
+        assert eval_res["qualified"]
+        assert client.inspect(site.name)["state"] == "ACTIVE"
+
+        # Explicit invalidation: demote to SHADOW
+        inval_res = client.invalidate(site.name, reason="policy_v2_migration")
+        assert inval_res["invalidated"] is True
+        assert inval_res["previous_status"] == "ACTIVE"
+        assert inval_res["new_status"] == "SHADOW"
+        assert client.inspect(site.name)["state"] == "SHADOW"
+
+
 
 def test_cli_discover_and_value(tmp_path, capsys):
     traces = [

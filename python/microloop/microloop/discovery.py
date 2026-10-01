@@ -445,10 +445,24 @@ def assess_verifier_readiness(rows: list[CanonicalTrace]) -> tuple[str, float, l
     return readiness, coverage, suggested
 
 
-def generate_snippet(site_name: str, schema: dict[str, str], choices: list[str]) -> str:
+def generate_snippet(
+    site_name: str,
+    schema: dict[str, str],
+    choices: list[str],
+    volatile_fields: list[str] | None = None,
+) -> str:
     schema_str = json.dumps(schema or {"input": "string"}, indent=8).rstrip("}").strip() + "\n    }"
     choices_str = ", ".join(repr(c) for c in (choices if choices else ["action_1", "action_2"]))
+    vol_lines = ""
+    if volatile_fields:
+        vol_list = repr(sorted(volatile_fields))
+        vol_lines = (
+            f"# Note: Suggested exclusions detected in telemetry: {vol_list}\n"
+            f"# Review whether these fields are semantically critical before excluding:\n"
+            f"# state = {{k: v for k, v in raw_state.items() if k not in set({vol_list})}}\n\n"
+        )
     return (
+        f"{vol_lines}"
         f"site = DecisionSite(\n"
         f'    name="{site_name}",\n'
         f"    state_schema={schema_str},\n"
@@ -624,7 +638,7 @@ def discover_from_stream(
                 f"Strong candidate: {effective_rep:.1%} repetition, "
                 f"bounded choices ({num_choices}), break-even in ~{break_even} decisions."
             )
-        snippet = generate_snippet(site_key, schema, distinct_choices)
+        snippet = generate_snippet(site_key, schema, distinct_choices, volatile)
         verifiability = v_cov if readiness != "no_verifier" else 0.0
         candidate = CandidateSite(
             site_name=site_key,

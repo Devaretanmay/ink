@@ -124,7 +124,8 @@ def main(argv):
                 print(f"   reason: {c.reason}")
                 if c.volatile_fields:
                     print(
-                        f"   volatile fields: {c.volatile_fields} (recommend excluding from state)"
+                        f"   volatile fields: {c.volatile_fields}\n"
+                        "     (suggested exclusions - developer review required)"
                     )
                 if args.profile:
                     print(
