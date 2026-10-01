@@ -135,10 +135,14 @@ MIGRATIONS = {1: _migrate_1_to_2, 2: _migrate_2_to_3}
 
 def _migrate_3_to_4(db):
     """Add queryable coverage, promotion, drift, and lineage tables with backfill."""
-    for statement in [s for s in SCHEMA if s.startswith("CREATE TABLE state_coverage")
-                      or s.startswith("CREATE TABLE promotion_records")
-                      or s.startswith("CREATE TABLE drift_checks")
-                      or s.startswith("CREATE TABLE artifact_links")]:
+    for statement in [
+        s
+        for s in SCHEMA
+        if s.startswith("CREATE TABLE state_coverage")
+        or s.startswith("CREATE TABLE promotion_records")
+        or s.startswith("CREATE TABLE drift_checks")
+        or s.startswith("CREATE TABLE artifact_links")
+    ]:
         db.execute(statement)
     db.execute(
         """INSERT INTO state_coverage(site, state, observations, fast_served, outcomes, quality_sum)
@@ -158,15 +162,17 @@ def _migrate_3_to_4(db):
         db.execute(
             "INSERT OR IGNORE INTO promotion_records VALUES (?,?,?,?,?,?,?,?)",
             (
-                row["id"], time.time(), int(bool(evidence.get("qualified"))),
-                holdout.get("samples", 0), shadow.get("samples", 0),
-                holdout.get("quality_lower"), shadow.get("delta_lower"),
+                row["id"],
+                time.time(),
+                int(bool(evidence.get("qualified"))),
+                holdout.get("samples", 0),
+                shadow.get("samples", 0),
+                holdout.get("quality_lower"),
+                shadow.get("delta_lower"),
                 holdout.get("agreement"),
             ),
         )
-    for row in db.execute(
-        "SELECT artifact, created, previous, current, detail FROM events"
-    ):
+    for row in db.execute("SELECT artifact, created, previous, current, detail FROM events"):
         try:
             detail = json.loads(row["detail"])
         except ValueError:
@@ -177,10 +183,15 @@ def _migrate_3_to_4(db):
                 comparison_samples, missing_outcomes, quality_lower, delta_lower, uncovered_rate)
                 VALUES (?,?,?,?,?,?,?,?,?)""",
                 (
-                    row["artifact"], row["created"], 1,
-                    detail.get("active_samples", 0), detail.get("comparison_samples", 0),
-                    detail.get("missing_outcomes", 0), detail.get("quality_lower"),
-                    detail.get("delta_lower"), detail.get("uncovered_rate"),
+                    row["artifact"],
+                    row["created"],
+                    1,
+                    detail.get("active_samples", 0),
+                    detail.get("comparison_samples", 0),
+                    detail.get("missing_outcomes", 0),
+                    detail.get("quality_lower"),
+                    detail.get("delta_lower"),
+                    detail.get("uncovered_rate"),
                 ),
             )
         if row["current"] == "RETIRED" and isinstance(detail, dict) and detail.get("replaced_by"):
@@ -261,9 +272,17 @@ class DecisionStore:
             try:
                 data = {
                     table: self.rows(f"SELECT * FROM {table}")
-                    for table in ("sites", "decisions", "outcomes", "artifacts", "events",
-                                  "state_coverage", "promotion_records", "drift_checks",
-                                  "artifact_links")
+                    for table in (
+                        "sites",
+                        "decisions",
+                        "outcomes",
+                        "artifacts",
+                        "events",
+                        "state_coverage",
+                        "promotion_records",
+                        "drift_checks",
+                        "artifact_links",
+                    )
                 }
             finally:
                 self.conn.rollback()
@@ -319,8 +338,7 @@ class DecisionStore:
                 (timestamp,),
             ).rowcount
             for row in db.execute(
-                "SELECT DISTINCT site FROM decisions WHERE site NOT IN "
-                "(SELECT site FROM artifacts)"
+                "SELECT DISTINCT site FROM decisions WHERE site NOT IN (SELECT site FROM artifacts)"
             ):
                 self._rebuild_coverage(db, row[0])
             return count

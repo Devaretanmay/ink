@@ -1,9 +1,4 @@
-"""Microloop CLI: decision commands (sites, inspect, compile, evaluate, maintenance,
-export, retain, model-install, model-train).
-
-Thin entry-point wrapper around :mod:`microloop.decision_cli` so the installed
-``microloop`` script keeps a stable ``main(argv)`` surface.
-"""
+"""Microloop CLI entry point."""
 
 from __future__ import annotations
 
@@ -23,7 +18,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
     if argv in (["--version"], ["-V"]):
-        from . import __version__
+        from . import __version__  # Deferred to avoid loading the Rust extension for --help.
 
         print(f"microloop {__version__}")
         return 0

@@ -1,0 +1,74 @@
+{
+  "frozen_at": "2026-10-01T19:38:00+05:30",
+  "phase": "Phase 3 Baseline Freeze",
+  "representation": {
+    "sparse_tfidf": {
+      "top1_same_choice_recall": 0.48,
+      "false_neighbor_rate": 0.52,
+      "contrastive_robustness": 0.625,
+      "latency_ms": 0.011,
+      "vector_dims": 1500,
+      "storage_kb_per_1k": 5859.4,
+      "model_memory_mb": 0.5
+    },
+    "neural_modernbert_raw": {
+      "top1_same_choice_recall": 0.26,
+      "false_neighbor_rate": 0.74,
+      "contrastive_robustness": 0.25,
+      "latency_ms": 31.27,
+      "vector_dims": 1024,
+      "storage_kb_per_1k": 4000.0,
+      "model_memory_mb": 918.0
+    }
+  },
+  "coverage_arms": {
+    "arm_a_exact": {
+      "coverage_rate": 0.0556,
+      "verified_coverage_rate": 0.0556,
+      "served_accuracy": 1.0,
+      "false_serve_rate": 0.0,
+      "abstention_rate": 0.9444,
+      "latency_p50_us": 0.21,
+      "latency_p95_us": 0.62
+    },
+    "arm_b_naive_similarity": {
+      "coverage_rate": 0.0833,
+      "verified_coverage_rate": 0.0556,
+      "served_accuracy": 0.6667,
+      "false_serve_rate": 0.0278,
+      "abstention_rate": 0.9167,
+      "latency_p50_us": 2.04,
+      "latency_p95_us": 5.79
+    },
+    "arm_c_semantic_unqualified": {
+      "coverage_rate": 0.1111,
+      "verified_coverage_rate": 0.0833,
+      "served_accuracy": 0.75,
+      "false_serve_rate": 0.0278,
+      "abstention_rate": 0.8889,
+      "latency_p50_us": 24.29,
+      "latency_p95_us": 106.0
+    },
+    "arm_d_full_microloop": {
+      "coverage_rate": 0.0556,
+      "verified_coverage_rate": 0.0556,
+      "served_accuracy": 1.0,
+      "false_serve_rate": 0.0,
+      "abstention_rate": 0.9444,
+      "latency_p50_us": 23.92,
+      "latency_p95_us": 72.83
+    }
+  },
+  "quantization": {
+    "fp16_accuracy": 0.6269,
+    "fp16_size_mb": 803.6,
+    "int8_accuracy": 0.6269,
+    "int8_size_mb": 417.9,
+    "int8_accuracy_degradation": 0.0000
+  },
+  "kill_rule_invariants": {
+    "max_allowed_false_serve_rate": 0.0000,
+    "min_required_verified_coverage": 0.0556,
+    "max_allowable_latency_us": 50.0
+  }
+}

@@ -2,7 +2,7 @@
 
 Skips when MLX or a local checkpoint is unavailable.
 Checkpoint: managed `microloop model-install` dir, $MICROLOOP_CHECKPOINT,
-$LAYA_CHECKPOINT (legacy), or the pinned base-checkpoint HF cache.
+or the pinned base-checkpoint HF cache.
 """
 
 import importlib.util
@@ -34,7 +34,7 @@ def _checkpoint():
 
     if (model_path() / "model.safetensors").is_file():
         return str(model_path())
-    env = os.environ.get("MICROLOOP_CHECKPOINT") or os.environ.get("LAYA_CHECKPOINT")
+    env = os.environ.get("MICROLOOP_CHECKPOINT")
     if env and Path(env).expanduser().exists():
         return str(Path(env).expanduser().resolve())
     base = Path("~/.cache/huggingface/hub/models--aac6fef--laya-mlx/snapshots").expanduser()
@@ -69,7 +69,9 @@ def test_decision_compile_persist_restart_serve(tmp_path):
         for i in range(count):
             state = _state(i)
             result = client.decide(
-                site=SITE, state=state, task_id=f"{prefix}-{i}",
+                site=SITE,
+                state=state,
+                task_id=f"{prefix}-{i}",
                 fallback=lambda state=state: _expected(state),
             )
             client.record_outcome(result.decision_id, **_verify(state, result.choice).__dict__)
@@ -87,15 +89,21 @@ def test_decision_compile_persist_restart_serve(tmp_path):
     # Restart: persisted artifact serves known states locally.
     with Microloop(path, engines=[DecisionModelEngine(checkpoint)]) as client:
         assert client.inspect(SITE)["state"] == "ACTIVE"
-        seen = {r.source for r in (
-            client.decide(site=SITE, state=_state(0), fallback=lambda: "refund")
-            for _ in range(20)
-        )}
+        seen = {
+            r.source
+            for r in (
+                client.decide(site=SITE, state=_state(0), fallback=lambda: "refund")
+                for _ in range(20)
+            )
+        }
         assert "fast_path" in seen
         assert seen <= {"fast_path", "fallback"}
         # Novel typed state abstains to fallback; never invents coverage.
-        novel = client.decide(site=SITE, state={"request": "Unseen one-offbilling questionXYZ"},
-                              fallback=lambda: "specialist")
+        novel = client.decide(
+            site=SITE,
+            state={"request": "Unseen one-offbilling questionXYZ"},
+            fallback=lambda: "specialist",
+        )
         assert novel.source == "fallback"
         assert novel.fallback_reason in ("observe", "outside_coverage")
         # Broken engine falls back without breaking the artifact.
@@ -123,8 +131,13 @@ def test_decision_path_benchmark(tmp_path):
 
     agent = load(checkpoint)
     cold = time.perf_counter() - t0
-    question = {"decision": {"type": "choice", "criteria": ["refund", "specialist"],
-                             "instructions": "Choose the next action."}}
+    question = {
+        "decision": {
+            "type": "choice",
+            "criteria": ["refund", "specialist"],
+            "instructions": "Choose the next action.",
+        }
+    }
     t0 = time.perf_counter()
     agent.predict({"request": REFUND_TEXT}, question)
     warm = time.perf_counter() - t0

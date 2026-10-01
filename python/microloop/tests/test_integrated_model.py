@@ -6,7 +6,7 @@ import json
 
 import pytest
 from microloop import Microloop
-from microloop.internal.engines import DecisionModelEngine, LayaEngine, resolve_engine_key
+from microloop.internal.engines import DecisionModelEngine, resolve_engine_key
 from microloop.internal.model import RUNTIME_VERSION, registry
 
 
@@ -21,7 +21,6 @@ def test_legacy_engine_key_resolves_to_integral_engine(tmp_path):
     assert resolve_engine_key("laya") == "decision"
     assert resolve_engine_key("microloop-decision-v1") == "decision"
     assert resolve_engine_key("decision") == "decision"
-    assert LayaEngine is DecisionModelEngine
     with Microloop(":memory:") as client:
         assert client.engines["laya"] is client.engines["decision"]
         assert client.compile.__defaults__ is None or True

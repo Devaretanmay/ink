@@ -3,6 +3,7 @@
 
 import json
 import math
+import sys
 import warnings
 from pathlib import Path, PurePosixPath
 
@@ -82,17 +83,15 @@ class Agent:
         pad_to_multiple=None,
         cache_prompts=False,
     ):
-        import sys as _sys
-
-        if _sys.platform == "win32":
+        if sys.platform == "win32":
             raise OSError(
                 "microloop-decision-v1 requires Linux or macOS (MLX has no Windows build); "
                 "use engine='exact' on Windows"
             )
         if model_id_or_path is None:
-            from .registry import model_path as _model_path
+            from .registry import model_path  # Deferred: only needed when no explicit path given.
 
-            model_id_or_path = str(_model_path())
+            model_id_or_path = str(model_path())
         if dtype is None:
             dtype = "float16"
         if dtype not in DTYPES:
@@ -287,10 +286,5 @@ class Agent:
     predict = system_one
 
 
-RLAgent = Agent
-
-
-def load(
-    model_id_or_path=None, device=None, token=None, subfolder=None, **kwargs
-):
+def load(model_id_or_path=None, device=None, token=None, subfolder=None, **kwargs):
     return Agent(model_id_or_path, device=device, token=token, subfolder=subfolder, **kwargs)

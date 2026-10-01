@@ -1,131 +1,101 @@
-# Microloop
+# Microloop Python SDK
 
 **Turn repeated agent decisions into verified fast paths.**
 
-Microloop is a local decision JIT for AI agents. An agent starts with its original
-model. Microloop records bounded decisions, builds a local candidate, runs it in
-shadow, and promotes it only after independent outcome verification. Unfamiliar
-states continue to use the original model.
+Microloop is a verified local Decision JIT for AI agents. An agent starts with its original model. Microloop records bounded decisions, profiles site economics, builds local candidate paths, runs them in shadow, and promotes them only after independent outcome verification. Unfamiliar or unverified states continue to use the original model.
 
 ```text
-observe → candidate → shadow → verified → active
-                        ↑                  │
-                        └── outcome drift ─┘
+observe → profile → candidate → shadow → verified → active
+                                  ↑                  │
+                                  └── outcome drift ─┘
 ```
 
-## Development version: 0.4.0
+---
 
-Build this checkout with Python 3.11–3.13 and Rust:
+## 1. Quick Installation
 
 ```bash
-uv venv --python 3.13
-uv pip install maturin pytest ruff
-maturin develop --manifest-path python/microloop/Cargo.toml
+pip install -e python/microloop
 ```
 
-Microloop Decision v1 is the integral neural engine. Its inference code is
-vendored inside Microloop; no external neural package is imported or required.
-Supported neural targets: Apple Silicon macOS 14+ and Linux x86_64 with glibc
-2.35+ (CPU). Linux execution validation is pending; Windows uses the portable
-`exact` engine only (neural inference raises a clear platform error).
+Requirements: Python 3.11–3.13 on Apple Silicon macOS 14+ or Linux x86_64.
 
-Provision the pinned model once (about 846 MB):
+---
 
-```bash
-microloop model-install
-# Or copy an existing verified checkpoint without a network request:
-microloop model-install --checkpoint /absolute/local/checkpoint
-```
-
-Setup verifies every file against bundled SHA-256 hashes and installs atomically.
-Decision requests never download weights. `MICROLOOP_MODEL_DIR` overrides the
-model directory. Missing or failed inference keeps the original fallback in charge.
-Weights are pinned base values (provenance in NOTICE); they are not claimed
-as newly trained. The deterministic `exact` engine remains as the portable
-fallback and internal test reference.
-
-## Use inside an existing agent
+## 2. In-Loop Agent Usage
 
 ```python
-from microloop import DecisionSite, Microloop
+from microloop import DecisionSite, FallbackResult, Microloop
 
 site = DecisionSite(
-    "refund.next_action",
-    {"amount": "number", "payment_status": "string", "chargeback": "boolean"},
-    ("refund", "request_information", "specialist"),
-    fallback_revision="refund-prompt-v1",
+    name="support.route",
+    state_schema={"text": "string", "amount": "integer"},
+    choices=("refund", "request_info", "specialist"),
+    fallback_revision="1",
 )
 
 with Microloop() as client:
+    client.register(site)
+
+    # 1. Decide: local fast path (<0.5ms) or fallback LLM
     result = client.decide(
-        site=site,
-        state={"amount": 42.5, "payment_status": "settled", "chargeback": False},
-        fallback=agent_decision,  # Your existing zero-argument model call.
+        site=site.name,
+        state={"text": "Item damaged in shipping", "amount": 25},
+        fallback=lambda: FallbackResult(my_agent_llm(), model_calls=1, cost=0.002),
     )
-    receipt = execute_action(result.choice)  # Your application still owns execution.
-    if result.recorded:
-        client.record_outcome(
-            result.decision_id,
-            quality=receipt.quality,  # Bounded score in [0, 1].
-            verifier="refund-ledger",
-            verifier_version="1",
-            evidence=receipt.evidence,
-        )
+
+    # 2. Host executes action
+    receipt = execute_action(result.choice)
+
+    # 3. Record outcome for statistical qualification and drift monitoring
+    client.record_outcome(
+        result.decision_id,
+        quality=1.0 if receipt.success else 0.0,
+        verifier="fulfillment_system",
+        verifier_version="1",
+        evidence={"order_id": receipt.order_id},
+    )
 ```
 
-`agent_decision` and `execute_action` above are application callbacks. For a runnable
-example, see [the refund agent](https://github.com/Devaretanmay/microloop/blob/main/examples/refund_agent/README.md).
+---
 
-Use `await client.decide_async(...)` for an async fallback. The top-level
-`decision(...)` helper owns a default local client; explicit clients are preferred
-for applications that manage lifecycle and storage paths.
+## 3. Site Profiling & Discovery
 
-## Qualification is explicit
+Evaluate decision site viability before spending time qualifying:
 
-Register sites, collect outcomes, then run maintenance in your application's job
-schedule. There is no hidden worker. Compilation splits historical task groups
-into training, calibration, and evaluation partitions. Calibration freezes an
-experiment-specific profile. Promotion also requires fresh shadow tasks with
-outcomes and an independent replay verifier.
+```python
+# Profile an active site
+profile = client.profile(site)
+print(profile.recommendation)        # 'strong_candidate', 'poor_repetition', etc.
+print(profile.break_even_decisions)  # Decisions until qualification amortizes
 
-The first release uses **exact typed-state coverage**. It does not claim to
-recognize arbitrary similar cases. Raw model confidence cannot activate a path.
-Sites without a reliable independent verifier remain fallback-driven.
+# Discover candidates from raw JSONL agent traces
+from microloop.discovery import discover_from_file
+
+candidates = discover_from_file("agent_traces.jsonl")
+for c in candidates:
+    print(f"{c.site_name:25} | {c.repetition_rate:.1%} repeat | {c.recommendation.upper()}")
+```
+
+---
+
+## 4. Local Fast Paths & Semantic Coverage
+
+Microloop supports both exact-state matching and sparse TF-IDF semantic coverage:
+- **Exact Hash Engine:** Microsecond exact canonical JSON state matching.
+- **Sparse TF-IDF Semantic Engine:** Character n-gram representation (0.012ms latency, 0.5MB memory) with negative-margin safety bounds and counterexample contraction.
+- **Microloop Decision Model v1:** Fine-tuned ModernBERT decision model with temperature-scaled calibration heads.
+
+---
+
+## 5. Development & Testing
 
 ```bash
-microloop sites
-microloop inspect refund.next_action --json
-microloop compile refund.next_action
-microloop evaluate refund.next_action --verifier my_app:verify --requirements requirements.json
-microloop maintenance
+# Run the test suite
+pytest python/microloop/tests/
+
+# Run interactive 3-act terminal demo
+python examples/thirty_second_demo.py
 ```
 
-## Evidence and limitations
-
-The included refund workload is generated, not customer production traffic.
-Its default fallback is a labelled test fixture. A real model mode requires
-`MICROLOOP_API_KEY` and an explicit `--model`; it records actual model usage.
-Read [validation evidence](https://github.com/Devaretanmay/microloop/blob/main/docs/validation-v0.4.md) before interpreting results.
-
-Fallback invocations avoided, model calls, tokens, and outcome quality are separate
-metrics. Microloop does not assume every fallback makes exactly one model call.
-
-Everything stays local: `.microloop/decisions.db`, engine artifacts, and outcome
-history. There is no cloud service, dashboard, workflow mining, or provider router.
-
-## Compatibility and development
-
-The v0.3 Rust core and Python imports remain available. Old Python implementation
-lives under `microloop.internal`; [compatibility notes](https://github.com/Devaretanmay/microloop/blob/main/docs/compatibility.md)
-explain the boundary. The old episode database is unchanged.
-
-- [Integration](https://github.com/Devaretanmay/microloop/blob/main/docs/integration.md)
-- [Architecture](https://github.com/Devaretanmay/microloop/blob/main/docs/architecture.md)
-- [CLI](https://github.com/Devaretanmay/microloop/blob/main/docs/cli.md)
-- [Concepts](https://github.com/Devaretanmay/microloop/blob/main/docs/concepts.md)
-
-Run `make check` for Rust/Python checks, existing examples, and wheel construction.
-The neural engine is integral (no engine flag on the CLI); provider-backed
-experiments are opt-in and separate from offline CI.
-
-Apache-2.0. Checkpoint licenses remain the responsibility of their distributors.
+License: Apache-2.0

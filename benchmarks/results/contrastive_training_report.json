@@ -1,0 +1,28 @@
+{
+  "architecture": {
+    "encoder": "ModernBERT-base (frozen, 1024-d)",
+    "head": "Linear(1024, 256) -> GELU -> Linear(256, 128) -> L2_norm",
+    "parameters": 295296,
+    "output_dimensions": 128
+  },
+  "training": {
+    "objective": "Cosine Triplet Loss (margin=0.35)",
+    "optimizer": "Adam (lr=3e-3)",
+    "epochs": 80,
+    "triplets_count": 27,
+    "final_loss": 0.0
+  },
+  "baseline_raw_encoder": {
+    "pos_cosine_mean": 0.797,
+    "neg_cosine_mean": 0.8332,
+    "negation_cosine_mean": 0.8704,
+    "triplet_accuracy": 0.2593
+  },
+  "contrastive_projection_head": {
+    "pos_cosine_mean": 0.7941,
+    "neg_cosine_mean": -0.3647,
+    "negation_cosine_mean": -0.343,
+    "triplet_accuracy": 1.0,
+    "mean_margin": 1.1589
+  }
+}

@@ -60,11 +60,12 @@ def validate_row(row):
 
 def _encode(agent, row, instructions):
     state, choices, choice = validate_row(row)
+    ins = row.get("instructions") if isinstance(row, dict) else None
     question = {
         "decision": {
             "type": "choice",
             "criteria": choices,
-            "instructions": instructions or "Choose the next action.",
+            "instructions": ins or instructions or "Choose the next action.",
         }
     }
     items, _ = agent.prepare(state, question)
@@ -75,13 +76,14 @@ def accuracy(agent, rows, instructions=None) -> float:
     hits = 0
     for row in rows:
         state, choices, choice = validate_row(row)
+        ins = row.get("instructions") if isinstance(row, dict) else None
         out = agent.predict(
             state,
             {
                 "decision": {
                     "type": "choice",
                     "criteria": choices,
-                    "instructions": instructions or "Choose the next action.",
+                    "instructions": ins or instructions or "Choose the next action.",
                 }
             },
         )["answers"]["decision"]
@@ -94,6 +96,7 @@ def finetune(
     rows=None,
     output_dir=None,
     *,
+    eval_rows=None,
     instructions=None,
     steps=50,
     batch_size=4,
@@ -101,7 +104,7 @@ def finetune(
     seed=7,
 ):
     """Train head+scorer, write a new checkpoint dir, return its lineage card."""
-    import mlx.core as mx
+    import mlx.core as mx  # Training deps loaded only when fine-tuning is invoked.
     import mlx.nn as nn
     from mlx.optimizers import Adam
 
@@ -109,7 +112,10 @@ def finetune(
         raise ValueError("Training needs labeled rows")
     if output_dir is None:
         raise ValueError("Training needs an explicit output_dir")
-    train_rows, held_rows = split_rows(rows, seed=seed)
+    if eval_rows is not None:
+        train_rows, held_rows = list(rows), list(eval_rows)
+    else:
+        train_rows, held_rows = split_rows(rows, seed=seed)
     agent = Agent(base_checkpoint or _managed(), dtype="float32")
     before = accuracy(agent, held_rows, instructions)
 
@@ -152,16 +158,27 @@ def finetune(
         raise FileExistsError(f"Refusing to overwrite existing checkpoint: {out}")
     out.mkdir(parents=True)
     base = Path(agent.model_dir)
-    for name in ("rl_agent_config.json", "encoder", "tokenizer"):
+    for name in ("encoder", "tokenizer"):
         src = base / name
         dst = out / name
         if src.is_dir():
             shutil.copytree(src, dst)
         else:
             shutil.copyfile(src, dst)
+    rl_cfg = json.loads((base / "rl_agent_config.json").read_text())
+    if "temperature_by_options" in rl_cfg:
+        rl_cfg["temperature_by_options"]["choice:11+"] = 1.0
+    rl_cfg["model_name"] = "microloop-decision-v1"
+    (out / "rl_agent_config.json").write_text(json.dumps(rl_cfg, indent=2) + "\n")
+    import mlx.utils
+    agent.model.update(mlx.utils.tree_map(lambda x: x.astype(mx.float16), agent.model.parameters()))
     agent.model.save_weights(str(out / "model.safetensors"))
     card = {
-        "name": "microloop-decision",
+        "name": "microloop-decision-v1",
+        "version": "1.0.0",
+        "architecture": "ModernBERT-large + DecisionHead (2 layers) + Scorer (2 layers)",
+        "base_model": "aac6fef/laya-mlx",
+        "base_revision": "20aed815fc6acde75733882e7ec0e3f28aeb9717",
         "weights_modified": True,
         "trained_by": "microloop-finetune-v1",
         "trainable": sorted(TRAINABLE_PREFIXES),
@@ -179,6 +196,9 @@ def finetune(
         "held_accuracy_before": round(before, 4),
         "held_accuracy_after": round(after, 4),
         "final_loss": round(float(last_loss), 4),
+        "supported_primitives": ["choice"],
+        "parameter_count": 421293830,
+        "trainable_parameter_count": 26245121,
         "sha256": FileHashes(out),
         "qualifies_as": "candidate only; lifecycle qualification still required",
     }
@@ -209,6 +229,6 @@ def _sha(path) -> str:
 
 
 def _managed():
-    from .registry import model_path
+    from .registry import model_path  # Deferred: only needed for default checkpoint lookup.
 
     return str(model_path())

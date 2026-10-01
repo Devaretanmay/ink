@@ -1,0 +1,50 @@
+{
+  "arm_a_exact": {
+    "total_requests": 36,
+    "fast_served": 2,
+    "coverage_rate": 0.0556,
+    "verified_coverage_rate": 0.0556,
+    "served_accuracy": 1.0,
+    "false_serve_rate": 0.0,
+    "abstention_rate": 0.9444,
+    "latency_p50_us": 0.21,
+    "latency_p95_us": 0.62,
+    "latency_p99_us": 1.87
+  },
+  "arm_b_naive_sim": {
+    "total_requests": 36,
+    "fast_served": 3,
+    "coverage_rate": 0.0833,
+    "verified_coverage_rate": 0.0556,
+    "served_accuracy": 0.6667,
+    "false_serve_rate": 0.0278,
+    "abstention_rate": 0.9167,
+    "latency_p50_us": 2.04,
+    "latency_p95_us": 5.79,
+    "latency_p99_us": 6.25
+  },
+  "arm_c_semantic_unqualified": {
+    "total_requests": 36,
+    "fast_served": 4,
+    "coverage_rate": 0.1111,
+    "verified_coverage_rate": 0.0833,
+    "served_accuracy": 0.75,
+    "false_serve_rate": 0.0278,
+    "abstention_rate": 0.8889,
+    "latency_p50_us": 24.29,
+    "latency_p95_us": 106.0,
+    "latency_p99_us": 163.37
+  },
+  "arm_d_full_microloop": {
+    "total_requests": 36,
+    "fast_served": 2,
+    "coverage_rate": 0.0556,
+    "verified_coverage_rate": 0.0556,
+    "served_accuracy": 1.0,
+    "false_serve_rate": 0.0,
+    "abstention_rate": 0.9444,
+    "latency_p50_us": 23.92,
+    "latency_p95_us": 72.83,
+    "latency_p99_us": 93.08
+  }
+}

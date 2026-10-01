@@ -69,3 +69,14 @@ def install(source=None):
         if staging.exists():
             shutil.rmtree(staging)
     return destination
+
+
+def ensure_installed(auto_download=False):
+    """Ensure the pinned model is provisioned; auto-download only when explicitly allowed."""
+    destination = model_path()
+    if (destination / "model.safetensors").is_file():
+        return verify(destination)
+    if auto_download or os.environ.get("MICROLOOP_AUTO_INSTALL") == "1":
+        return install()
+    msg = f"Microloop model is missing at {destination}; run 'microloop model-install'"
+    raise FileNotFoundError(msg)

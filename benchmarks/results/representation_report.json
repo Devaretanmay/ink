@@ -1,0 +1,35 @@
+{
+  "sparse_tfidf": {
+    "top1_same_choice_recall": 0.48,
+    "false_neighbor_rate": 0.52,
+    "avg_margin": -0.0337,
+    "median_margin": -0.0066,
+    "contrastive_robustness": 0.625,
+    "latency_ms": 0.011,
+    "vector_dims": 1500,
+    "storage_kb_per_1k": 5859.4,
+    "model_memory_mb": 0.5
+  },
+  "neural_modernbert": {
+    "top1_same_choice_recall": 0.26,
+    "false_neighbor_rate": 0.74,
+    "avg_margin": -0.0095,
+    "median_margin": -0.0063,
+    "contrastive_robustness": 0.25,
+    "latency_ms": 31.27,
+    "vector_dims": 1024,
+    "storage_kb_per_1k": 4000.0,
+    "model_memory_mb": 918.0
+  },
+  "hybrid": {
+    "top1_same_choice_recall": 0.48,
+    "false_neighbor_rate": 0.52,
+    "avg_margin": -0.0159,
+    "median_margin": -0.0028,
+    "contrastive_robustness": 0.75,
+    "latency_ms": 31.28,
+    "vector_dims": 2524,
+    "storage_kb_per_1k": 9859.4,
+    "model_memory_mb": 918.5
+  }
+}

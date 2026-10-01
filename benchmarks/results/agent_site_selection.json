@@ -1,0 +1,361 @@
+{
+  "timestamp": "2026-10-01T18:23:31Z",
+  "traces_analyzed": 1800,
+  "site_profiles": {
+    "agent.intent": {
+      "observations": 600,
+      "observation_span_seconds": 0.0,
+      "decisions_per_second": null,
+      "distinct_tasks": 1,
+      "single_use_tasks": false,
+      "unique_states": 4,
+      "unique_state_ratio": 0.0067,
+      "repetition_rate": 0.9933333333333333,
+      "exact_repeat_rate": 0.9933,
+      "semantic_repeat_rate": 0.9933,
+      "novelty_rate": 0.0067,
+      "choice_entropy": 1.5679,
+      "most_common_states": [
+        [
+          "{\"intent_category\":\"check_balance\"}",
+          370
+        ],
+        [
+          "{\"intent_category\":\"ask_faq\"}",
+          78
+        ],
+        [
+          "{\"intent_category\":\"transfer_funds\"}",
+          77
+        ],
+        [
+          "{\"intent_category\":\"report_fraud\"}",
+          75
+        ]
+      ],
+      "choices": {
+        "check_balance": 370,
+        "ask_faq": 78,
+        "report_fraud": 75,
+        "transfer_funds": 77
+      },
+      "sources": {
+        "fallback": 600
+      },
+      "fallback_reasons": {},
+      "outcome_completeness": 1.0,
+      "missing_outcomes": 0,
+      "successful_outcomes": 600,
+      "unsuccessful_outcomes": 0,
+      "verifier_quality": 1.0,
+      "usage": {
+        "model_calls": 600,
+        "input_tokens": null,
+        "output_tokens": null,
+        "cost": 0.9,
+        "request_attempts": null,
+        "rows_with_usage": 600
+      },
+      "elapsed_p50": 0.12,
+      "elapsed_p95": 0.12,
+      "latency_by_source": {
+        "fallback": {
+          "p50": 0.12,
+          "p95": 0.12
+        },
+        "fast_path": {
+          "p50": null,
+          "p95": null
+        }
+      },
+      "fallback_p50_ms": 120.0,
+      "fallback_cost_per_decision": 0.0015,
+      "policy_volatility": 0.0,
+      "qualification_cost_decisions": 200,
+      "break_even_decisions": 212,
+      "recommendation": "strong_candidate",
+      "recommendation_reasons": [
+        "High repetition (99.33% exact, 99.33% sem), verifier completeness (100.00%), bounded volatility (0.00%), amortizes in ~212 d."
+      ]
+    },
+    "agent.tool": {
+      "observations": 600,
+      "observation_span_seconds": 0.0,
+      "decisions_per_second": null,
+      "distinct_tasks": 1,
+      "single_use_tasks": false,
+      "unique_states": 335,
+      "unique_state_ratio": 0.5583,
+      "repetition_rate": 0.44166666666666665,
+      "exact_repeat_rate": 0.4417,
+      "semantic_repeat_rate": 0.9883,
+      "novelty_rate": 0.5583,
+      "choice_entropy": 1.9965,
+      "most_common_states": [
+        [
+          "{\"query\":\"query_detail_27\",\"step\":3}",
+          6
+        ],
+        [
+          "{\"query\":\"query_detail_30\",\"step\":1}",
+          6
+        ],
+        [
+          "{\"query\":\"query_detail_141\",\"step\":1}",
+          5
+        ],
+        [
+          "{\"query\":\"query_detail_144\",\"step\":1}",
+          5
+        ],
+        [
+          "{\"query\":\"query_detail_23\",\"step\":3}",
+          5
+        ]
+      ],
+      "choices": {
+        "web_search": 153,
+        "database_query": 161,
+        "escalate_human": 153,
+        "auth_prompt": 133
+      },
+      "sources": {
+        "fallback": 600
+      },
+      "fallback_reasons": {},
+      "outcome_completeness": 1.0,
+      "missing_outcomes": 0,
+      "successful_outcomes": 524,
+      "unsuccessful_outcomes": 76,
+      "verifier_quality": 0.8733,
+      "usage": {
+        "model_calls": 600,
+        "input_tokens": null,
+        "output_tokens": null,
+        "cost": 1.8,
+        "request_attempts": null,
+        "rows_with_usage": 600
+      },
+      "elapsed_p50": 0.22,
+      "elapsed_p95": 0.22,
+      "latency_by_source": {
+        "fallback": {
+          "p50": 0.22,
+          "p95": 0.22
+        },
+        "fast_path": {
+          "p50": null,
+          "p95": null
+        }
+      },
+      "fallback_p50_ms": 220.0,
+      "fallback_cost_per_decision": 0.003,
+      "policy_volatility": 0.7358,
+      "qualification_cost_decisions": 200,
+      "break_even_decisions": 214,
+      "recommendation": "high_volatility",
+      "recommendation_reasons": [
+        "Policy volatility (73.58%) exceeds 15% threshold; frequent policy changes cause demotion."
+      ]
+    },
+    "agent.cont": {
+      "observations": 600,
+      "observation_span_seconds": 0.0,
+      "decisions_per_second": null,
+      "distinct_tasks": 1,
+      "single_use_tasks": false,
+      "unique_states": 600,
+      "unique_state_ratio": 1.0,
+      "repetition_rate": 0.0,
+      "exact_repeat_rate": 0.0,
+      "semantic_repeat_rate": 0.8,
+      "novelty_rate": 1.0,
+      "choice_entropy": 0.8833,
+      "most_common_states": [
+        [
+          "{\"context_id\":\"ctx_0_2679\",\"history_len\":9}",
+          1
+        ],
+        [
+          "{\"context_id\":\"ctx_1_4811\",\"history_len\":1}",
+          1
+        ],
+        [
+          "{\"context_id\":\"ctx_2_3615\",\"history_len\":6}",
+          1
+        ],
+        [
+          "{\"context_id\":\"ctx_3_2584\",\"history_len\":6}",
+          1
+        ],
+        [
+          "{\"context_id\":\"ctx_4_2291\",\"history_len\":10}",
+          1
+        ]
+      ],
+      "choices": {
+        "continue": 419,
+        "stop": 181
+      },
+      "sources": {
+        "fallback": 600
+      },
+      "fallback_reasons": {},
+      "outcome_completeness": 1.0,
+      "missing_outcomes": 0,
+      "successful_outcomes": 600,
+      "unsuccessful_outcomes": 0,
+      "verifier_quality": 1.0,
+      "usage": {
+        "model_calls": 600,
+        "input_tokens": null,
+        "output_tokens": null,
+        "cost": 1.5,
+        "request_attempts": null,
+        "rows_with_usage": 600
+      },
+      "elapsed_p50": 0.18,
+      "elapsed_p95": 0.18,
+      "latency_by_source": {
+        "fallback": {
+          "p50": 0.18,
+          "p95": 0.18
+        },
+        "fast_path": {
+          "p50": null,
+          "p95": null
+        }
+      },
+      "fallback_p50_ms": 180.0,
+      "fallback_cost_per_decision": 0.0025,
+      "policy_volatility": 0.0,
+      "qualification_cost_decisions": 100,
+      "break_even_decisions": 132,
+      "recommendation": "poor_repetition",
+      "recommendation_reasons": [
+        "High state entropy / unique state ratio (100.00%) exceeds 85% threshold."
+      ]
+    }
+  },
+  "discovery_candidates": [
+    {
+      "site_name": "agent.intent",
+      "call_frequency": 1442.4,
+      "repetition_rate": 0.9933,
+      "output_entropy": 1.5679,
+      "verifiability": 1.0,
+      "estimated_annual_savings": 744.9,
+      "recommendation": "compile",
+      "reason": "Strong candidate: 99.3% repeat rate, bounded choices (4), amortizes in ~201 calls.",
+      "total_calls": 600,
+      "unique_inputs": 4,
+      "choices": [
+        "check_balance",
+        "ask_faq",
+        "report_fraud",
+        "transfer_funds"
+      ],
+      "p50_latency_ms": 120.0,
+      "avg_cost": 0.0015
+    },
+    {
+      "site_name": "agent.tool",
+      "call_frequency": 1442.4,
+      "repetition_rate": 0.4417,
+      "output_entropy": 1.9965,
+      "verifiability": 0.8733,
+      "estimated_annual_savings": 662.15,
+      "recommendation": "compile",
+      "reason": "Strong candidate: 44.2% repeat rate, bounded choices (4), amortizes in ~452 calls.",
+      "total_calls": 600,
+      "unique_inputs": 335,
+      "choices": [
+        "web_search",
+        "database_query",
+        "escalate_human",
+        "auth_prompt"
+      ],
+      "p50_latency_ms": 220.0,
+      "avg_cost": 0.003
+    },
+    {
+      "site_name": "agent.cont",
+      "call_frequency": 1442.4,
+      "repetition_rate": 0.0,
+      "output_entropy": 0.8833,
+      "verifiability": 1.0,
+      "estimated_annual_savings": 0.0,
+      "recommendation": "ignore",
+      "reason": "Low repetition rate (0.0%); fast paths would rarely trigger.",
+      "total_calls": 600,
+      "unique_inputs": 600,
+      "choices": [
+        "continue",
+        "stop"
+      ],
+      "p50_latency_ms": 180.0,
+      "avg_cost": 0.0025
+    }
+  ],
+  "per_site_economics": {
+    "agent.intent": {
+      "repetition_rate": 0.9933,
+      "recommendation": "strong_candidate",
+      "qualification_calls": 200,
+      "qualification_cost_usd": 0.3,
+      "calls_avoided": 9436,
+      "gross_savings_usd": 14.15,
+      "net_savings_usd": 13.85,
+      "roi_pct": 4618.0,
+      "profitable": true
+    },
+    "agent.tool": {
+      "repetition_rate": 0.4417,
+      "recommendation": "high_volatility",
+      "qualification_calls": 200,
+      "qualification_cost_usd": 0.6,
+      "calls_avoided": 4196,
+      "gross_savings_usd": 12.59,
+      "net_savings_usd": 11.99,
+      "roi_pct": 1998.0,
+      "profitable": true
+    },
+    "agent.cont": {
+      "repetition_rate": 0.0,
+      "recommendation": "poor_repetition",
+      "qualification_calls": 100,
+      "qualification_cost_usd": 0.25,
+      "calls_avoided": 0,
+      "gross_savings_usd": 0.0,
+      "net_savings_usd": -0.25,
+      "roi_pct": -100.0,
+      "profitable": false
+    }
+  },
+  "strategies": {
+    "strategy_a_compile_all": {
+      "compiled_sites": [
+        "agent.intent",
+        "agent.tool",
+        "agent.cont"
+      ],
+      "total_calls_avoided": 13632,
+      "total_qualification_cost_usd": 1.15,
+      "total_net_savings_usd": 25.59,
+      "efficiency_verdict": "SUBOPTIMAL: Wasted qualification spend on unrepeatable sites."
+    },
+    "strategy_b_selective_compilation": {
+      "compiled_sites": [
+        "agent.intent",
+        "agent.tool"
+      ],
+      "rejected_sites": [
+        "agent.cont"
+      ],
+      "total_calls_avoided": 13632,
+      "total_qualification_cost_usd": 0.9,
+      "total_net_savings_usd": 25.84,
+      "efficiency_verdict": "OPTIMAL: Maximize ROI by compiling high-repetition sites and refusing unrepeatable sites."
+    }
+  }
+}

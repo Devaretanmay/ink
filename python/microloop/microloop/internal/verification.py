@@ -7,6 +7,7 @@ from copy import deepcopy
 from dataclasses import asdict
 
 from .contracts import Outcome, canonical
+from .coverage import CoverageEngine
 
 
 def lower_bound(values):
@@ -25,13 +26,32 @@ def grouped_quality(rows):
 
 def verify_rows(rows, engine, payload, verifier):
     results = []
+    cov_engine = None
+    if payload.get("coverage_engine"):
+        cov_engine = CoverageEngine.from_dict(payload["coverage_engine"])
     for row in rows:
         if row["outcome"] is None:
             continue
         key = canonical(row["state"])
-        if key not in payload["coverage"]:
+        region_key = None
+        prototype_state = None
+        if key in payload.get("coverage", {}):
+            region_key = key
+        elif cov_engine is not None:
+            level, reg, _ = cov_engine.route(row["state"])
+            if level in ("exact", "semantic", "shadow") and reg is not None:
+                region_key = reg.get("region_id", key)
+                prototype_state = reg.get("prototype_state")
+        if region_key is None:
             continue
-        choice, raw = engine.predict(payload["engine_data"], row["state"])
+        state_in = row["state"]
+        if (
+            prototype_state
+            and payload.get("engine_data", {}).get("engine") == "exact"
+            and key not in payload.get("engine_data", {}).get("table", {})
+        ):
+            state_in = prototype_state
+        choice, raw = engine.predict(payload["engine_data"], state_in)
         if choice not in payload["choices"] or not math.isfinite(raw) or not 0 <= raw <= 1:
             raise ValueError("Engine returned an undeclared choice")
         # Verify both actions in the same replay environment; never transfer a factual
@@ -47,7 +67,8 @@ def verify_rows(rows, engine, payload, verifier):
             {
                 "id": row["id"],
                 "task": row["task"],
-                "region": key,
+                "state": row["state"],
+                "region": region_key,
                 "choice": choice,
                 "raw_probability": raw,
                 "agreement": choice == row["choice"],

@@ -1,4 +1,4 @@
-"""Private local engine boundary. Engines produce proposals, never business actions."""
+"""Private local engine boundary."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ class DecisionModelEngine:
 
     def __init__(self, checkpoint=None, *, instructions=None):
         _require_neural_platform()
-        from .model.registry import model_path
+        from .model.registry import model_path  # Deferred: model deps unavailable on Windows.
 
         self.checkpoint = (
             str(Path(checkpoint).expanduser().resolve()) if checkpoint else str(model_path())
@@ -100,10 +100,11 @@ class DecisionModelEngine:
         return result
 
     def compile(self, site, rows):
-        from .model import RUNTIME_VERSION
-        from .model.registry import verify
+        from .model import RUNTIME_VERSION  # Deferred: model deps unavailable on Windows.
+        from .model.registry import ensure_installed, verify
 
         if self._managed_checkpoint:
+            ensure_installed(auto_download=True)
             verify(self.checkpoint)
         examples = []
         seen = set()
@@ -135,7 +136,7 @@ class DecisionModelEngine:
             return self._predict(payload, state)
 
     def _predict(self, payload, state):
-        from .model import RUNTIME_VERSION
+        from .model import RUNTIME_VERSION  # Deferred: model deps unavailable on Windows.
         from .model.agent import load
 
         _require_neural_platform()

@@ -3,8 +3,8 @@
 Microloop Decision v1 is now integral: the package contains the neural
 architecture, tokenizer adapter, inference runtime, pinned checkpoint manifest,
 and atomic model installer. Default compilation uses it. The product CLI has no
-engine selector. `LayaEngine` remains a private compatibility alias; source and
-weights keep their upstream provenance. Weight values were not changed.
+engine selector. Source and weights keep their upstream provenance.
+Weight values were not changed.
 
 A clean rebuilt-wheel environment with **no `laya-mlx` installed** passed all
 **157 Python tests**, with zero skipped tests. Real-weight tests cover default

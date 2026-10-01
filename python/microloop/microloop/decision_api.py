@@ -13,6 +13,8 @@ import uuid
 from collections import Counter
 from dataclasses import asdict
 
+import numpy as np
+
 from .internal.contracts import (
     DecisionResult,
     DecisionSite,
@@ -21,6 +23,13 @@ from .internal.contracts import (
     PromotionRequirements,
     canonical,
     digest,
+)
+from .internal.coverage import (
+    CoverageEngine,
+    RegionHealth,
+    TextVectorizer,
+    _extract_text,
+    calibrate_semantic_boundaries,
 )
 from .internal.decision_store import DecisionStore, split_history
 from .internal.engines import DecisionModelEngine, ExactEngine, resolve_engine_key
@@ -49,7 +58,6 @@ class Microloop:
         self.close()
 
     def register(self, site: DecisionSite):
-        # Round-trip copies mutable schema inputs before they become persistent contracts.
         contract = canonical(asdict(site))
         with self.store.transaction() as db:
             db.execute(
@@ -117,6 +125,38 @@ class Microloop:
                 raise ValueError("Profile integrity mismatch")
         return row
 
+    def _effective_comparison_rate(self, artifact, profile) -> float:
+        req = profile.get("requirements", {})
+        base_rate = req.get("comparison_rate", 0.25)
+        if not req.get("allow_adaptive_comparison", True) or req.get("high_risk", False):
+            return base_rate
+        min_floor = req.get("min_comparison_rate", 0.05)
+        if artifact and artifact.get("id"):
+            latest_drift = self.store.rows(
+                "SELECT demoted, delta_lower, missing_outcomes FROM drift_checks "
+                "WHERE artifact=? ORDER BY created DESC, id DESC LIMIT 1",
+                (artifact["id"],),
+            )
+            if latest_drift:
+                d = latest_drift[0]
+                if d.get("demoted") or (d.get("delta_lower") is not None and d["delta_lower"] < 0):
+                    return min(0.50, max(base_rate * 1.5, 0.25))
+                if d.get("missing_outcomes", 0) > 0:
+                    return min(0.50, max(base_rate * 1.5, 0.25))
+
+            cov_row = self.store.rows(
+                "SELECT SUM(fast_served) as fast_count FROM state_coverage WHERE site=?",
+                (artifact["site"],),
+            )
+            verified_count = (
+                cov_row[0]["fast_count"] if cov_row and cov_row[0]["fast_count"] else 0
+            )
+            min_samples = req.get("min_samples", 10)
+            if verified_count >= 2 * min_samples:
+                scale = math.sqrt((2 * min_samples) / verified_count)
+                return max(min_floor, round(base_rate * scale, 4))
+        return base_rate
+
     def _route(self, site, state):
         artifact = None
         try:
@@ -124,34 +164,89 @@ class Microloop:
             if artifact is None:
                 return None, None, "observe"
             payload = artifact["payload"]
-            coverage = (
-                artifact["profile"]["coverage"] if artifact["profile"] else payload["coverage"]
-            )
-            region = coverage.get(canonical(state))
-            if region is None:
-                return artifact, None, "outside_coverage"
+            profile = artifact["profile"]
+            coverage = profile["coverage"] if profile else payload["coverage"]
+
+            region = None
+            is_semantic_shadow = False
+            level = None
+
+            if profile and "coverage_engine" in profile:
+                cov_engine = CoverageEngine.from_dict(profile["coverage_engine"])
+                active_sem = set()
+                if artifact.get("evidence"):
+                    try:
+                        ev_raw = artifact["evidence"]
+                        ev = json.loads(ev_raw) if isinstance(ev_raw, str) else ev_raw
+                        active_sem = set(ev.get("qualified_semantic_regions", []))
+                    except Exception:
+                        pass
+                if artifact["status"] == "ACTIVE" and active_sem:
+                    for r in cov_engine.semantic_regions:
+                        if r.region_id in active_sem:
+                            r.status = "ACTIVE"
+                level, reg, conf = cov_engine.route(state)
+                if level == "exact":
+                    region = reg
+                elif level == "semantic":
+                    region = reg
+                elif level == "shadow":
+                    region = reg
+                    is_semantic_shadow = True
+                else:
+                    return artifact, None, "outside_coverage"
+            else:
+                region = coverage.get(canonical(state))
+                if region is None:
+                    return artifact, None, "outside_coverage"
+
             engine = self.engines[resolve_engine_key(payload["engine_data"]["engine"])]
-            choice, probability = engine.predict(payload["engine_data"], state)
+            state_in = state
+            has_proto = region and "prototype_state" in region
+            if (is_semantic_shadow or level == "semantic") and has_proto:
+                if (
+                    payload["engine_data"].get("engine") == "exact"
+                    and canonical(state) not in payload["engine_data"].get("table", {})
+                ):
+                    state_in = region["prototype_state"]
+            choice, probability = engine.predict(payload["engine_data"], state_in)
             if (
                 choice not in site.choices
                 or not math.isfinite(probability)
                 or not 0 <= probability <= 1
             ):
                 raise ValueError("Invalid prediction")
+            rep_version = (
+                "sparse_tfidf_v1"
+                if level in ("semantic", "shadow")
+                else ("exact_v1" if level == "exact" else "none")
+            )
+            route_info = {
+                "semantic_region": region.get("region_id") if isinstance(region, dict) else None,
+                "representation_version": rep_version,
+                "distance": region.get("distance") if isinstance(region, dict) else None,
+                "radius": region.get("radius") if isinstance(region, dict) else None,
+                "negative_margin": (
+                    region.get("negative_margin") if isinstance(region, dict) else None
+                ),
+                "route_level": level or "exact",
+            }
             prediction = {
                 "choice": choice,
                 "raw_probability": probability,
                 "confidence": region.get("confidence", 0.0),
+                "route_info": route_info,
             }
-            profile = artifact["profile"]
-            if artifact["status"] != "ACTIVE" or profile is None:
+            if artifact["status"] != "ACTIVE" or profile is None or is_semantic_shadow:
                 return artifact, prediction, "shadow"
             if (
                 choice != region.get("choice")
                 or prediction["confidence"] < profile["requirements"]["min_confidence"]
             ):
                 return artifact, prediction, "insufficient_confidence"
-            if secrets.randbelow(10**9) / 10**9 < profile["requirements"]["comparison_rate"]:
+            eff_rate = self._effective_comparison_rate(artifact, profile)
+            route_info["comparison_rate"] = eff_rate
+            if secrets.randbelow(10**9) / 10**9 < eff_rate:
                 return artifact, prediction, "comparison"
             return artifact, prediction, None
         except Exception:
@@ -169,6 +264,24 @@ class Microloop:
             and fallback.model_calls != site.fallback_model_calls
         ):
             raise ValueError("Fallback usage violates the site's fixed model-call contract")
+        route_info = prediction.get("route_info", {}) if prediction else {}
+        receipt = {
+            "site": site.name,
+            "site_version": site.version,
+            "artifact": artifact["id"] if artifact else None,
+            "semantic_region": route_info.get("semantic_region"),
+            "representation_version": route_info.get("representation_version", "none"),
+            "distance": route_info.get("distance"),
+            "radius": route_info.get("radius"),
+            "negative_margin": route_info.get("negative_margin"),
+            "comparison_rate": route_info.get("comparison_rate"),
+            "served_by": source,
+            "verification_status": "verified"
+            if source == "fast_path"
+            else ("shadow" if reason in ("shadow", "comparison") else "fallback"),
+        }
+        if prediction is not None:
+            prediction["receipt"] = receipt
         result = DecisionResult(
             fallback.choice,
             uuid.uuid4().hex,
@@ -177,6 +290,7 @@ class Microloop:
             artifact["id"] if artifact else None,
             reason,
             prediction["confidence"] if prediction else None,
+            receipt=receipt,
         )
         usage = asdict(fallback) if source == "fallback" else {}
         with self.store.transaction() as db:
@@ -219,6 +333,19 @@ class Microloop:
             choice = value.choice if isinstance(value, FallbackResult) else value
             if choice not in site.choices:
                 raise ValueError("Fallback returned an undeclared choice") from None
+            receipt = {
+                "site": site.name,
+                "site_version": site.version,
+                "artifact": artifact["id"] if artifact else None,
+                "semantic_region": None,
+                "representation_version": "none",
+                "distance": None,
+                "radius": None,
+                "negative_margin": None,
+                "comparison_rate": None,
+                "served_by": "fallback",
+                "verification_status": "fallback",
+            }
             return DecisionResult(
                 choice,
                 uuid.uuid4().hex,
@@ -226,6 +353,7 @@ class Microloop:
                 site.version,
                 fallback_reason="storage_unavailable",
                 recorded=False,
+                receipt=receipt,
             )
 
     def decide(self, *, site, state, fallback, choices=None, task_id=None, fallback_revision=None):
@@ -407,9 +535,23 @@ class Microloop:
                 }
         if not coverage:
             raise ValueError("No state regions have sufficient calibration evidence")
+        texts = [_extract_text(r["state"]) for r in records]
+        vectorizer = TextVectorizer.fit(texts)
+        semantic_regions = calibrate_semantic_boundaries(
+            records,
+            vectorizer,
+            site.version,
+            min_region_samples=requirements.min_region_samples,
+        )
+        cov_engine = CoverageEngine(
+            exact_coverage=coverage,
+            semantic_regions=semantic_regions,
+            vectorizer=vectorizer,
+        )
         profile = {
             "requirements": asdict(requirements),
             "coverage": coverage,
+            "coverage_engine": cov_engine.to_dict(),
             "calibration_evidence": records,
             "created": time.time(),
         }
@@ -424,14 +566,18 @@ class Microloop:
                 raise ValueError("Candidate changed during calibration")
         return profile
 
-    def evaluate(self, site, *, verifier):
+    def evaluate(self, site, *, verifier, auto_promote: bool = True):
         site = self._resolve(site)
         artifact = self._artifact(site.version)
         if artifact is None or artifact["status"] != "SHADOW" or not artifact["profile"]:
             raise ValueError("Evaluation requires a calibrated shadow candidate")
         profile = artifact["profile"]
         requirements = PromotionRequirements(**profile["requirements"])
-        payload = dict(artifact["payload"], coverage=profile["coverage"])
+        payload = dict(
+            artifact["payload"],
+            coverage=profile["coverage"],
+            coverage_engine=profile.get("coverage_engine"),
+        )
         history = self.store.history(site.version)
         shadow = [
             r
@@ -473,6 +619,24 @@ class Microloop:
         }
         if expected_verifiers != current_verifiers:
             raise ValueError("Verifier changed since calibration")
+        qualified_sem_regions = []
+        sem_region_stats = {}
+        if profile.get("coverage_engine"):
+            cov_engine = CoverageEngine.from_dict(profile["coverage_engine"])
+            for sem_reg in cov_engine.semantic_regions:
+                reg_shadow = [r for r in shadow_records if r["region"] == sem_reg.region_id]
+                reg_held = [r for r in held_records if r["region"] == sem_reg.region_id]
+                sem_records = reg_shadow + reg_held
+                if sem_records:
+                    sem_stats = statistics(sem_records)
+                    sem_region_stats[sem_reg.region_id] = sem_stats
+                    if (
+                        sem_stats["samples"] >= requirements.min_region_samples
+                        and sem_stats["quality_lower"] >= requirements.min_confidence
+                        and passes(sem_stats, requirements)
+                        and all(r["choice"] == sem_reg.choice for r in sem_records)
+                    ):
+                        qualified_sem_regions.append(sem_reg.region_id)
         qualified = (
             passes(held_stats, requirements)
             and passes(shadow_stats, requirements)
@@ -490,6 +654,8 @@ class Microloop:
             "shadow_records": shadow_records,
             "qualified": qualified,
             "regions": region_stats,
+            "qualified_semantic_regions": qualified_sem_regions,
+            "semantic_region_stats": sem_region_stats,
         }
         with self.store.transaction() as db:
             current = db.execute(
@@ -503,19 +669,31 @@ class Microloop:
             db.execute(
                 "INSERT OR REPLACE INTO promotion_records VALUES (?,?,?,?,?,?,?,?)",
                 (
-                    artifact["id"], time.time(), int(qualified),
-                    held_stats.get("samples", 0), shadow_stats.get("samples", 0),
-                    held_stats.get("quality_lower"), shadow_stats.get("delta_lower"),
+                    artifact["id"],
+                    time.time(),
+                    int(qualified),
+                    held_stats.get("samples", 0),
+                    shadow_stats.get("samples", 0),
+                    held_stats.get("quality_lower"),
+                    shadow_stats.get("delta_lower"),
                     held_stats.get("agreement"),
                 ),
             )
             if qualified:
                 self._event(db, artifact["id"], "SHADOW", "VERIFIED", evidence)
-                self._event(db, artifact["id"], "VERIFIED", "ACTIVE", {"profile": profile["id"]})
-                db.execute(
-                    "UPDATE artifacts SET status='ACTIVE',epoch=? WHERE id=?",
-                    (time.time(), artifact["id"]),
-                )
+                if auto_promote:
+                    self._event(
+                        db, artifact["id"], "VERIFIED", "ACTIVE", {"profile": profile["id"]}
+                    )
+                    db.execute(
+                        "UPDATE artifacts SET status='ACTIVE',epoch=? WHERE id=?",
+                        (time.time(), artifact["id"]),
+                    )
+                else:
+                    db.execute(
+                        "UPDATE artifacts SET status='VERIFIED' WHERE id=?",
+                        (artifact["id"],),
+                    )
         return evidence
 
     def reevaluate(self, site):
@@ -594,19 +772,86 @@ class Microloop:
                 comparison_samples, missing_outcomes, quality_lower, delta_lower, uncovered_rate)
                 VALUES (?,?,?,?,?,?,?,?,?)""",
                 (
-                    artifact["id"], time.time(), int(demote),
-                    evidence["active_samples"], evidence["comparison_samples"],
-                    evidence["missing_outcomes"], evidence["quality_lower"],
-                    evidence["delta_lower"], evidence["uncovered_rate"],
+                    artifact["id"],
+                    time.time(),
+                    int(demote),
+                    evidence["active_samples"],
+                    evidence["comparison_samples"],
+                    evidence["missing_outcomes"],
+                    evidence["quality_lower"],
+                    evidence["delta_lower"],
+                    evidence["uncovered_rate"],
                 ),
             )
         return evidence
 
-    def maintenance(self, *, verifier=None, requirements=None, engine="decision"):
+    def maintenance(
+        self,
+        sites: list[str | DecisionSite] | None = None,
+        *,
+        max_sites: int | None = None,
+        max_rows: int | None = None,
+        time_budget_sec: float | None = None,
+        verifier=None,
+        requirements=None,
+        engine="decision",
+    ):
         results = {}
         engine = resolve_engine_key(engine)
-        for row in self.sites():
-            site = DecisionSite(**row["contract"])
+        if sites is not None:
+            resolved_sites = [self._resolve(s) for s in sites]
+        else:
+            resolved_sites = [
+                DecisionSite(**json.loads(r["contract"]))
+                for r in self.store.rows("SELECT contract FROM sites ORDER BY name,created")
+            ]
+
+        def site_priority_key(site: DecisionSite):
+            art = self._artifact(site.version)
+            st = art["status"] if art else "OBSERVE"
+            drift_checks = self.drift_history(site)
+            last_drift = drift_checks[0]["created"] if drift_checks else 0.0
+            hist = self.store.history(site.version)
+            obs_count = len(hist)
+            if st == "ACTIVE":
+                return (0, last_drift, -obs_count, site.name)
+            elif st == "SHADOW":
+                shadow_outcomes = sum(
+                    1
+                    for r in hist
+                    if art
+                    and r["created"] > art["epoch"]
+                    and r["prediction"] is not None
+                    and r["outcome"] is not None
+                )
+                return (1, -shadow_outcomes, site.name)
+            elif st == "CANDIDATE":
+                return (2, -obs_count, site.name)
+            elif st == "OBSERVE":
+                return (3, -obs_count, site.name)
+            else:
+                return (4, 0, site.name)
+
+        prioritized = sorted(resolved_sites, key=site_priority_key)
+        start_time = time.perf_counter()
+        total_rows = 0
+
+        for site in prioritized:
+            if max_sites is not None and len(results) >= max_sites:
+                results[site.name] = {"deferred": "max_sites_reached"}
+                continue
+            if (
+                time_budget_sec is not None
+                and (time.perf_counter() - start_time) >= time_budget_sec
+            ):
+                results[site.name] = {"deferred": "time_budget_exceeded"}
+                continue
+            if max_rows is not None and total_rows >= max_rows:
+                results[site.name] = {"deferred": "max_rows_reached"}
+                continue
+
+            site_rows = len(self.store.history(site.version))
+            total_rows += site_rows
             try:
                 artifact = self._artifact(site.version)
                 if artifact is None:
@@ -615,7 +860,84 @@ class Microloop:
                     self._require_compilation_support(site, requirements)
                     results[site.name] = {"compiled": self.compile(site, engine=engine)}
                 elif artifact["status"] == "ACTIVE":
-                    results[site.name] = self.reevaluate(site)
+                    reeval = self.reevaluate(site)
+                    results[site.name] = reeval
+                    cur = self._artifact(site.version)
+                    if cur and cur["status"] == "ACTIVE" and cur.get("profile"):
+                        prof = cur["profile"]
+                        cov_data = prof.get("coverage_engine")
+                        req_dict = prof.get("requirements", {})
+                        if cov_data:
+                            cov_engine = CoverageEngine.from_dict(cov_data)
+                            history = self.store.history(site.version)
+                            recent_counterexamples = [
+                                r for r in history[-50:]
+                                if r.get("outcome") and r["outcome"].get("quality", 1.0) < 0.5
+                            ]
+                            tightened_any = False
+                            for ce in recent_counterexamples:
+                                tightened = cov_engine.ingest_counterexample(
+                                    ce["state"], ce["choice"]
+                                )
+                                if tightened:
+                                    tightened_any = True
+                                    with self.store.transaction() as db:
+                                        self._event(
+                                            db, cur["id"], "ACTIVE", "ACTIVE",
+                                            {"event": "region_tightened", "regions": tightened},
+                                        )
+
+                            if (
+                                req_dict.get("allow_region_split", True)
+                                and not req_dict.get("high_risk", False)
+                            ):
+                                min_reg_s = req_dict.get("min_region_samples", 5)
+                                split_candidates = []
+                                for reg in list(cov_engine.semantic_regions):
+                                    if reg.status == "ACTIVE" and "." not in reg.region_id:
+                                        matching = [
+                                            (
+                                                cov_engine.vectorizer.transform(
+                                                    _extract_text(r["state"])
+                                                ),
+                                                r["state"],
+                                            )
+                                            for r in history
+                                            if reg.contains(
+                                                cov_engine.vectorizer.transform(
+                                                    _extract_text(r["state"])
+                                                )
+                                            )[0]
+                                        ]
+                                        if len(matching) >= 2 * min_reg_s:
+                                            vecs = [m[0] for m in matching]
+                                            sts = [m[1] for m in matching]
+                                            split = reg.detect_multimodal_split(
+                                                vecs, sts, min_reg_s
+                                            )
+                                            if split:
+                                                split_candidates.extend(split)
+                                                ev_data = {
+                                                    "event": "region_split_candidate_created",
+                                                    "parent_region": reg.region_id,
+                                                    "child_a": split[0].region_id,
+                                                    "child_b": split[1].region_id,
+                                                }
+                                                with self.store.transaction() as db:
+                                                    self._event(
+                                                        db, cur["id"], "ACTIVE", "ACTIVE", ev_data
+                                                    )
+                                for sc in split_candidates:
+                                    cov_engine.semantic_regions.append(sc)
+
+                            if tightened_any:
+                                prof["coverage_engine"] = cov_engine.to_dict()
+                                with self.store.transaction() as db:
+                                    db.execute(
+                                        "UPDATE artifacts SET profile=? WHERE id=?",
+                                        (canonical(prof), cur["id"]),
+                                    )
+                                results[site.name]["self_tuned"] = True
                 elif verifier is not None:
                     if artifact["profile"] is None:
                         if requirements is None:
@@ -638,11 +960,21 @@ class Microloop:
                             ]
                             if len(new_rows) < requirements.min_samples:
                                 raise
-                            # A candidate compiled too early must not pin a site forever.
                             self.compile(site, engine=engine, replace_existing=True)
                             self.calibrate(site, verifier=verifier, requirements=requirements)
-                    results[site.name] = self.evaluate(site, verifier=verifier)
-            except (ValueError, KeyError) as error:
+                    req_dict = (
+                        artifact["profile"].get("requirements", {})
+                        if artifact["profile"]
+                        else {}
+                    )
+                    if artifact["profile"] is not None and (
+                        req_dict.get("high_risk", False)
+                        or not req_dict.get("allow_auto_requalify", True)
+                    ):
+                        results[site.name] = {"pending": "auto_requalify_disabled_for_site"}
+                    else:
+                        results[site.name] = self.evaluate(site, verifier=verifier)
+            except (ValueError, KeyError, sqlite3.Error) as error:
                 results[site.name] = {"pending": str(error)}
         return results
 
@@ -781,6 +1113,312 @@ class Microloop:
             if artifact
             else [],
         }
+
+    def health(self, site: str | DecisionSite) -> dict:
+        site = self._resolve(site)
+        insp = self.inspect(site)
+        status = insp["state"]
+        drift_rows = self.drift_history(site)
+        drift_status = "none"
+        if status == "ACTIVE":
+            drift_status = "clean"
+            if drift_rows and drift_rows[0].get("demoted"):
+                drift_status = "demoted"
+        elif status == "SHADOW" and drift_rows and any(r.get("demoted") for r in drift_rows):
+            status = "DEMOTED"
+            drift_status = "demoted"
+
+        last_maint = None
+        if insp.get("lifecycle"):
+            last_maint = insp["lifecycle"][-1]["created"]
+
+        rows = self.store.history(site.version)
+        fast_rows = [r for r in rows if r["source"] == "fast_path"]
+        false_serves = sum(
+            1 for r in fast_rows if r["outcome"] and r["outcome"].get("quality", 1.0) < 1.0
+        )
+
+        return {
+            "name": site.name,
+            "version": site.version,
+            "status": status,
+            "observations": insp["observations"],
+            "fast_served": insp["fallbacks_avoided"],
+            "coverage": insp["coverage"],
+            "false_serves": false_serves,
+            "drift_status": drift_status,
+            "last_maintenance": last_maint,
+            "savings": {
+                "model_calls_avoided": insp["model_calls_avoided"],
+                "verified_model_calls_avoided": insp["verified_model_calls_avoided"],
+                "savings_basis": insp["savings_basis"],
+            },
+        }
+
+    def fleet_health(self) -> dict:
+        site_healths = {}
+        active_count = 0
+        shadow_count = 0
+        observe_count = 0
+        demoted_count = 0
+        total_obs = 0
+        total_fast = 0
+        total_false = 0
+
+        for row in self.store.rows("SELECT contract FROM sites ORDER BY name,created"):
+            site = DecisionSite(**json.loads(row["contract"]))
+            h = self.health(site)
+            site_healths[site.name] = h
+            st = h["status"]
+            if st == "ACTIVE":
+                active_count += 1
+            elif st == "SHADOW":
+                shadow_count += 1
+            elif st == "OBSERVE":
+                observe_count += 1
+            elif st == "DEMOTED":
+                demoted_count += 1
+
+            total_obs += h["observations"]
+            total_fast += h["fast_served"]
+            total_false += h["false_serves"]
+
+        return {
+            "fleet_size": len(site_healths),
+            "sites": site_healths,
+            "summary": {
+                "active_sites": active_count,
+                "shadow_sites": shadow_count,
+                "observe_sites": observe_count,
+                "demoted_sites": demoted_count,
+                "total_observations": total_obs,
+                "total_fast_served": total_fast,
+                "fleet_coverage": (total_fast / total_obs) if total_obs > 0 else 0.0,
+                "total_false_serves": total_false,
+            },
+        }
+
+    def receipt(self, decision_id: str) -> dict:
+        rows = self.store.rows("SELECT * FROM decisions WHERE id=?", (decision_id,))
+        if not rows:
+            raise KeyError(f"Unknown decision ID: {decision_id}")
+        row = rows[0]
+        pred = json.loads(row["prediction"]) if row.get("prediction") else {}
+        if "receipt" in pred:
+            return pred["receipt"]
+        source = row["source"]
+        reason = row["reason"]
+        route_info = pred.get("route_info", {})
+        return {
+            "site": row["site"],
+            "site_version": row["site"],
+            "artifact": row["artifact"],
+            "semantic_region": route_info.get("semantic_region"),
+            "representation_version": route_info.get("representation_version", "none"),
+            "distance": route_info.get("distance"),
+            "radius": route_info.get("radius"),
+            "negative_margin": route_info.get("negative_margin"),
+            "comparison_rate": route_info.get("comparison_rate"),
+            "served_by": source,
+            "verification_status": "verified"
+            if source == "fast_path"
+            else ("shadow" if reason in ("shadow", "comparison") else "fallback"),
+        }
+
+    def hot_swap(self, site, new_artifact_id: str):
+        site = self._resolve(site)
+        with self.store.transaction() as db:
+            old_art = db.execute(
+                "SELECT id, status, epoch FROM artifacts WHERE site=? AND status='ACTIVE'",
+                (site.version,),
+            ).fetchone()
+            new_art = db.execute(
+                "SELECT id, status FROM artifacts WHERE id=?", (new_artifact_id,)
+            ).fetchone()
+            if not new_art or new_art["status"] not in ("VERIFIED", "SHADOW"):
+                raise ValueError("Replacement artifact must be in VERIFIED or SHADOW state")
+            now = time.time()
+            if old_art:
+                db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (old_art["id"],))
+                self._event(
+                    db, old_art["id"], "ACTIVE", "RETIRED", {"replaced_by": new_artifact_id}
+                )
+            db.execute(
+                "UPDATE artifacts SET status='ACTIVE', epoch=? WHERE id=?",
+                (now, new_artifact_id),
+            )
+            self._event(
+                db,
+                new_artifact_id,
+                new_art["status"],
+                "ACTIVE",
+                {"replaces": old_art["id"] if old_art else None, "hot_swapped": True},
+            )
+            if old_art:
+                db.execute(
+                    "INSERT OR IGNORE INTO artifact_links VALUES (?,?,?)",
+                    (old_art["id"], new_artifact_id, now),
+                )
+        return new_artifact_id
+
+    def compact(
+        self,
+        site,
+        *,
+        keep_recent: int = 1000,
+        before_timestamp: float | None = None,
+        vacuum: bool = False,
+    ) -> dict:
+        site = self._resolve(site)
+        with self.store.transaction() as db:
+            active = db.execute(
+                "SELECT id, epoch, payload FROM artifacts WHERE site=? AND status='ACTIVE'",
+                (site.version,),
+            ).fetchone()
+            shadows = db.execute(
+                "SELECT id, epoch, payload FROM artifacts "
+                "WHERE site=? AND status IN ('SHADOW','CANDIDATE')",
+                (site.version,),
+            ).fetchall()
+
+            protected_ids = set()
+            for art in ([active] if active else []) + (shadows or []):
+                try:
+                    payload = json.loads(art["payload"])
+                    for part_ids in payload.get("partitions", {}).values():
+                        protected_ids.update(part_ids)
+                except Exception:
+                    pass
+
+            min_epoch = active["epoch"] if active else None
+            for s in shadows:
+                if min_epoch is None or s["epoch"] < min_epoch:
+                    min_epoch = s["epoch"]
+
+            recent_ids = {
+                r[0]
+                for r in db.execute(
+                    "SELECT id FROM decisions WHERE site=? ORDER BY created DESC LIMIT ?",
+                    (site.version, keep_recent),
+                ).fetchall()
+            }
+            protected_ids.update(recent_ids)
+            now_t = time.time()
+            cutoff = before_timestamp if before_timestamp is not None else (min_epoch or now_t)
+
+            rows_to_prune = [
+                r[0]
+                for r in db.execute(
+                    "SELECT id FROM decisions WHERE site=? AND created < ?",
+                    (site.version, cutoff),
+                ).fetchall()
+                if r[0] not in protected_ids
+            ]
+
+            if rows_to_prune:
+                chunk_size = 500
+                for i in range(0, len(rows_to_prune), chunk_size):
+                    chunk = rows_to_prune[i : i + chunk_size]
+                    q = f"DELETE FROM decisions WHERE id IN ({','.join('?' for _ in chunk)})"
+                    db.execute(q, chunk)
+
+            remaining = db.execute(
+                "SELECT COUNT(*) FROM decisions WHERE site=?", (site.version,)
+            ).fetchone()[0]
+
+            self.store._rebuild_coverage(db, site.version)
+            if active:
+                self._event(
+                    db,
+                    active["id"],
+                    "ACTIVE",
+                    "ACTIVE",
+                    {"event": "compaction", "pruned": len(rows_to_prune), "remaining": remaining},
+                )
+
+        if vacuum:
+            with self.store.lock:
+                self.store.conn.execute("VACUUM")
+
+        return {
+            "site": site.name,
+            "version": site.version,
+            "pruned": len(rows_to_prune),
+            "remaining": remaining,
+        }
+
+    def region_health(self, site, region_id: str) -> dict:
+        site = self._resolve(site)
+        artifact = self._artifact(site.version)
+        if not artifact or not artifact.get("profile"):
+            raise KeyError(f"No calibrated artifact found for site {site.name}")
+        cov_data = artifact["profile"].get("coverage_engine")
+        if not cov_data:
+            raise KeyError(f"No semantic coverage engine for site {site.name}")
+        cov_engine = CoverageEngine.from_dict(cov_data)
+        reg = cov_engine.get_region(region_id)
+        if not reg:
+            raise KeyError(f"Region {region_id} not found in coverage engine")
+
+        rows = self.store.history(site.version)
+        matched_rows, dists = [], []
+        for r in rows:
+            vec = cov_engine.vectorizer.transform(_extract_text(r["state"]))
+            inside, dist = reg.contains(vec)
+            if inside:
+                matched_rows.append(r)
+                dists.append(dist)
+
+        sample_count = len(matched_rows)
+        outcomes = [r["outcome"]["quality"] for r in matched_rows if r["outcome"] is not None]
+        verified_quality = sum(outcomes) / len(outcomes) if outcomes else 0.0
+        quality_lower = lower_bound(outcomes) if outcomes else 0.0
+
+        comparisons = [r for r in matched_rows if r.get("reason") == "comparison"]
+        disagreements = [
+            r for r in comparisons if r.get("outcome") and r["choice"] != reg.choice
+        ]
+        disagreement_rate = (
+            len(disagreements) / len(comparisons) if comparisons else 0.0
+        )
+
+        dist_mean = float(np.mean(dists)) if dists else 0.0
+        dist_p95 = float(np.percentile(dists, 95)) if dists else 0.0
+
+        latest_drift = self.drift_history(site)
+        last_drift_time = latest_drift[0]["created"] if latest_drift else None
+
+        health = RegionHealth(
+            region_id=reg.region_id,
+            status=reg.status,
+            sample_count=sample_count,
+            verified_quality=round(verified_quality, 4),
+            quality_lower_bound=round(quality_lower, 4),
+            comparison_disagreement_rate=round(disagreement_rate, 4),
+            distance_mean=round(dist_mean, 4),
+            distance_p95=round(dist_p95, 4),
+            negative_margin=reg.negative_margin,
+            radius=reg.radius,
+            counterexample_count=reg.counterexample_count,
+            outcome_completeness=round(len(outcomes) / max(sample_count, 1), 4),
+            last_drift_check=last_drift_time,
+            last_changed=reg.last_changed,
+        )
+        return health.to_dict()
+
+    def all_region_health(self, site) -> list[dict]:
+        site = self._resolve(site)
+        artifact = self._artifact(site.version)
+        if not artifact or not artifact.get("profile"):
+            return []
+        cov_data = artifact["profile"].get("coverage_engine")
+        if not cov_data:
+            return []
+        cov_engine = CoverageEngine.from_dict(cov_data)
+        return [
+            self.region_health(site, reg.region_id)
+            for reg in cov_engine.semantic_regions
+        ]
 
 
 _default_client = None

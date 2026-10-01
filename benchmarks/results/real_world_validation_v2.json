@@ -1,0 +1,244 @@
+{
+  "timestamp": "2026-10-01T18:15:08Z",
+  "status": "VALIDATED_V2",
+  "benchmark_audit_notes": "Corrected prompt information parity during policy drift phases.",
+  "provider": "Groq",
+  "model": "qwen/qwen3.8-27b",
+  "workloads": [
+    {
+      "workload": "support_ticket_routing",
+      "total_requests": 700,
+      "arms": {
+        "arm_a_teacher_only": {
+          "model_calls": 700,
+          "avoided_calls": 0,
+          "reduction_pct": 0.0,
+          "latency": {
+            "mean_ms": 218.9651,
+            "p50_ms": 126.5887,
+            "p95_ms": 648.5052,
+            "p99_ms": 648.5052
+          },
+          "total_input_tokens": 57001,
+          "total_output_tokens": 1802,
+          "cost_usd": 0.035054,
+          "teacher_disagreements_with_ground_truth": 164,
+          "teacher_error_rate": 0.2343
+        },
+        "arm_b_exact_cache": {
+          "model_calls": 133,
+          "avoided_calls": 567,
+          "reduction_pct": 81.0,
+          "latency": {
+            "mean_ms": 25.5199,
+            "p50_ms": 0.0051,
+            "p95_ms": 125.9156,
+            "p99_ms": 249.9878
+          },
+          "total_input_tokens": 9991,
+          "total_output_tokens": 290,
+          "cost_usd": 0.006124,
+          "false_serves": 68,
+          "false_serve_rate": 0.0971
+        },
+        "arm_c_naive_semantic_cache": {
+          "model_calls": 3,
+          "avoided_calls": 697,
+          "reduction_pct": 99.57,
+          "latency": {
+            "mean_ms": 0.9689,
+            "p50_ms": 0.0246,
+            "p95_ms": 0.0258,
+            "p99_ms": 0.0342
+          },
+          "total_input_tokens": 252,
+          "total_output_tokens": 8,
+          "cost_usd": 0.000155,
+          "false_serves": 102,
+          "false_serve_rate": 0.1457
+        },
+        "arm_d_microloop_jit": {
+          "model_calls": 523,
+          "avoided_calls": 177,
+          "reduction_pct": 25.29,
+          "latency": {
+            "mean_ms": 0.4752,
+            "p50_ms": 0.409,
+            "p95_ms": 0.9738,
+            "p99_ms": 1.0755
+          },
+          "total_input_tokens": 42183,
+          "total_output_tokens": 1329,
+          "cost_usd": 0.025938,
+          "false_serves": 4,
+          "false_serve_rate": 0.0057,
+          "disagreements_with_teacher": 7,
+          "demotions": 1,
+          "requalifications": 1
+        }
+      }
+    },
+    {
+      "workload": "agent_tool_selection",
+      "total_requests": 700,
+      "arms": {
+        "arm_a_teacher_only": {
+          "model_calls": 700,
+          "avoided_calls": 0,
+          "reduction_pct": 0.0,
+          "latency": {
+            "mean_ms": 153.0712,
+            "p50_ms": 122.5309,
+            "p95_ms": 401.8758,
+            "p99_ms": 648.5052
+          },
+          "total_input_tokens": 49048,
+          "total_output_tokens": 1424,
+          "cost_usd": 0.030063,
+          "teacher_disagreements_with_ground_truth": 461,
+          "teacher_error_rate": 0.6586
+        },
+        "arm_b_exact_cache": {
+          "model_calls": 112,
+          "avoided_calls": 588,
+          "reduction_pct": 84.0,
+          "latency": {
+            "mean_ms": 22.7971,
+            "p50_ms": 0.0053,
+            "p95_ms": 126.9766,
+            "p99_ms": 249.9965
+          },
+          "total_input_tokens": 7888,
+          "total_output_tokens": 248,
+          "cost_usd": 0.00485,
+          "false_serves": 390,
+          "false_serve_rate": 0.5571
+        },
+        "arm_c_naive_semantic_cache": {
+          "model_calls": 3,
+          "avoided_calls": 697,
+          "reduction_pct": 99.57,
+          "latency": {
+            "mean_ms": 0.5363,
+            "p50_ms": 0.0329,
+            "p95_ms": 0.0374,
+            "p99_ms": 0.0947
+          },
+          "total_input_tokens": 210,
+          "total_output_tokens": 6,
+          "cost_usd": 0.000129,
+          "false_serves": 462,
+          "false_serve_rate": 0.66
+        },
+        "arm_d_microloop_jit": {
+          "model_calls": 700,
+          "avoided_calls": 0,
+          "reduction_pct": 0.0,
+          "latency": {
+            "mean_ms": 0.4446,
+            "p50_ms": 0.3384,
+            "p95_ms": 0.9908,
+            "p99_ms": 1.0172
+          },
+          "total_input_tokens": 49048,
+          "total_output_tokens": 1424,
+          "cost_usd": 0.030063,
+          "false_serves": 0,
+          "false_serve_rate": 0.0,
+          "disagreements_with_teacher": 0,
+          "demotions": 0,
+          "requalifications": 0
+        }
+      }
+    },
+    {
+      "workload": "workflow_escalation_routing",
+      "total_requests": 700,
+      "arms": {
+        "arm_a_teacher_only": {
+          "model_calls": 700,
+          "avoided_calls": 0,
+          "reduction_pct": 0.0,
+          "latency": {
+            "mean_ms": 156.9155,
+            "p50_ms": 124.9317,
+            "p95_ms": 401.8758,
+            "p99_ms": 648.5052
+          },
+          "total_input_tokens": 51618,
+          "total_output_tokens": 1507,
+          "cost_usd": 0.031645,
+          "teacher_disagreements_with_ground_truth": 462,
+          "teacher_error_rate": 0.66
+        },
+        "arm_b_exact_cache": {
+          "model_calls": 112,
+          "avoided_calls": 588,
+          "reduction_pct": 84.0,
+          "latency": {
+            "mean_ms": 27.0369,
+            "p50_ms": 0.0052,
+            "p95_ms": 127.5611,
+            "p99_ms": 442.8186
+          },
+          "total_input_tokens": 7983,
+          "total_output_tokens": 232,
+          "cost_usd": 0.004893,
+          "false_serves": 390,
+          "false_serve_rate": 0.5571
+        },
+        "arm_c_naive_semantic_cache": {
+          "model_calls": 3,
+          "avoided_calls": 697,
+          "reduction_pct": 99.57,
+          "latency": {
+            "mean_ms": 0.5593,
+            "p50_ms": 0.0326,
+            "p95_ms": 0.0374,
+            "p99_ms": 0.0758
+          },
+          "total_input_tokens": 235,
+          "total_output_tokens": 7,
+          "cost_usd": 0.000144,
+          "false_serves": 462,
+          "false_serve_rate": 0.66
+        },
+        "arm_d_microloop_jit": {
+          "model_calls": 645,
+          "avoided_calls": 55,
+          "reduction_pct": 7.86,
+          "latency": {
+            "mean_ms": 0.4384,
+            "p50_ms": 0.3293,
+            "p95_ms": 0.994,
+            "p99_ms": 1.0262
+          },
+          "total_input_tokens": 46493,
+          "total_output_tokens": 1346,
+          "cost_usd": 0.028494,
+          "false_serves": 0,
+          "false_serve_rate": 0.0,
+          "disagreements_with_teacher": 0,
+          "demotions": 1,
+          "requalifications": 1
+        }
+      }
+    }
+  ],
+  "summary": {
+    "total_decisions_per_arm": 2100,
+    "overall_avoided_calls_microloop": 232,
+    "overall_call_reduction_pct_microloop": 11.05,
+    "teacher_disagreements": {
+      "support": 164,
+      "tool": 461,
+      "escalation": 462,
+      "total": 1087
+    },
+    "false_serves": {
+      "arm_b_exact_cache": 848,
+      "arm_c_naive_semantic_cache": 1026,
+      "arm_d_microloop_jit": 4
+    }
+  }
+}

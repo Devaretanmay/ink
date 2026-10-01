@@ -46,5 +46,8 @@ extend-exclude = ["target", "dist", ".venv", ".venv313"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
+[tool.ruff.lint.per-file-ignores]
+"benchmarks/*" = ["E501", "B905", "F841", "E741", "E731", "B007", "F401", "I001"]
+
 [tool.pytest.ini_options]
 testpaths = ["python/microloop/tests"]

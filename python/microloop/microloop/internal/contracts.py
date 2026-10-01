@@ -136,6 +136,7 @@ class DecisionResult:
     fallback_reason: str | None = None
     confidence: float | None = None
     recorded: bool = True
+    receipt: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -165,6 +166,11 @@ class PromotionRequirements:
     min_region_samples: int
     evaluation_window: int
     max_uncovered_rate: float = 1.0
+    min_comparison_rate: float = 0.05
+    allow_adaptive_comparison: bool = True
+    allow_region_split: bool = True
+    allow_auto_requalify: bool = True
+    high_risk: bool = False
 
     def __post_init__(self):
         for key in ("min_samples", "min_region_samples", "evaluation_window"):
@@ -175,11 +181,18 @@ class PromotionRequirements:
             "min_confidence",
             "max_degradation",
             "comparison_rate",
+            "min_comparison_rate",
             "max_uncovered_rate",
         ):
             if not math.isfinite(getattr(self, key)) or not 0 <= getattr(self, key) <= 1:
                 raise ValueError(f"{key} must be between zero and one")
         if not 0 < self.comparison_rate < 1:
             raise ValueError("Active service requires a nonzero fallback comparison sample")
+        if not 0 < self.min_comparison_rate <= self.comparison_rate:
+            raise ValueError("min_comparison_rate must be nonzero and <= comparison_rate")
         if self.evaluation_window < 2 * self.min_samples:
             raise ValueError("evaluation_window must accommodate both comparison arms")
+        if self.high_risk:
+            object.__setattr__(self, "allow_adaptive_comparison", False)
+            object.__setattr__(self, "allow_region_split", False)
+            object.__setattr__(self, "allow_auto_requalify", False)

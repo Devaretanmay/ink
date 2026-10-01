@@ -25,5 +25,8 @@ benchmarks/data/
 benchmarks/results/raw/
 benchmarks/results/raw/simulated/
 *.whl
+*.db
+*.db-shm
+*.db-wal
 /build/
 /dist/

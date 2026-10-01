@@ -1,0 +1,41 @@
+{
+  "sparse_tfidf": {
+    "top1_recall": 0.5,
+    "false_neighbor_rate": 0.5,
+    "avg_margin": 0.0004,
+    "contrastive_robustness": 0.5,
+    "negation_cosine_avg": 0.8346,
+    "latency_ms": 0.012,
+    "vector_dims": 1500,
+    "ram_mb": 0.5
+  },
+  "raw_modernbert": {
+    "top1_recall": 0.27,
+    "false_neighbor_rate": 0.73,
+    "avg_margin": -0.0096,
+    "contrastive_robustness": 0.25,
+    "negation_cosine_avg": 0.7792,
+    "latency_ms": 27.949,
+    "vector_dims": 1024,
+    "ram_mb": 918.0
+  },
+  "contrastive_dense": {
+    "top1_recall": 0.14,
+    "false_neighbor_rate": 0.86,
+    "avg_margin": -0.0853,
+    "contrastive_robustness": 0.25,
+    "negation_cosine_avg": -0.1198,
+    "latency_ms": 26.27,
+    "vector_dims": 128,
+    "ram_mb": 918.5
+  },
+  "hybrid_sparse_contrastive": {
+    "top1_recall": 0.47,
+    "false_neighbor_rate": 0.53,
+    "contrastive_robustness": 0.375,
+    "negation_cosine_avg": 0.6437,
+    "latency_ms": 31.36,
+    "vector_dims": 1628,
+    "ram_mb": 918.5
+  }
+}

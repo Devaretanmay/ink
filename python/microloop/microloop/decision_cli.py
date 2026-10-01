@@ -1,4 +1,4 @@
-"""Decision-oriented CLI, with legacy commands kept available."""
+"""Microloop CLI command implementations."""
 
 from __future__ import annotations
 
@@ -35,6 +35,7 @@ def main(argv):
             "retain",
             "model-install",
             "model-train",
+            "discover",
         ],
     )
     parser.add_argument("site", nargs="?")
@@ -53,7 +54,9 @@ def main(argv):
     args = parser.parse_args(argv)
     try:
         if args.command == "model-install":
-            from .internal.model.registry import install
+            from .internal.model.registry import (
+                install,  # Heavy model deps loaded only when needed.
+            )
 
             print(
                 json.dumps(
@@ -62,7 +65,9 @@ def main(argv):
             )
             return 0
         if args.command == "model-train":
-            from .internal.model.training import finetune
+            from .internal.model.training import (
+                finetune,  # Heavy model deps loaded only when needed.
+            )
 
             if not args.data or not args.output:
                 raise ValueError("model-train requires --data JSONL and --output directory")
@@ -75,6 +80,14 @@ def main(argv):
                 args.checkpoint, rows, args.output, steps=args.steps, lr=args.lr, seed=args.seed
             )
             print(json.dumps(card, indent=2))
+            return 0
+        if args.command == "discover":
+            from .discovery import discover_from_file
+
+            if not args.site:
+                raise ValueError("discover requires a trace file path (JSON or JSONL)")
+            candidates = [c.to_dict() for c in discover_from_file(args.site)]
+            print(json.dumps(candidates, indent=2))
             return 0
         if args.command in {"sites", "inspect"} and not Path(args.db).is_file():
             if args.command == "sites":
@@ -121,13 +134,12 @@ def main(argv):
                     raise ValueError("Export requires an output path")
                 client.store.export(args.site)
                 result = {"exported": args.site}
-            else:
-                if args.before is None:
-                    raise ValueError("Retention requires --before timestamp")
+            elif args.command == "retain":
                 if args.site:
-                    site = client._resolve(args.site)
-                    result = {"deleted": client.store.retain_site(site.version, args.before)}
+                    result = client.compact(args.site, before_timestamp=args.before, vacuum=True)
                 else:
+                    if args.before is None:
+                        raise ValueError("Retention across all sites requires --before timestamp")
                     result = {"deleted": client.store.retain_since(args.before)}
             if args.json or args.command not in {"sites", "inspect"}:
                 print(json.dumps(result, indent=2))

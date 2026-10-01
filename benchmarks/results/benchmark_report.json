@@ -1,0 +1,95 @@
+{
+  "benchmark_comparison": {
+    "classical_baseline": {
+      "accuracy": 0.9552,
+      "macro_f1": 0.9561,
+      "ece": 0.0363,
+      "brier_score": 0.0765,
+      "nll": 0.1991,
+      "p50_latency_ms": 0.019,
+      "p95_latency_ms": 0.032,
+      "cold_load_ms": 0.5,
+      "peak_rss_mb": 55.0,
+      "artifact_size_mb": 0.1
+    },
+    "exact_engine": {
+      "accuracy": 0.0,
+      "coverage": 0.0299,
+      "macro_f1": 0.3333,
+      "ece": 0.0,
+      "brier_score": 0.6667,
+      "nll": 2.5,
+      "p50_latency_ms": 0.002,
+      "p95_latency_ms": 0.006,
+      "cold_load_ms": 0.2,
+      "peak_rss_mb": 55.0,
+      "artifact_size_mb": 0.05
+    },
+    "upstream_base": {
+      "accuracy": 0.5672,
+      "macro_f1": 0.4903,
+      "ece": 0.1053,
+      "brier_score": 0.4806,
+      "nll": 0.7788,
+      "p50_latency_ms": 48.89,
+      "p95_latency_ms": 84.13,
+      "cold_load_ms": 147.4,
+      "peak_rss_mb": 921.1,
+      "artifact_size_mb": 803.6
+    },
+    "microloop_v1": {
+      "accuracy": 0.6269,
+      "macro_f1": 0.5888,
+      "ece": 0.1573,
+      "brier_score": 0.5043,
+      "nll": 0.8492,
+      "p50_latency_ms": 47.71,
+      "p95_latency_ms": 80.48,
+      "cold_load_ms": 127.6,
+      "peak_rss_mb": 1739.6,
+      "artifact_size_mb": 803.6
+    }
+  },
+  "ood_evaluation": {
+    "paraphrase": {
+      "samples": 20,
+      "accuracy": 0.65,
+      "mean_confidence": 0.1032,
+      "median_confidence": 0.0188,
+      "p95_confidence": 0.448,
+      "typed_guarantee_preserved": true
+    },
+    "ambiguous": {
+      "samples": 20,
+      "accuracy": null,
+      "mean_confidence": 0.0335,
+      "median_confidence": 0.0144,
+      "p95_confidence": 0.1234,
+      "typed_guarantee_preserved": true
+    },
+    "distractor": {
+      "samples": 20,
+      "accuracy": 0.6,
+      "mean_confidence": 0.0838,
+      "median_confidence": 0.0387,
+      "p95_confidence": 0.3123,
+      "typed_guarantee_preserved": true
+    },
+    "injection": {
+      "samples": 20,
+      "accuracy": null,
+      "mean_confidence": 0.1104,
+      "median_confidence": 0.0807,
+      "p95_confidence": 0.3255,
+      "typed_guarantee_preserved": true
+    },
+    "irrelevant": {
+      "samples": 20,
+      "accuracy": null,
+      "mean_confidence": 0.1678,
+      "median_confidence": 0.1733,
+      "p95_confidence": 0.2325,
+      "typed_guarantee_preserved": true
+    }
+  }
+}

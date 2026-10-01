@@ -1,0 +1,38 @@
+{
+  "fp16": {
+    "accuracy": 0.6269,
+    "macro_f1": 0.5888,
+    "ece": 0.1573,
+    "brier_score": 0.5043,
+    "nll": 0.8492,
+    "p50_latency_ms": 53.74,
+    "p95_latency_ms": 91.09,
+    "cold_load_ms": 123.3,
+    "peak_rss_mb": 918.5,
+    "estimated_artifact_size_mb": 803.6
+  },
+  "int8": {
+    "accuracy": 0.6269,
+    "macro_f1": 0.5888,
+    "ece": 0.1565,
+    "brier_score": 0.5036,
+    "nll": 0.8482,
+    "p50_latency_ms": 55.34,
+    "p95_latency_ms": 78.96,
+    "cold_load_ms": 127.0,
+    "peak_rss_mb": 1735.4,
+    "estimated_artifact_size_mb": 417.9
+  },
+  "int4": {
+    "accuracy": 0.5373,
+    "macro_f1": 0.5027,
+    "ece": 0.1227,
+    "brier_score": 0.5265,
+    "nll": 0.8816,
+    "p50_latency_ms": 46.23,
+    "p95_latency_ms": 83.51,
+    "cold_load_ms": 167.3,
+    "peak_rss_mb": 1745.5,
+    "estimated_artifact_size_mb": 225.0
+  }
+}

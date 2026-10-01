@@ -3,6 +3,7 @@
 The `integrations/` tree lives at the repository root, outside the installed
 package, so tests that exercise it need the root on `sys.path`.
 """
+
 from __future__ import annotations
 
 import sys

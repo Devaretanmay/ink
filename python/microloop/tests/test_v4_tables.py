@@ -19,7 +19,9 @@ def run(client, count, prefix="task", bad=False):
     for i in range(count):
         state = {"refund": i % 2 == 0}
         result = client.decide(
-            site=SITE, state=state, task_id=f"{prefix}-{i}",
+            site=SITE,
+            state=state,
+            task_id=f"{prefix}-{i}",
             fallback=lambda state=state: FallbackResult(
                 "refund" if state["refund"] else "specialist", model_calls=1
             ),
@@ -86,25 +88,55 @@ def test_migration_backfills_v4_tables(tmp_path):
     conn.execute("INSERT INTO sites VALUES (?,?,?,?)", ("sv", "v4.coverage", "{}", now))
     conn.execute(
         "INSERT INTO decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        ("d1", "sv", "t1", now, '{"refund":true}', "refund", "fast_path", None,
-         "a1", '{"choice":"refund"}', 0.9, 0.01, "{}"),
+        (
+            "d1",
+            "sv",
+            "t1",
+            now,
+            '{"refund":true}',
+            "refund",
+            "fast_path",
+            None,
+            "a1",
+            '{"choice":"refund"}',
+            0.9,
+            0.01,
+            "{}",
+        ),
     )
     conn.execute(
         "INSERT INTO outcomes VALUES (?,?,?)",
-        ("d1", '{"quality": 1.0, "verifier": "ledger", "verifier_version": "1",'
-               ' "evidence": {"i": 1}}', now),
+        (
+            "d1",
+            '{"quality": 1.0, "verifier": "ledger", "verifier_version": "1", "evidence": {"i": 1}}',
+            now,
+        ),
     )
     conn.execute(
         "INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?)",
-        ("a1", "sv", '{"engine_data": {"engine": "exact"}}', "chk", "ACTIVE", now, None,
-         '{"qualified": true, "holdout": {"samples": 12, "quality_lower": 0.9,'
-         ' "agreement": 1.0}, "shadow": {"samples": 12, "delta_lower": -0.1}}'),
+        (
+            "a1",
+            "sv",
+            '{"engine_data": {"engine": "exact"}}',
+            "chk",
+            "ACTIVE",
+            now,
+            None,
+            '{"qualified": true, "holdout": {"samples": 12, "quality_lower": 0.9,'
+            ' "agreement": 1.0}, "shadow": {"samples": 12, "delta_lower": -0.1}}',
+        ),
     )
     conn.execute(
         "INSERT INTO events VALUES (?,?,?,?,?,?)",
-        (1, "a1", now, "ACTIVE", "SHADOW",
-         '{"active_samples": 12, "comparison_samples": 12, "missing_outcomes": 0,'
-         ' "quality_lower": 0.9, "delta_lower": -0.1, "uncovered_rate": 0.0}'),
+        (
+            1,
+            "a1",
+            now,
+            "ACTIVE",
+            "SHADOW",
+            '{"active_samples": 12, "comparison_samples": 12, "missing_outcomes": 0,'
+            ' "quality_lower": 0.9, "delta_lower": -0.1, "uncovered_rate": 0.0}',
+        ),
     )
     conn.execute("PRAGMA user_version=3")
     conn.commit()
@@ -113,8 +145,16 @@ def test_migration_backfills_v4_tables(tmp_path):
     try:
         assert store.rows("PRAGMA user_version")[0]["user_version"] == SCHEMA_VERSION
         cov = store.rows("SELECT * FROM state_coverage")
-        assert cov == [{"site": "sv", "state": '{"refund":true}', "observations": 1,
-                        "fast_served": 1, "outcomes": 1, "quality_sum": 1.0}]
+        assert cov == [
+            {
+                "site": "sv",
+                "state": '{"refund":true}',
+                "observations": 1,
+                "fast_served": 1,
+                "outcomes": 1,
+                "quality_sum": 1.0,
+            }
+        ]
         promo = store.rows("SELECT * FROM promotion_records")
         assert len(promo) == 1 and promo[0]["qualified"] == 1
         assert promo[0]["holdout_samples"] == 12 and promo[0]["shadow_samples"] == 12

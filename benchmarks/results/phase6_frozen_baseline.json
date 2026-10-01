@@ -1,0 +1,20 @@
+{
+  "phase": 6,
+  "timestamp": "2026-10-01T22:35:00Z",
+  "vector_lookup_100k_regions_p50_ms": 0.4438,
+  "vector_lookup_100k_regions_p95_ms": 0.4844,
+  "vector_lookup_100k_regions_p99_ms": 0.5171,
+  "vector_matrix_memory_100k_regions_mb": 25.39,
+  "linear_scan_speedup_10k_regions": 389.8,
+  "fleet_routing_500_sites_p50_ms": 0.1724,
+  "fleet_routing_500_sites_p99_ms": 0.2617,
+  "fast_path_latency_p50_ms": 0.1810,
+  "fast_path_latency_p99_ms": 0.2740,
+  "false_serves": 0,
+  "false_serve_rate": 0.0000,
+  "accuracy_on_served": 1.0000,
+  "tests_count": 84,
+  "safety_invariants_count": 8,
+  "representation_version": "sparse_tfidf_v1",
+  "storage_backend": "sqlite3_wal"
+}
