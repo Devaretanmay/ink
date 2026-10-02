@@ -73,7 +73,7 @@ def generate_svg_chart(
     svg_lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" style="background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">',
         f'  <text x="{width / 2}" y="{pad_top - 25}" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">{title}</text>',
-        f'  <!-- Grid & Axes -->',
+        '  <!-- Grid & Axes -->',
         f'  <line x1="{pad_left}" y1="{pad_top + plot_h}" x2="{pad_left + plot_w}" y2="{pad_top + plot_h}" stroke="#cbd5e1" stroke-width="1.5" />',
         f'  <line x1="{pad_left}" y1="{pad_top}" x2="{pad_left}" y2="{pad_top + plot_h}" stroke="#cbd5e1" stroke-width="1.5" />',
     ]
@@ -137,7 +137,7 @@ def generate_svg_chart(
     # Legend
     legend_x = pad_left + plot_w + 20
     legend_y = pad_top + 10
-    svg_lines.append(f'  <!-- Legend -->')
+    svg_lines.append('  <!-- Legend -->')
     svg_lines.append(f'  <rect x="{legend_x - 10}" y="{legend_y - 10}" width="140" height="{len(points_by_arm) * 22 + 20}" fill="#f8fafc" stroke="#e2e8f0" rx="4" />')
     for i, (arm, _) in enumerate(points_by_arm.items()):
         color = colors.get(arm, "#64748b")
@@ -226,7 +226,7 @@ def generate_reports(results_dir: str) -> None:
     with open(report_path, "w") as f:
         f.write(report_content)
 
-    print(f"Generated:")
+    print("Generated:")
     print(f"  - CSV: {csv_path}")
     print(f"  - SVG Primary: {os.path.join(results_dir, 'frontier_primary_calls_vs_wrong_serves.svg')}")
     print(f"  - SVG Secondary: {os.path.join(results_dir, 'frontier_secondary_cost_vs_weighted_error.svg')}")

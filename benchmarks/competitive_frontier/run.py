@@ -189,9 +189,9 @@ def main():
     # Open decisions log file in append/write mode
     with open(decisions_log_path, "w") as dec_file:
         for w_name in workload_names:
-            print(f"\n=======================================================")
+            print("\n=======================================================")
             print(f"Executing Workload: {w_name.upper()}")
-            print(f"=======================================================")
+            print("=======================================================")
             cfg, dataset = get_workload_dataset(w_name)
             runner = ArmRunner(cfg, dataset)
 
@@ -326,7 +326,7 @@ def main():
     with open(summary_path, "w") as sum_file:
         json.dump(all_summaries, sum_file, indent=2)
 
-    print(f"\nBenchmark completed successfully!")
+    print("\nBenchmark completed successfully!")
     print(f"Total experiment runs evaluated: {len(all_summaries)}")
     print(f"Decisions log saved to: {decisions_log_path}")
     print(f"Summary JSON saved to: {summary_path}")

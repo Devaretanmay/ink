@@ -7,7 +7,7 @@ from microloop import DecisionSite, FallbackResult, Microloop, Outcome, Promotio
 from microloop.internal.decision_store import SCHEMA_VERSION, DecisionStore
 
 SITE = DecisionSite("v4.coverage", {"refund": "boolean"}, ("refund", "specialist"))
-REQ = PromotionRequirements(10, 0.5, 0.5, 0.6, 0.25, 5, 100)
+REQ = PromotionRequirements(10, 0.5, 0.5, 0.6, 0.35, 5, 200, allow_adaptive_comparison=False)
 
 
 def verify(state, choice):
