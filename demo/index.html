@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Microloop — Behavior JIT for Production AI (Sales Demo)</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Data Origin Scoping Banner -->
+  <div class="banner-benchmark">
+    <div>
+      <span class="tag">Benchmark Replay</span>
+      <span>Empirical Data Source: 18,000 decisions across 4 workloads (Strict 70/30 temporal eval)</span>
+    </div>
+    <div style="font-family: var(--font-mono); font-size: 10px; color: #94a3b8;">
+      v0.6.0-rc1
+    </div>
+  </div>
+
+  <div class="container">
+
+    <!-- Header Section -->
+    <header>
+      <div class="brand-row">
+        <div>
+          <h1>Micro<span>loop</span></h1>
+          <div class="tagline">Behavior JIT for production AI systems.</div>
+          <div class="sub-copy">Models handle novelty. Microloop handles verified repetition.</div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls-bar">
+          <button id="btn-play-pause" class="btn btn-primary">▶ Play Auto (75s)</button>
+          <button id="btn-step" class="btn btn-secondary">Next Step</button>
+          <button id="btn-drift" class="btn btn-danger">⚡ Inject Policy Change</button>
+          <button id="btn-reset" class="btn btn-secondary">↺ Reset</button>
+          <span class="mode-badge">Workload: Support Ticket Action Routing</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Key Measured Numbers (Strictly Scoped) -->
+    <section class="proof-metrics-grid">
+      <div class="metric-card accent-emerald">
+        <div class="metric-value">0.18 ms</div>
+        <div class="metric-label">Qualified Fast Path Latency</div>
+        <div class="metric-scope">Executes ~820x faster than 148ms teacher model. Local in-process execution.</div>
+      </div>
+
+      <div class="metric-card accent-rose">
+        <div class="metric-value">7–8</div>
+        <div class="metric-label">Serves Before Drift Demotion</div>
+        <div class="metric-scope">Passive policy drift detected via comparison traffic; demotes to shadow automatically.</div>
+      </div>
+
+      <div class="metric-card accent-blue">
+        <div class="metric-value">3.5–8.9%</div>
+        <div class="metric-label">Whole-App Spend Reduction</div>
+        <div class="metric-scope">Total fleet denominator (bounded decision site = 15–25% of overall agent traffic).</div>
+      </div>
+
+      <div class="metric-card accent-amber">
+        <div class="metric-value">0</div>
+        <div class="metric-label">False Serves on High Entropy</div>
+        <div class="metric-scope">Profiler actively refuses to compile exploratory open-web workloads (0% wasted calls).</div>
+      </div>
+    </section>
+
+    <!-- Policy Update Notification (Appears dynamically upon drift) -->
+    <div id="policy-banner" class="policy-banner">
+      <div class="policy-badge">⚡ Policy Shift Injected</div>
+      <div class="policy-text">
+        <strong>Updated Business Policy:</strong> Damaged electronics can no longer be automatically refunded. They now require specialist review.
+      </div>
+      <div style="font-size: 11px; font-family: var(--font-mono); color: #cbd5e1;">
+        Phase: Passive Drift (No explicit prompt signal to cache)
+      </div>
+    </div>
+
+    <!-- Main Live Simulation Stage -->
+    <section class="sim-grid">
+
+      <!-- Left Column: Live Decision Stream -->
+      <div class="panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <span>Live Decision Stream</span>
+            <span id="lifecycle-badge" class="status-indicator">
+              <span id="lifecycle-dot" class="status-dot"></span>
+              <span id="lifecycle-text">OBSERVE</span>
+            </span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); font-family: var(--font-mono);">
+            TICKETS: refund / request_info / specialist
+          </div>
+        </div>
+
+        <div id="stream-rows" class="stream-container">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Right Column: Call Counter & Latency -->
+      <div class="stats-sidebar">
+
+        <!-- Call Counter -->
+        <div class="counter-box">
+          <div class="counter-title">
+            <span>Model Invocations</span>
+            <span style="font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">Site Denominator</span>
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+              <span style="color: var(--text-secondary);">Without Microloop</span>
+              <span id="count-no-ml" style="font-family: var(--font-mono); font-weight: 700; color: #cbd5e1;">0 calls</span>
+            </div>
+            <div class="progress-track">
+              <div style="width: 100%; background: #475569;"></div>
+            </div>
+          </div>
+
+          <div>
+            <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
+              <span style="color: #34d399; font-weight: 600;">With Microloop JIT</span>
+              <span style="font-family: var(--font-mono); font-weight: 700;">
+                <span id="count-with-ml" style="color: #94a3b8;">0</span> model / 
+                <span id="count-fp" style="color: #34d399;">0</span> fast path
+              </span>
+            </div>
+            <div class="progress-track">
+              <div id="fill-model" class="progress-fill-model" style="width: 100%;"></div>
+              <div id="fill-fp" class="progress-fill-fp" style="width: 0%;"></div>
+            </div>
+          </div>
+          <div class="progress-legend">
+            <span>Gray = Remote LLM</span>
+            <span>Green = Local Fast Path (0.18ms)</span>
+          </div>
+        </div>
+
+        <!-- Latency Comparison -->
+        <div class="counter-box">
+          <div class="counter-title">
+            <span>Decision Latency (p50)</span>
+          </div>
+
+          <div class="lat-comp-item">
+            <div class="lat-comp-label">
+              <span style="color: #94a3b8;">Original Teacher LLM</span>
+              <span style="color: #ffffff; font-weight: 700;">148.1 ms</span>
+            </div>
+            <div class="lat-bar-bg">
+              <div class="lat-bar-fill" style="width: 100%; background: #475569;"></div>
+            </div>
+          </div>
+
+          <div class="lat-comp-item">
+            <div class="lat-comp-label">
+              <span style="color: #f59e0b;">Cheap Model Tier</span>
+              <span style="color: #ffffff; font-weight: 700;">41.3 ms</span>
+            </div>
+            <div class="lat-bar-bg">
+              <div class="lat-bar-fill" style="width: 28%; background: #f59e0b;"></div>
+            </div>
+          </div>
+
+          <div class="lat-comp-item">
+            <div class="lat-comp-label">
+              <span style="color: #34d399; font-weight: 700;">Microloop Fast Path</span>
+              <span style="color: #34d399; font-weight: 700;">0.18 ms (~820x)</span>
+            </div>
+            <div class="lat-bar-bg">
+              <div class="lat-bar-fill" style="width: 2.5%; background: #10b981;"></div>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 6px;">
+            *Qualified local decision latency. Does not imply 800x faster total workflow.
+          </div>
+        </div>
+
+        <!-- Active Drift Error Counters -->
+        <div class="counter-box">
+          <div class="counter-title">
+            <span>Drift False Serves</span>
+            <span style="color: #f43f5e; font-size: 10px;">Side-by-side</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
+            <span style="font-size: 12px; color: #94a3b8;">Semantic Cache:</span>
+            <span id="sc-drift-errors" style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: #f43f5e;">0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
+            <span style="font-size: 12px; color: #94a3b8;">Microloop JIT:</span>
+            <span id="ml-drift-errors" style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: #34d399;">0</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Side-by-side The "Oh, I get it" Moment -->
+    <section>
+      <div style="margin-bottom: 12px;">
+        <h2 style="font-size: 18px; font-weight: 700;">The Core Difference: Behavior Under Policy Drift</h2>
+        <p style="font-size: 13px; color: var(--text-secondary);">
+          A cache stores similarity. Microloop verifies authority against independent outcomes.
+        </p>
+      </div>
+
+      <div class="drift-comparison-grid">
+        <div class="drift-card" style="border-left: 3px solid #f43f5e;">
+          <div class="drift-card-header">
+            <span>Semantic Cache</span>
+            <span style="font-size: 11px; color: #f43f5e; font-family: var(--font-mono);">Static Matching</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">Mechanism:</span>
+            <span class="stat-val" style="color: #cbd5e1;">Embeds input → returns closest cached choice</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">When Policy Changes:</span>
+            <span class="stat-val text-danger">Keeps blindly serving stale 'refund'</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">Wrong-Serve Rate:</span>
+            <span class="stat-val text-danger">18.0% (270 corrupt decisions)</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">Automatic Deoptimization:</span>
+            <span class="stat-val text-danger">None (0 revocations)</span>
+          </div>
+        </div>
+
+        <div class="drift-card" style="border-left: 3px solid #10b981;">
+          <div class="drift-card-header">
+            <span>Microloop Decision JIT</span>
+            <span style="font-size: 11px; color: #34d399; font-family: var(--font-mono);">Active Verification</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">Mechanism:</span>
+            <span class="stat-val" style="color: #cbd5e1;">Shadow qualification + continuous comparison traffic</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">When Policy Changes:</span>
+            <span class="stat-val text-success">Detects disagreement → DEOPT → demotes to shadow</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">Wrong-Serve Rate:</span>
+            <span class="stat-val text-success">2.68% (Bounded, 8 decisions before demotion)</span>
+          </div>
+          <div class="drift-stat-row">
+            <span class="stat-label">Fallback Recovery:</span>
+            <span class="stat-val text-success">Autonomous step-down to teacher model</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Technical Proof: Safety × Savings Frontier -->
+    <section class="frontier-section">
+      <div class="frontier-header">
+        <div>
+          <h2 style="font-size: 18px; font-weight: 700;">Empirical Safety × Savings Frontier</h2>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
+            Sweeping aggressiveness across all arms. Microloop maintains low error while avoiding model calls.
+          </p>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button id="toggle-whole-app" class="btn btn-primary" style="font-size: 11px; padding: 4px 10px;">
+            Whole-Application %
+          </button>
+          <button id="toggle-site" class="btn btn-secondary" style="font-size: 11px; padding: 4px 10px;">
+            DecisionSite Only %
+          </button>
+        </div>
+      </div>
+
+      <div id="frontier-chart-container" class="chart-wrapper">
+        <!-- SVG rendered by app.js -->
+      </div>
+    </section>
+
+    <!-- Abstention & Negative Control Section -->
+    <section>
+      <div class="abstention-card">
+        <div>
+          <span class="refusal-badge">Negative Control — Autonomous Refusal</span>
+          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Microloop Knows When to Say NO</h3>
+          <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
+            Evaluated on an open-web autonomous research agent with high-entropy trajectories and zero state repetition. Microloop's profiler rejected the workload outright.
+          </p>
+          <div style="font-family: var(--font-mono); font-size: 12px; background: #0f172a; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-subtle); color: #fda4af;">
+            RECOMMENDATION: DO NOT COMPILE<br>
+            REASON: High state entropy (6.8 bits), repetition &lt; 15%
+          </div>
+        </div>
+
+        <div class="abstention-stats-box">
+          <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 8px;">
+            Research Agent Benchmark
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0;">
+            <span style="color: var(--text-secondary);">Microloop local serves:</span>
+            <span style="font-family: var(--font-mono); font-weight: 700; color: #34d399;">0 (0% error)</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0;">
+            <span style="color: var(--text-secondary);">Semantic cache serves:</span>
+            <span style="font-family: var(--font-mono); font-weight: 700; color: #f43f5e;">900 (2.56% error)</span>
+          </div>
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+            The goal is not max hit-rate. The goal is knowing what earns authority.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Low-Friction Design Partner Call to Action -->
+    <section class="cta-box">
+      <div class="cta-title">Think your agents repeat themselves?</div>
+      <div class="cta-sub">
+        Send us a sanitized trace sample. We'll run offline discovery and tell you what looks compilable before you integrate anything.
+      </div>
+      <div>
+        <div class="cta-instruction">
+          microloop discover traces.jsonl
+        </div>
+      </div>
+      <div style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">
+        Zero cloud control plane. Zero telemetry daemons. Pure local verification.
+      </div>
+    </section>
+
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
