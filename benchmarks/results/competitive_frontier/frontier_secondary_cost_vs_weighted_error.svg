@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" style="background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;">
+  <text x="400.0" y="35" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Secondary Frontier: Spend Reduction vs. Cost-Weighted Severity</text>
+  <!-- Grid & Axes -->
+  <line x1="90" y1="440" x2="640" y2="440" stroke="#cbd5e1" stroke-width="1.5" />
+  <line x1="90" y1="60" x2="90" y2="440" stroke="#cbd5e1" stroke-width="1.5" />
+  <line x1="90.0" y1="440" x2="90.0" y2="445" stroke="#94a3b8" />
+  <text x="90.0" y="460" text-anchor="middle" font-size="11" fill="#475569">0.0%</text>
+  <line x1="200.0" y1="440" x2="200.0" y2="445" stroke="#94a3b8" />
+  <text x="200.0" y="460" text-anchor="middle" font-size="11" fill="#475569">5.5%</text>
+  <line x1="200.0" y1="60" x2="200.0" y2="440" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="310.0" y1="440" x2="310.0" y2="445" stroke="#94a3b8" />
+  <text x="310.0" y="460" text-anchor="middle" font-size="11" fill="#475569">11.0%</text>
+  <line x1="310.0" y1="60" x2="310.0" y2="440" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="420.0" y1="440" x2="420.0" y2="445" stroke="#94a3b8" />
+  <text x="420.0" y="460" text-anchor="middle" font-size="11" fill="#475569">16.5%</text>
+  <line x1="420.0" y1="60" x2="420.0" y2="440" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="530.0" y1="440" x2="530.0" y2="445" stroke="#94a3b8" />
+  <text x="530.0" y="460" text-anchor="middle" font-size="11" fill="#475569">22.0%</text>
+  <line x1="530.0" y1="60" x2="530.0" y2="440" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="640.0" y1="440" x2="640.0" y2="445" stroke="#94a3b8" />
+  <text x="640.0" y="460" text-anchor="middle" font-size="11" fill="#475569">27.5%</text>
+  <line x1="640.0" y1="60" x2="640.0" y2="440" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="85" y1="440.0" x2="90" y2="440.0" stroke="#94a3b8" />
+  <text x="80" y="444.0" text-anchor="end" font-size="11" fill="#475569">0.0%</text>
+  <line x1="85" y1="364.0" x2="90" y2="364.0" stroke="#94a3b8" />
+  <text x="80" y="368.0" text-anchor="end" font-size="11" fill="#475569">621.0%</text>
+  <line x1="90" y1="364.0" x2="640" y2="364.0" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="85" y1="288.0" x2="90" y2="288.0" stroke="#94a3b8" />
+  <text x="80" y="292.0" text-anchor="end" font-size="11" fill="#475569">1242.0%</text>
+  <line x1="90" y1="288.0" x2="640" y2="288.0" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="85" y1="212.0" x2="90" y2="212.0" stroke="#94a3b8" />
+  <text x="80" y="216.0" text-anchor="end" font-size="11" fill="#475569">1863.0%</text>
+  <line x1="90" y1="212.0" x2="640" y2="212.0" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="85" y1="136.0" x2="90" y2="136.0" stroke="#94a3b8" />
+  <text x="80" y="140.0" text-anchor="end" font-size="11" fill="#475569">2484.0%</text>
+  <line x1="90" y1="136.0" x2="640" y2="136.0" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <line x1="85" y1="60.0" x2="90" y2="60.0" stroke="#94a3b8" />
+  <text x="80" y="64.0" text-anchor="end" font-size="11" fill="#475569">3105.0%</text>
+  <line x1="90" y1="60.0" x2="640" y2="60.0" stroke="#f1f5f9" stroke-dasharray="3,3" />
+  <text x="365.0" y="485" text-anchor="middle" font-size="12" font-weight="600" fill="#334155">Whole-Application Spend Reduction (%)</text>
+  <text transform="rotate(-90)" x="-250.0" y="40" text-anchor="middle" font-size="12" font-weight="600" fill="#334155">Total Cost-Weighted Error [Lower is Better]</text>
+  <polyline points="90.0,440.0 90.0,440.0 90.0,440.0" fill="none" stroke="#64748b" stroke-width="2" stroke-linejoin="round" opacity="0.8" />
+  <circle cx="90.0" cy="440.0" r="4" fill="#64748b" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="90.0" cy="440.0" r="4" fill="#64748b" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="90.0" cy="440.0" r="4" fill="#64748b" stroke="#ffffff" stroke-width="1.5" />
+  <polyline points="253.4,381.9 260.8,381.9 279.0,374.6 285.0,370.4 299.6,325.0 305.6,416.9 321.6,306.6 332.6,415.0 334.8,349.3 346.2,293.1 357.6,280.9 357.6,407.7 369.2,406.6 419.0,246.6 427.6,394.2" fill="none" stroke="#ea580c" stroke-width="2" stroke-linejoin="round" opacity="0.8" />
+  <circle cx="253.4" cy="381.9" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="260.8" cy="381.9" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="279.0" cy="374.6" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="285.0" cy="370.4" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="299.6" cy="325.0" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="305.6" cy="416.9" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="321.6" cy="306.6" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="332.6" cy="415.0" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="334.8" cy="349.3" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="346.2" cy="293.1" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="357.6" cy="280.9" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="357.6" cy="407.7" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="369.2" cy="406.6" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="419.0" cy="246.6" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="427.6" cy="394.2" r="4" fill="#ea580c" stroke="#ffffff" stroke-width="1.5" />
+  <polyline points="299.2,417.6 308.2,415.4 362.2,413.9 471.0,400.0 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 537.4,145.1 537.4,145.1 543.8,387.9 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,373.9 590.0,373.9 590.0,373.9 590.0,373.9" fill="none" stroke="#dc2626" stroke-width="2" stroke-linejoin="round" opacity="0.8" />
+  <circle cx="299.2" cy="417.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="308.2" cy="415.4" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="362.2" cy="413.9" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="471.0" cy="400.0" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="537.4" cy="145.1" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="537.4" cy="145.1" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="543.8" cy="387.9" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#dc2626" stroke="#ffffff" stroke-width="1.5" />
+  <polyline points="97.0,440.0 111.4,440.0 129.0,440.0 172.6,440.0 175.8,440.0 213.4,440.0 244.2,440.0 248.6,440.0 310.8,440.0 314.8,440.0 330.0,440.0 403.0,440.0 418.4,440.0 436.4,440.0 466.0,440.0 487.6,440.0 507.4,440.0 512.6,440.0 530.4,440.0 556.6,440.0 560.0,440.0" fill="none" stroke="#059669" stroke-width="2" stroke-linejoin="round" opacity="0.8" />
+  <circle cx="97.0" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="111.4" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="129.0" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="172.6" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="175.8" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="213.4" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="244.2" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="248.6" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="310.8" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="314.8" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="330.0" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="403.0" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="418.4" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="436.4" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="466.0" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="487.6" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="507.4" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="512.6" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="530.4" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="556.6" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="560.0" cy="440.0" r="4" fill="#059669" stroke="#ffffff" stroke-width="1.5" />
+  <polyline points="490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 490.0,274.8 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,109.6 590.0,373.9 590.0,373.9 590.0,373.9 590.0,373.9 590.0,373.9 590.0,373.9 590.0,373.9 590.0,373.9 590.0,373.9" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linejoin="round" opacity="0.8" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="490.0" cy="274.8" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="109.6" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="590.0" cy="373.9" r="4" fill="#7c3aed" stroke="#ffffff" stroke-width="1.5" />
+  <polyline points="158.0,435.1 160.2,435.1 161.2,435.1 163.8,435.1 167.0,435.1 174.0,431.4 184.6,430.2 184.6,431.4 184.6,431.4 187.8,427.8 275.0,418.0 275.6,418.3 277.8,418.3 279.0,418.7 279.6,418.0" fill="none" stroke="#2563eb" stroke-width="2" stroke-linejoin="round" opacity="0.8" />
+  <circle cx="158.0" cy="435.1" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="160.2" cy="435.1" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2.5" />
+  <circle cx="161.2" cy="435.1" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="163.8" cy="435.1" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="167.0" cy="435.1" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="174.0" cy="431.4" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="184.6" cy="430.2" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="184.6" cy="431.4" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2.5" />
+  <circle cx="184.6" cy="431.4" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="187.8" cy="427.8" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="275.0" cy="418.0" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="275.6" cy="418.3" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="277.8" cy="418.3" r="6" fill="#2563eb" stroke="#ffffff" stroke-width="2.5" />
+  <circle cx="279.0" cy="418.7" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="279.6" cy="418.0" r="4" fill="#2563eb" stroke="#ffffff" stroke-width="1.5" />
+  <!-- Legend -->
+  <rect x="650" y="60" width="140" height="152" fill="#f8fafc" stroke="#e2e8f0" rx="4" />
+  <circle cx="660" cy="80" r="4" fill="#64748b" />
+  <text x="670" y="84" font-size="11" fill="#334155">Original Teacher</text>
+  <circle cx="660" cy="102" r="4" fill="#ea580c" />
+  <text x="670" y="106" font-size="11" fill="#334155">Exact Cache</text>
+  <circle cx="660" cy="124" r="4" fill="#dc2626" />
+  <text x="670" y="128" font-size="11" fill="#334155">Semantic Cache</text>
+  <circle cx="660" cy="146" r="4" fill="#059669" />
+  <text x="670" y="150" font-size="11" fill="#334155">Cheap Model Tier</text>
+  <circle cx="660" cy="168" r="4" fill="#7c3aed" />
+  <text x="670" y="172" font-size="11" fill="#334155">Small Classifier</text>
+  <circle cx="660" cy="190" r="4" fill="#2563eb" />
+  <text x="670" y="194" font-size="11" fill="#334155">Microloop (JIT)</text>
+</svg>

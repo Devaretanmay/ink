@@ -24,6 +24,7 @@ benchmarks/data/
 
 benchmarks/results/raw/
 benchmarks/results/raw/simulated/
+benchmarks/results/**/*.jsonl
 *.whl
 *.db
 *.db-shm
