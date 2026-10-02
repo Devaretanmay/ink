@@ -1,93 +1,63 @@
 # Microloop
 
-**A verified local Decision JIT for AI agents.**
+**Behavior JIT for production AI.**
 
-Microloop turns repeated agent decisions into verified fast paths. An agent starts with its original model. Microloop records bounded decisions, evaluates site economics, compiles local candidate paths, runs them in shadow, and promotes them only after independent outcome verification. Unfamiliar or unverified states continue to use the original model.
+Microloop learns which repeated AI behavior no longer needs inference. It observes bounded AI decisions and their real outcomes. Once a decision pattern has enough independent evidence, it executes locally. Novel or uncertain states continue to the existing model, and stale behavior is automatically revoked.
 
 ```text
-observe → profile → candidate → shadow → verified → active
-                                  ↑                  │
-                                  └── outcome drift ─┘
+observe → compile → shadow → qualify → active → deopt (on drift)
 ```
 
 ---
 
-## Before & After Comparison
+## What problem does this solve?
 
-| Dimension | Direct Remote LLM | Naive Semantic Cache | Microloop Decision JIT |
-| :--- | :--- | :--- | :--- |
-| **Model Invocations** | 1,000 calls / 1k requests | 3–50 calls (blind cache hit) | **80–250 calls** (75–85% steady-state avoided) |
-| **Decision Latency (p50)** | 120–250 ms | 2–10 ms | **0.30–0.45 ms** (~300x faster) |
-| **Cost per 1k Decisions** | $2.00 – $3.50 | ~$0.05 | **$0.20 – $0.40** |
-| **False Serves on Policy Drift** | 0 (follows prompt) | **30% – 66% corrupted serves** | **0.00% – 0.57%** (demotes to shadow in 1–4 calls) |
-| **Serving Authority** | Ground truth model | Similarity threshold (> 0.8) | **Hoeffding concentration bound on holdout outcomes** |
-| **Infrastructure Required** | Cloud API | Vector DB (Pinecone, Qdrant) + Redis | **Embedded local SQLite WAL (zero daemons)** |
-| **External Dependencies** | Provider SDK | Embedding API + Network Cache | **None (pure Python + local embedded weights)** |
+Production AI agents make the same bounded decisions repeatedly — routing tickets, selecting tools, classifying intent. Each call costs money and adds latency, even when the answer hasn't changed.
 
-*Verified empirical numbers from `benchmarks/results/real_world_validation_v2.json` and `benchmarks/results/long_horizon_economics.json`.*
+Microloop identifies these repeated decisions, proves they're correct against real outcomes, and serves them locally in under 0.2ms. When reality changes, it detects drift and falls back to the model automatically.
 
----
+## What does it NOT optimize?
 
-## When to Use Microloop (and When NOT To)
+- Free-form text generation
+- Creative or exploratory tasks
+- Decisions that can't be independently verified
+- Workloads with very low repetition
+- High-entropy research or planning
 
-### When to Use:
-1. **Repetitive bounded decisions:** Customer support routing, triage, tool dispatching, approval workflows, classification where the state repeat rate $\ge 50\%$.
-2. **Measurable outcome feedback:** A downstream system produces a verification signal (e.g., successful API execution, refund approved, user confirmed).
-3. **High fallback latency or cost:** Remote LLM calls costing $\ge \$0.001$/call or taking $\ge 100$ms where local sub-millisecond execution matters.
-4. **Strict reliability requirements:** Environments where uncalibrated semantic hallucinations or stale cached decisions cannot be tolerated.
-
-### When NOT to Use:
-1. **Free-form generation:** Open-ended text generation, chat conversations, creative writing, or high-entropy outputs (>4.5 bits entropy).
-2. **Exploratory, non-repetitive tasks:** Autonomous research, web navigation where every visited URL is unique (repetition $< 15\%$).
-3. **Hyper-volatile policies:** Systems whose business rules change every few hundred decisions (drift interval $< 5,000$ calls).
-4. **Zero verifier signal:** Workloads where decision correctness cannot be independently evaluated after execution.
+If your workload doesn't have bounded, repeating, verifiable decisions, Microloop will tell you. That's a feature.
 
 ---
 
-## 30-Second Quickstart
-
-Run the full Decision JIT lifecycle demo in under 3 seconds with zero external API keys:
+## Quickstart
 
 ```bash
-# 1. Install microloop in your virtual environment
-pip install -e python/microloop
-
-# 2. Run the interactive 3-act terminal demo
-python examples/thirty_second_demo.py
+pip install microloop
 ```
 
-The demo executes three distinct acts:
-- **Act 1: Observation & Economics:** Records baseline decisions and profiles repeat rate, entropy, and break-even horizon.
-- **Act 2: Shadow Qualification:** Compiles candidate fast paths and qualifies against holdout verification evidence.
-- **Act 3: Local Serving & Drift Protection:** Serves verified decisions in <0.5ms. Injects an upstream policy drift, autonomously demotes the stale path via comparison traffic, and safely returns to fallback with 99.6% fewer false serves than naive caching.
+### Evaluate before integrating
 
----
+Analyze your existing traces without changing production code:
 
-## Discovering Compilable Sites
-
-Not every agent call should be compiled. Use the discovery tool to analyze your agent traces before compiling:
-
-```python
-from microloop.discovery import discover_from_file
-
-candidates = discover_from_file("agent_traces.jsonl")
-for c in candidates:
-    print(
-        f"Site: {c.site_name} | Repeat: {c.repetition_rate:.1%} | Action: {c.recommendation.upper()}"
-    )
+```bash
+microloop discover traces.jsonl
 ```
 
-Or profile an existing registered site directly:
+```text
+Found 8 model decision sites
 
-```python
-profile = client.profile("support.route")
-print(profile.recommendation)  # 'strong_candidate', 'poor_repetition', 'weak_verifier', etc.
-print(profile.break_even_decisions)  # Estimated decisions until qualification amortizes
+Strong candidates
+  support.route      repeat=72%  entropy=1.8  choices=3  verifier=available
+  agent.tool_select  repeat=58%  entropy=2.1  choices=4  verifier=available
+
+Needs more data
+  fraud.escalation   repeat=31%  entropy=2.5  choices=3  traces=47
+
+Not recommended
+  response.generate  HIGH ENTROPY (6.2 bits) — open-ended generation
+  research.plan      LOW REPETITION (8%) — mostly unique states
 ```
 
----
-
-## Integration Example
+### Integrate in ~15 lines
 
 ```python
 from microloop import DecisionSite, Microloop, FallbackResult
@@ -96,24 +66,21 @@ site = DecisionSite(
     name="support.route",
     state_schema={"text": "string", "amount": "integer"},
     choices=("refund", "request_info", "specialist"),
-    fallback_revision="1",
 )
 
-with Microloop() as client:
-    client.register(site)
-
-    # 1. Decide: serves locally if verified, else invokes fallback
-    result = client.decide(
-        site=site.name,
+with Microloop() as loop:
+    # Decide: serves locally when qualified, else calls your model
+    result = loop.decide(
+        site=site,
         state={"text": "Item damaged in shipping", "amount": 25},
         fallback=lambda: FallbackResult(my_llm_call(), cost=0.002, model_calls=1),
     )
 
-    # 2. Execute action
+    # Execute the action
     receipt = execute_action(result.choice)
 
-    # 3. Record outcome for statistical qualification and drift monitoring
-    client.record_outcome(
+    # Record the real outcome — this is how Microloop qualifies decisions
+    loop.record_outcome(
         result.decision_id,
         quality=1.0 if receipt.success else 0.0,
         verifier="fulfillment_system",
@@ -124,33 +91,95 @@ with Microloop() as client:
 
 ---
 
-## Production Pilots & External Validation
+## What happens if Microloop is uncertain?
 
-Microloop has been validated across three independent external application pilot archetypes ([`pilots/`](pilots/)):
-- **Pilot A (Agent Tool Orchestration):** 49.2% net call reduction, 1.00 ms p50 latency, delayed tool exit code verifier.
-- **Pilot B (Support Workflow Routing):** 38.8% net call reduction, 1.19 ms p50 latency, explicit policy invalidation (`client.invalidate`).
-- **Pilot C (Autonomous Coding CI Agent):** 45.0% net call reduction, 1.21 ms p50 latency (down from 1,200 ms), deterministic `pytest` exit code verifier.
+It calls your model. Microloop never serves a decision it hasn't qualified through independent outcome verification. The `fallback` function runs normally — your agent behaves exactly as it did before Microloop.
 
-Run the pilot evaluation harness locally:
-```bash
-python pilots/run_all_pilots.py
+---
+
+## Measured Results
+
+From the [competitive benchmark](benchmarks/results/competitive_frontier/REPORT.md) — 18,000 decisions across 4 workloads with strict 70/30 temporal evaluation:
+
+| Metric | Measured Value | Scope |
+| :--- | :--- | :--- |
+| Local fast-path latency | 0.18–0.19 ms (p50) | Qualified local serves only |
+| DecisionSite call reduction | 19.9–40.4% | Within bounded decision sites |
+| Whole-app call reduction | 3.99–10.10% | Entire application (sites = 15–25% of traffic) |
+| Whole-app spend reduction | 3.51–8.87% | Entire application |
+| Wrong serves before demotion | 7–8 | Under injected passive policy drift |
+| Static cache wrong-serve rate | 12.0–18.0% | Same drift conditions |
+| High-entropy workload | Correctly rejected | Refused compilation (0% wasted resources) |
+
+> **Important denominators:** Bounded verifiable decisions typically represent 15–25% of total application LLM calls. Whole-application savings reflect this. Do not extrapolate DecisionSite-level numbers to entire applications.
+
+### What Microloop does NOT claim
+
+- Zero errors — Microloop incurred 7–8 wrong serves before detecting drift and demoting
+- 80% company-wide cost reduction — whole-app savings depend on bounded traffic share
+- Replacement of all model calls — only bounded, repeating, verifiable decisions qualify
+- Faster entire applications — 0.18ms applies to qualified local serves, not total workflow
+
+---
+
+## How it works
+
+```text
+1. OBSERVE    Your agent runs normally. Microloop records decisions and outcomes.
+2. PROFILE    Microloop estimates repetition, entropy, and qualification cost.
+3. COMPILE    High-value sites get a local candidate fast path.
+4. SHADOW     The candidate runs alongside the model. Outcomes are compared.
+5. QUALIFY     Statistical tests confirm the fast path matches model quality.
+6. ACTIVE     Qualified decisions serve locally in <0.2ms.
+7. COMPARE    Ongoing comparison traffic (5–10%) monitors for drift.
+8. DEOPT      If quality degrades, Microloop revokes the fast path automatically.
 ```
 
 ---
 
-## Claims and Evidence
+## When to use Microloop
 
-Every claim made about Microloop is registered with its exact empirical conditions in the [Claims Registry](docs/claims.md).
+- **Repetitive bounded decisions** — routing, triage, tool selection, classification with repeat rate ≥ 20%
+- **Measurable outcome feedback** — a downstream system can verify whether the decision was correct
+- **High model latency or cost** — remote LLM calls ≥ 100ms or meaningful per-call cost
+- **Policy drift matters** — you need stale decisions detected and revoked automatically
 
-- **Phase 10 Pilot Report:** [External Pilot Report](pilots/REPORT.md)
-- **Formal Invariants:** [Formal Safety Specification](docs/safety-spec.md)
-- **Architecture Details:** [Architecture Documentation](docs/architecture.md)
-- **CLI Commands:** [CLI Reference](docs/cli.md)
+## When NOT to use Microloop
 
-Run test suite:
+- **Free-form generation** — open-ended text, creative writing, high-entropy outputs
+- **Non-repetitive tasks** — research, web navigation with unique URLs, one-off analysis
+- **No verifier signal** — decisions where correctness can't be independently evaluated
+- **Very low volume** — fewer than a few hundred decisions per site
+
+---
+
+## CLI
+
+```bash
+microloop discover traces.jsonl          # Analyze traces for compilable sites
+microloop sites --db decisions.db        # List registered decision sites
+microloop sites --db decisions.db --json # Machine-readable site status
+```
+
+## Documentation
+
+- [Architecture](docs/architecture.md) — how the Decision JIT works internally
+- [Concepts](docs/concepts.md) — DecisionSites, Fast Paths, Deopt, verification
+- [CLI Reference](docs/cli.md) — command-line interface
+- [Integration Guide](docs/integration.md) — connecting Microloop to your agent
+- [Claims Registry](docs/claims.md) — every claim with its evidence and scope
+- [Production Safety](docs/production-safety.md) — qualification lifecycle, drift detection, failure modes
+- [Security & Data Handling](docs/security.md) — what's stored, what leaves the machine
+- [Vision](docs/vision.md) — future direction
+
+## Tests
+
 ```bash
 pytest python/microloop/tests/
 ```
 
-License: Apache-2.0
+105 tests covering the full qualification lifecycle, drift detection, fleet operation, and safety invariants.
 
+---
+
+License: Apache-2.0
