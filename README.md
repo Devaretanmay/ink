@@ -2,6 +2,8 @@
 
 **Behavior JIT for production AI.**
 
+[![Microloop Launch Film](docs/assets/poster.jpg)](docs/assets/microloop_launch_film_45s.mp4)
+
 Microloop learns which repeated AI behavior no longer needs inference. It observes bounded AI decisions and their real outcomes. Once a decision pattern has enough independent evidence, it executes locally. Novel or uncertain states continue to the existing model, and stale behavior is automatically revoked.
 
 ```text
