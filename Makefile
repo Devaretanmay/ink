@@ -1,42 +1,28 @@
-.PHONY: check fmt fmt-fix lint test test-rust test-python test-examples perf build wheel clean
+PYTHON ?= python3
 
-# One command that must pass before anything is published.
-check: fmt lint test test-examples wheel
+.PHONY: check fmt-check fmt-fix lint test test-examples wheel clean
+
+check: lint test test-examples wheel
 	@echo "check: ok"
 
-fmt:
-	cargo fmt --all --check
+fmt-check:
+	ruff format . --check
 
 fmt-fix:
-	cargo fmt --all
+	ruff format .
 
 lint:
-	cargo clippy --workspace --all-targets -- -D warnings
 	ruff check .
 
-test: test-rust test-python
+test:
+	$(PYTHON) -m pytest python/microloop/tests/
 
-test-rust:
-	cargo test --workspace
-
-test-python:
-	pytest python/microloop/tests/
-
-# The decision demo is deterministic and offline. Running it in CI keeps the
-# documented public API honest.
 test-examples:
-	python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
-
-# Reproduces the per-step cost and memory figures quoted in docs/legacy/README-v0.3.md.
-perf:
-	python benchmarks/perf.py
-
-build:
-	cargo build --release -p microloop-python
+	rm -rf .microloop/ci-smoke
+	$(PYTHON) -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
 
 wheel:
-	maturin build --manifest-path python/microloop/Cargo.toml
+	$(PYTHON) -m build --wheel --sdist --outdir dist/
 
 clean:
-	cargo clean
-	rm -rf python/microloop/target
+	rm -rf dist build *.egg-info python/microloop/*.egg-info .pytest_cache .microloop/ci-smoke

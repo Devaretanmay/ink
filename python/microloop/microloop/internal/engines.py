@@ -8,19 +8,28 @@ import sys
 import threading
 from collections import Counter
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from .contracts import canonical
 
 
-def _require_neural_platform():
+def _require_neural_dependencies():
     if sys.platform == "win32":
         raise OSError(
             "microloop-decision-v1 requires Linux or macOS (MLX has no Windows build); "
             "use engine='exact' on Windows"
         )
+    try:
+        import mlx.core  # noqa: F401
+    except ImportError as exc:
+        msg = (
+            "MLX is not installed; reinstall microloop: "
+            "pip install --force-reinstall microloop"
+        )
+        raise RuntimeError(msg) from exc
 
 
+@runtime_checkable
 class DecisionEngine(Protocol):
     name: str
 
@@ -29,7 +38,11 @@ class DecisionEngine(Protocol):
 
 
 class ExactEngine:
-    """Portable learned frequency table; works on every platform including Windows."""
+    """Ultra-fast qualified execution tier for proven repeated states.
+
+    Acts as an optimized compiler branch bypassing full model inference
+    when exact state behavior has achieved sufficient qualification evidence.
+    """
 
     name = "exact"
 
@@ -54,21 +67,18 @@ class ExactEngine:
 
 
 class DecisionModelEngine:
-    """Integral Microloop Decision v1 neural engine.
+    """Concrete MLX neural implementation of Microloop's internal learned decision model.
 
-    The inference code is vendored under ``microloop.internal.model`` and the
-    checkpoint is provisioned via ``microloop model-install``. Scores remain
-    uncalibrated until independent outcome qualification.
+    Generates candidate choice predictions for the Decision Engine. Candidate
+    predictions have zero serving authority until independently qualified.
     """
 
     name = "decision"
 
-    # Stored artifacts written before the rename carry ``engine: "laya"``.
     LEGACY_KEYS = ("laya", "microloop-decision-v1")
 
     def __init__(self, checkpoint=None, *, instructions=None):
-        _require_neural_platform()
-        from .model.registry import model_path  # Deferred: model deps unavailable on Windows.
+        from .model.registry import model_path
 
         self.checkpoint = (
             str(Path(checkpoint).expanduser().resolve()) if checkpoint else str(model_path())
@@ -100,7 +110,8 @@ class DecisionModelEngine:
         return result
 
     def compile(self, site, rows):
-        from .model import RUNTIME_VERSION  # Deferred: model deps unavailable on Windows.
+        _require_neural_dependencies()
+        from .model import RUNTIME_VERSION
         from .model.registry import ensure_installed, verify
 
         if self._managed_checkpoint:
@@ -136,10 +147,9 @@ class DecisionModelEngine:
             return self._predict(payload, state)
 
     def _predict(self, payload, state):
-        from .model import RUNTIME_VERSION  # Deferred: model deps unavailable on Windows.
+        _require_neural_dependencies()
+        from .model import RUNTIME_VERSION
         from .model.agent import load
-
-        _require_neural_platform()
         path = payload["checkpoint"]
         key = (path, canonical(payload["manifest"]), payload["runtime_version"])
         if key not in self._agents:
@@ -158,8 +168,7 @@ class DecisionModelEngine:
         return choice, probability
 
 
-# Private compatibility alias for existing integrations. Stored artifact keys
-# "laya" and "microloop-decision-v1" resolve to the integral decision engine.
+MlxDecisionEngine = DecisionModelEngine
 LayaEngine = DecisionModelEngine
 ENGINE_ALIASES = {"laya": "decision", "microloop-decision-v1": "decision"}
 

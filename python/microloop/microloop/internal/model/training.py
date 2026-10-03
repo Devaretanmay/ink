@@ -23,7 +23,6 @@ import random
 import shutil
 from pathlib import Path
 
-from .agent import Agent, collate_items
 from .registry import model_path
 
 TRAINABLE_PREFIXES = ("head.", "scorer.")
@@ -105,9 +104,18 @@ def finetune(
     seed=7,
 ):
     """Train head+scorer, write a new checkpoint dir, return its lineage card."""
-    import mlx.core as mx  # Training deps loaded only when fine-tuning is invoked.
-    import mlx.nn as nn
-    from mlx.optimizers import Adam
+    try:
+        import mlx.core as mx
+        import mlx.nn as nn
+        from mlx.optimizers import Adam
+
+        from .agent import Agent, collate_items
+    except ImportError as exc:
+        msg = (
+            "MLX is not installed; reinstall microloop: "
+            "pip install --force-reinstall microloop"
+        )
+        raise RuntimeError(msg) from exc
 
     if not rows:
         raise ValueError("Training needs labeled rows")

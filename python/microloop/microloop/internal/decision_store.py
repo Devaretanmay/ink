@@ -205,14 +205,17 @@ MIGRATIONS[3] = _migrate_3_to_4
 
 
 class DecisionStore:
-    def __init__(self, path=".microloop/decisions.db", *, readonly=False):
+    def __init__(self, path=".microloop/decisions.db", *, readonly=False, timeout=1.0):
         self.path = str(path)
         self.readonly = readonly
+        self.timeout = float(timeout)
         if self.path != ":memory:" and not readonly:
             Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.lock = threading.RLock()
         target = Path(path).resolve().as_uri() + "?mode=ro" if readonly else self.path
-        self.conn = sqlite3.connect(target, uri=readonly, timeout=10, check_same_thread=False)
+        self.conn = sqlite3.connect(
+            target, uri=readonly, timeout=self.timeout, check_same_thread=False
+        )
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys=ON")
         if readonly:

@@ -59,8 +59,8 @@ def test_fallback_contract_and_outcomes(tmp_path):
         client.record_outcome(result.decision_id, **data)
         with pytest.raises(ValueError, match="Conflicting"):
             client.record_outcome(result.decision_id, **{**data, "quality": 0})
-        with pytest.raises(sqlite3.IntegrityError):
-            client.record_outcome("missing", **data)
+        assert client.record_outcome("missing", **data) is None
+        assert client.record_outcome(None, **data) is None
         with pytest.raises(ValueError):
             client.decide(site=SITE, state={"refund": 1}, fallback=lambda: "refund")
         with pytest.raises(ValueError):

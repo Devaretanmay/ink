@@ -6,122 +6,72 @@ on:
   pull_request:
     branches: [main]
 
-env:
-  CARGO_TERM_COLOR: always
-  # Keep the declared MSRV honest: if this job is ever removed, drop
-  # `rust-version` from Cargo.toml rather than publishing an unverified claim.
-  MSRV: "1.80.0"
-
 jobs:
-  # A malformed workflow file fails at 0s with "this run likely failed because of
-  # a workflow file issue" and no jobs, which is easy to misread as a test
-  # failure. Catch it before it reaches a push.
   workflow-lint:
     name: workflow lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # No path argument: `args` is not shell-expanded, so a glob would be passed
-      # through literally. actionlint lints .github/workflows by default.
       - uses: docker://rhysd/actionlint:latest
         with:
           args: -color
 
-  rust:
-    name: rust (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
-
-  msrv:
-    # The job `name` cannot reference the env context, so it is spelled out
-    # here; the toolchain itself still comes from the MSRV env var below.
-    name: rust (msrv 1.80.0)
+  lint:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: ${{ env.MSRV }}
-      - run: cargo check --workspace --all-targets
-      - run: cargo test --workspace
-
-  # The package ships a native PyO3 extension, so an install of the built wheel
-  # is verified on the two supported runtime platforms.
-  # This catches ABI and loader problems that `cargo test` cannot see.
-  wheel:
-    name: wheel install (${{ matrix.os }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            venv: .wheeltest/bin
-          - os: macos-latest
-            venv: .wheeltest/bin
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install maturin pytest
-      - run: maturin build --release --manifest-path python/microloop/Cargo.toml --out dist
-      # Fresh environment: nothing but the wheel, exactly as a user would get it.
-      - name: Install the wheel into a clean environment
-        run: |
-          python -m venv .wheeltest
-          "${{ matrix.venv }}/python" -m pip install --upgrade pip
-          "${{ matrix.venv }}/python" -m pip install dist/*.whl
-          "${{ matrix.venv }}/python" -m pip install pytest
-      # Exercise the installed console script, not just `python -m`, so a broken
-      # entry point in packaging metadata is caught here rather than by a user.
-      - name: Installed console script runs
-        run: |
-          "${{ matrix.venv }}/microloop" --version
-      - name: Public API imports from the installed package
-        run: |
-          "${{ matrix.venv }}/python" -c "import microloop; print(microloop.__version__)"
-      - name: Test suite passes against the installed wheel
-        run: |
-          "${{ matrix.venv }}/python" -m pytest python/microloop/tests/
-      - name: Decision demo runs end to end (exact engine, offline fixture)
-        run: |
-          "${{ matrix.venv }}/python" -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
-          "${{ matrix.venv }}/microloop" sites --db .microloop/ci-smoke/decisions.db --json
+      - run: pip install ruff
+      - run: ruff check .
 
-  python:
-    name: python (${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # The supported range declared in python/microloop/pyproject.toml.
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: pip install maturin pytest ruff
-      - run: maturin build --manifest-path python/microloop/Cargo.toml --out dist
-      - run: pip install dist/*.whl
-      # Lint the whole tracked repository, not only python/.
-      - run: ruff check .
-      - run: pytest python/microloop/tests/
-      - run: python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
-      - run: microloop sites --db .microloop/ci-smoke/decisions.db --json
+      - run: pip install build pytest
+      - run: python -m build --wheel --sdist --outdir dist/
+      - name: Verify wheel in clean environment
+        run: |
+          python -m venv .wheeltest
+          source .wheeltest/bin/activate
+          pip install dist/*.whl
+          microloop --version
+          microloop sites
+          python -c "import microloop; print(microloop.__version__)"
+          pip install pytest
+          pytest python/microloop/tests/
+          python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
+
+  python-314-rejection:
+    name: verify python 3.14 rejection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install build
+      - run: python -m build --wheel --outdir dist/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Verify pip rejects wheel on 3.14
+        run: |
+          if pip install dist/*.whl; then
+            echo "Expected pip install to fail on Python 3.14"
+            exit 1
+          else
+            echo "Successfully rejected Python 3.14"
+          fi

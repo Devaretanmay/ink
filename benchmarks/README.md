@@ -4,11 +4,29 @@ This directory contains the reproducible benchmark suite evaluating the Microloo
 
 ---
 
-## Benchmark Suite Overview
+## Canonical Release Candidate Benchmark Suite
 
-| Benchmark Script | Focus & Methodology | Primary Result File |
-| :--- | :--- | :--- |
-| [`benchmark_real_world.py`](benchmark_real_world.py) | Live cloud LLM validation (Groq `qwen/qwen3.8-27b`) with prompt parity across 2,100 decisions (support routing, tool selection, incident escalation). | `results/real_world_validation_v2.json` |
+The authoritative, end-to-end benchmark suite for the Microloop Release Candidate (`0.6.0rc1`) is executed via:
+
+```bash
+python -m benchmarks.release_candidate
+```
+
+This suite executes 12 reproducible benchmarks covering serving latency, sparse routing latency, fallback overhead across lifecycle states, kill switch overhead, qualification cost, storage growth, memory RSS, thread/process concurrency, drift demotion, false-serve accounting, fail-open invariants, and retention safety.
+
+- **Machine-readable JSON output:** [`results/release_candidate_results.json`](results/release_candidate_results.json)
+- **Environment-captured Markdown report:** [`results/release_candidate_report.md`](results/release_candidate_report.md)
+
+---
+
+## Historical & Specialized Benchmark Scripts
+
+The following scripts represent exploratory, research, or historical baselines:
+
+| Benchmark Script | Focus & Methodology | Primary Result File | Status |
+| :--- | :--- | :--- | :--- |
+| [`release_candidate.py`](release_candidate.py) | **Canonical Release Candidate Suite** (12 benchmarks: latency, overhead, storage, concurrency, drift, fail-open). | `results/release_candidate_results.json` | **CANONICAL CURRENT** |
+| [`benchmark_real_world.py`](benchmark_real_world.py) | Live cloud LLM validation (Groq `qwen/qwen3.8-27b`) with prompt parity across 2,100 decisions (support routing, tool selection, incident escalation). | `results/real_world_validation_v2.json` | Historical / API Dependent |
 | [`benchmark_qualification_efficiency.py`](benchmark_qualification_efficiency.py) | Concentration bound study comparing Hoeffding vs Empirical Bernstein vs Howard et al. sequential bounds. | `results/qualification_efficiency.json` |
 | [`benchmark_long_horizon.py`](benchmark_long_horizon.py) | Long-horizon cumulative simulation across 10k, 100k, and 1,000,000 decisions testing the 75–85% steady-state claim. | `results/long_horizon_economics.json` |
 | [`benchmark_agent_site_selection.py`](benchmark_agent_site_selection.py) | Multi-step agent site profiling (`agent.intent`, `agent.tool`, `agent.cont`) demonstrating selective compilation economics. | `results/agent_site_selection.json` |

@@ -84,8 +84,14 @@ class DecisionSite:
         return digest(contract)
 
     def encode(self, state: dict) -> dict:
-        if not isinstance(state, dict) or set(state) - set(self.state_schema):
-            raise ValueError("State must be an object with only declared fields")
+        if not isinstance(state, dict):
+            raise TypeError(f"State must be a dict, got {type(state).__name__}")
+        extra = sorted(set(state) - set(self.state_schema))
+        if extra:
+            raise ValueError(
+                f"State must be an object with only declared fields; found undeclared {extra}. "
+                f"Declared schema fields: {sorted(self.state_schema)}"
+            )
         encoded = {}
         for name, kind in self.state_schema.items():
             value = state.get(name)
@@ -100,7 +106,13 @@ class DecisionSite:
                 "number": type(value) in (int, float),
             }[kind]
             if not valid or (kind == "number" and not math.isfinite(value)):
-                raise ValueError(f"Invalid state field {name!r}: expected {kind}")
+                if value is None:
+                    raise ValueError(
+                        f"Invalid state field {name!r}: missing required field (expected {kind})"
+                    )
+                raise ValueError(
+                    f"Invalid state field {name!r}: expected {kind}, got {type(value).__name__}"
+                )
             encoded[name] = float(value) if kind == "number" else value
         canonical(encoded)
         return encoded
@@ -129,7 +141,7 @@ class FallbackResult:
 @dataclass(frozen=True)
 class DecisionResult:
     choice: str
-    decision_id: str
+    decision_id: str | None
     source: str
     site_version: str
     fast_path_version: str | None = None
@@ -149,8 +161,8 @@ class Outcome:
     def __post_init__(self):
         if not math.isfinite(self.quality) or not 0 <= self.quality <= 1:
             raise ValueError("Quality must be finite and between zero and one")
-        if not self.verifier or not self.verifier_version or not self.evidence:
-            raise ValueError("Outcome requires verifier identity, version, and evidence")
+        if not self.verifier or not self.verifier_version or not isinstance(self.evidence, dict):
+            raise ValueError("Outcome requires verifier identity, version, and evidence dict")
         canonical(self.evidence)
 
 

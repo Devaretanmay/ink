@@ -83,6 +83,38 @@ Every external claim about Microloop is classified into one of four tiers.
 
 ---
 
+### Internal Learned Decision Model
+- **Category:** `MEASURED`
+- **Statement:** Microloop includes its own learned decision model capability as part of the Decision Engine. Internal model weights are fine-tuned specifically for bounded categorical decision tasks (`microloop-finetune-v1`).
+- **Evidence:** `python/microloop/microloop/internal/model/training.py`, `tests/test_model_training.py`, `tests/test_architecture_invariants.py`.
+- **Scope:** Owned architecture consists of ModernBERT-large backbone with custom DecisionHead and Scorer.
+
+---
+
+### Candidate Proposes, Qualification Authorizes (Candidate != Authority)
+- **Category:** `MEASURED`
+- **Statement:** An internal learned model prediction carries zero serving authority on its own. Serving authority is granted exclusively by independent outcome qualification, coverage boundaries, and active status.
+- **Evidence:** `python/microloop/microloop/decision_api.py::_route()`, `tests/test_architecture_invariants.py`.
+- **Scope:** Unconditional across all candidate engines.
+
+---
+
+### Exact Execution Tier Optimization
+- **Category:** `MEASURED`
+- **Statement:** Exact repeated states with empirical qualification evidence execute directly via the `ExactEngine` tier in < 0.2ms, bypassing full neural inference.
+- **Evidence:** `tests/test_architecture_invariants.py::test_exact_tier_bypasses_neural_inference`.
+- **Scope:** Valid for proven exact states within an active qualified artifact.
+
+---
+
+### Host Model Fallback for Novelty
+- **Category:** `MEASURED`
+- **Statement:** Novel, unsupported, or uncertain states strictly route to the host application's original model fallback callable. Microloop never serves outside qualified coverage.
+- **Evidence:** `tests/test_architecture_invariants.py::test_novel_state_outside_coverage_routes_to_host`.
+- **Scope:** Always enforced; fail-open guarantee routes to host fallback under any runtime exception.
+
+---
+
 ### Long Paths
 - **Category:** `VISION`
 - **Statement:** Long-term, Microloop may compile longer verified sequences of agent behavior (multi-step trajectories) into local procedures with checkpoints and deoptimization.
@@ -96,10 +128,15 @@ Every external claim about Microloop is classified into one of four tiers.
 | :--- | :--- | :--- |
 | "Microloop eliminates 80% of enterprise AI spend" | `NOT SUPPORTED` | Bounded sites are 15–25% of tested traffic. Whole-app savings were 3.5–8.9%. |
 | "Zero errors" | `NOT SUPPORTED` | Microloop incurred 7–8 wrong serves before detecting drift. |
+| "100% accuracy" | `NOT SUPPORTED` | 0 false serves is an empirical sample count on stationary synthetic benchmark traffic, not an absolute population guarantee. |
+| "Bounded false serves" | `NOT SUPPORTED` | False serves accumulate under drift until comparison evidence triggers deoptimization. |
 | "800x faster applications" | `NOT SUPPORTED` | 0.18ms applies to local fast-path serves only, not entire application workflows. |
 | "Guaranteed safe" | `NOT SUPPORTED` | Safety depends on comparison traffic, verifier quality, and traffic volume. |
+| "Missing outcomes are safe or negative" | `NOT SUPPORTED` | Unknown evidence remains unknown; missing evidence halts qualification rather than being assumed safe or failing. |
 | "Replaces all model calls" | `NOT SUPPORTED` | Only bounded, repeating, verifiable decisions qualify. |
 | "AI cache" or "semantic cache" | `NOT SUPPORTED` | Microloop uses outcome-verified qualification, not similarity-based caching. |
+| "Zero network activity under all conditions" | `NOT SUPPORTED` | When the default learned model is enabled, weights (~807 MB) are downloaded from HuggingFace on first learned use if not cached. Microloop sends zero decision telemetry off the machine. |
+
 
 ---
 
@@ -110,3 +147,4 @@ Every external claim about Microloop is classified into one of four tiers.
 3. **Always report qualification overhead.** Net savings must account for observation and shadow costs.
 4. **Separate local fast-path latency from total workflow latency.**
 5. **Use "approximately" for measured ranges.** The exact number depends on workload characteristics.
+6. **Be explicit about network boundaries.** Microloop sends zero decision or outcome telemetry off the machine; initial model provisioning downloads public weights from HuggingFace unless pre-installed or disabled.

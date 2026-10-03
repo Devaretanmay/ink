@@ -1,46 +1,71 @@
-# Workspace-level developer tooling and benchmark dependencies.
-#
-# The distributable runtime package is configured in python/microloop/pyproject.toml
-# and is intentionally NOT installable from here. This project only exists to
-# declare the dev/benchmark extras and to configure shared tooling (ruff, pytest).
-
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools]
-# Tooling-only workspace stub: it ships no importable package. Without this
-# explicit empty list, setuptools auto-discovery treats the Rust `crates/`
-# directory and `target/` as top-level packages and `pip install -e .` fails.
-packages = []
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "microloop-workspace"
+name = "microloop"
 version = "0.6.0rc1"
-description = "Development workspace for Microloop. The runtime package lives in python/microloop."
-requires-python = ">=3.10, <3.14"
-dependencies = []
+description = "Behavior JIT for production AI — learns which repeated decisions no longer need inference"
+authors = [{ name = "Microloop Team" }]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+readme = "README.md"
+requires-python = ">=3.11, <3.14"
+keywords = ["agent", "llm", "decision", "fast-path", "local-inference"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "License :: OSI Approved :: Apache Software License",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Development Status :: 4 - Beta",
+]
+
+dependencies = [
+    "numpy>=2.0,<3",
+    "mlx==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx[cpu]==0.32.2; sys_platform == 'linux'",
+    "tokenizers>=0.21,<0.24",
+    "huggingface-hub>=0.30,<2",
+]
 
 [project.optional-dependencies]
-# Everything `make check` needs.
+neural = []
+mlx = []
 dev = [
-    "maturin>=1.5,<2.0",
     "pytest>=8.0",
     "ruff>=0.6",
 ]
-
-# The benchmark harness in benchmarks/. The runner imports only the standard
-# library plus `microloop`; everything below is required to execute *real* agent
-# runs rather than the deterministic simulation.
 benchmarks = [
     "litellm>=1.60",
     "mini-swe-agent>=2.4,<3.0",
     "swebench>=5.0",
 ]
 
+[project.scripts]
+microloop = "microloop.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Devaretanmay/microloop"
+Repository = "https://github.com/Devaretanmay/microloop"
+
+[tool.hatch.build.targets.wheel]
+packages = ["python/microloop/microloop"]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "python/microloop",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "pyproject.toml",
+]
+
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["target", "dist", ".venv", ".venv313"]
 
 [tool.ruff.lint]
@@ -50,4 +75,5 @@ select = ["E", "F", "I", "UP", "B"]
 "benchmarks/*" = ["E501", "B905", "F841", "E741", "E731", "B007", "F401", "I001"]
 
 [tool.pytest.ini_options]
+pythonpath = ["python/microloop"]
 testpaths = ["python/microloop/tests"]

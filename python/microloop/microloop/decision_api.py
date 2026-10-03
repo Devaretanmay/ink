@@ -5,9 +5,12 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import logging
 import math
+import os
 import secrets
 import sqlite3
+import threading
 import time
 import uuid
 from collections import Counter
@@ -36,19 +39,192 @@ from .internal.engines import DecisionModelEngine, ExactEngine, resolve_engine_k
 from .internal.profiler import profile_history
 from .internal.verification import grouped_quality, lower_bound, passes, statistics, verify_rows
 
+logger = logging.getLogger("microloop")
+
+DEFAULT_REQUIREMENTS = PromotionRequirements(
+    min_samples=10,
+    min_quality=0.8,
+    min_confidence=0.7,
+    max_degradation=0.15,
+    comparison_rate=0.25,
+    min_region_samples=3,
+    evaluation_window=50,
+)
+
+
+def compute_evidence_identity(
+    site: DecisionSite,
+    payload: dict,
+    profile: dict | None = None,
+    verifier=None,
+    requirements: PromotionRequirements | None = None,
+) -> tuple[str, dict]:
+    eng_name = payload.get("engine_data", {}).get("engine", "exact")
+    model_rev = (
+        payload.get("engine_data", {}).get("revision")
+        or payload.get("engine_data", {}).get("checkpoint")
+        or "none"
+    )
+    v_name = (
+        verifier.__name__
+        if hasattr(verifier, "__name__")
+        else (str(verifier) if verifier is not None else "observed")
+    )
+    v_ver = getattr(verifier, "version", "1") or "1"
+    req_data = (
+        asdict(requirements)
+        if requirements
+        else (profile.get("requirements") if profile else {})
+    )
+    cov_rev = (
+        profile.get("coverage_engine", {}).get("version", "v1")
+        if profile and profile.get("coverage_engine")
+        else "v1"
+    )
+    data = {
+        "site_version": site.version,
+        "choices": list(site.choices),
+        "fallback_revision": site.fallback_revision,
+        "engine": eng_name,
+        "model_revision": str(model_rev),
+        "verifier": str(v_name),
+        "verifier_version": str(v_ver),
+        "requirements": req_data,
+        "coverage_revision": cov_rev,
+    }
+    return digest(data), data
+
+
+class MaintenanceOutcome(dict):
+    def __getitem__(self, key):
+        if key not in self:
+            if key == "status":
+                if "deferred" in self:
+                    return "deferred"
+                if "pending" in self:
+                    val = str(self.get("pending", "")).lower()
+                    if any(s in val for s in ("sqlite", "error", "unavailable", "locked")):
+                        return "failed"
+                    return "blocked"
+                return "completed"
+            if key == "reason":
+                return self.get("deferred") or self.get("pending") or self.get("reason")
+            if key == "action":
+                if "compiled" in self:
+                    return "compiled"
+                if "demoted" in self:
+                    return "demoted"
+                return self.get("action")
+        return super().__getitem__(key)
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    @property
+    def status(self):
+        return self["status"]
+
+    @property
+    def reason(self):
+        return self["reason"]
+
 
 class Microloop:
-    def __init__(self, path=".microloop/decisions.db", *, engines=(), readonly=False):
-        self.store = DecisionStore(path, readonly=readonly)
-        integral = {e.name: e for e in (ExactEngine(), DecisionModelEngine(), *engines)}
+
+    def __init__(
+        self,
+        path=".microloop/decisions.db",
+        *,
+        engines=(),
+        readonly=False,
+        timeout=2.0,
+        auto_maintenance: bool = False,
+        maintenance_interval: float = 30.0,
+        maintenance_verifier=None,
+        maintenance_requirements=None,
+        maintenance_engine: str = "exact",
+        disable_fast_path: bool = False,
+        disabled: bool = False,
+        model_enabled: bool = True,
+        on_event=None,
+    ):
+        self.store = DecisionStore(path, readonly=readonly, timeout=timeout)
+        model_off = os.environ.get(
+            "MICROLOOP_MODEL_DISABLED", ""
+        ).strip().lower() in ("1", "true", "yes")
+        self._model_enabled = not model_off and model_enabled
+        default_engines = [ExactEngine()]
+        if self._model_enabled:
+            default_engines.append(DecisionModelEngine())
+        integral = {e.name: e for e in (*default_engines, *engines)}
         # Historical artifacts carry engine="laya"; resolve them to the integral engine.
         for alias, current in (("laya", "decision"), ("microloop-decision-v1", "decision")):
             if alias not in integral and current in integral:
                 integral[alias] = integral[current]
         self.engines = integral
         self._contracts = {}
+        self._auto_maintenance = auto_maintenance
+        self._maintenance_interval = float(maintenance_interval)
+        self._maintenance_verifier = maintenance_verifier
+        self._maintenance_requirements = maintenance_requirements
+        self._maintenance_engine = resolve_engine_key(maintenance_engine)
+        self._maintenance_visited: dict[str, float] = {}
+        self._globally_disabled = disabled or os.environ.get(
+            "MICROLOOP_DISABLED", ""
+        ).strip().lower() in ("1", "true", "yes")
+        self._disable_fast_path = disable_fast_path or os.environ.get(
+            "MICROLOOP_DISABLE_FAST_PATH", ""
+        ).strip().lower() in ("1", "true", "yes")
+        self._on_event = on_event
+        self._stop_event = threading.Event()
+
+        self._maint_thread = None
+        if auto_maintenance and not readonly and not self._globally_disabled:
+            self._start_maintenance_thread()
+        logger.debug(
+            "Microloop initialized: path=%s auto_maintenance=%s disabled=%s",
+            path,
+            auto_maintenance,
+            self._globally_disabled,
+        )
+
+    def _emit_event(self, event: str, data: dict):
+        if self._on_event is not None:
+            try:
+                self._on_event(event, data)
+            except Exception:
+                pass
+
+    def _start_maintenance_thread(self):
+        self._maint_thread = threading.Thread(
+            target=self._maintenance_loop,
+            name="MicroloopMaintenance",
+            daemon=True,
+        )
+        self._maint_thread.start()
+
+    def _maintenance_loop(self):
+        while not self._stop_event.is_set():
+            if self._stop_event.wait(self._maintenance_interval):
+                break
+            try:
+                self.maintenance(
+                    verifier=self._maintenance_verifier,
+                    requirements=self._maintenance_requirements,
+                    engine=self._maintenance_engine,
+                )
+            except Exception:
+                pass
 
     def close(self):
+        if self._maint_thread is not None:
+            self._stop_event.set()
+            if self._maint_thread.is_alive():
+                self._maint_thread.join(timeout=2.0)
+            self._maint_thread = None
         self.store.close()
 
     def __enter__(self):
@@ -95,13 +271,18 @@ class Microloop:
                 contract["fallback_revision"] = fallback_revision
             return self._site(DecisionSite(**contract), state, None, None)
         if choices is None:
-            raise ValueError("A new site requires choices or explicit registration")
+            raise ValueError(
+                f"Site {site!r} is not registered yet. "
+                "Provide 'choices' on first call or pass an explicit DecisionSite."
+            )
         types = {str: "string", int: "integer", float: "number", bool: "boolean"}
         try:
             schema = {key: types[type(value)] for key, value in state.items()}
         except KeyError as error:
+            bad = [k for k, v in state.items() if type(v) not in types]
             raise ValueError(
-                "Use DecisionSite with an explicit schema for optional fields"
+                f"Unsupported state field types in {bad}. Inferred schema only supports primitive "
+                "types (str, int, float, bool). Flatten complex structures or define DecisionSite."
             ) from error
         return self._site(
             DecisionSite(site, schema, tuple(choices), fallback_revision or "1"), state, None, None
@@ -156,6 +337,8 @@ class Microloop:
         return base_rate
 
     def _route(self, site, state):
+        if self._disable_fast_path or self._globally_disabled:
+            return None, None, "disabled_kill_switch"
         artifact = None
         try:
             artifact = self._artifact(site.version)
@@ -229,11 +412,44 @@ class Microloop:
                 "route_level": level or "exact",
             }
             prediction = {
+                "producer": payload["engine_data"].get("engine", "exact"),
                 "choice": choice,
                 "raw_probability": probability,
+                "raw_confidence": region.get("confidence", 0.0),
                 "confidence": region.get("confidence", 0.0),
+                "model_revision": (
+                    payload["engine_data"].get("revision")
+                    or payload["engine_data"].get("checkpoint")
+                    or payload["engine_data"].get("engine")
+                ),
+                "artifact_id": artifact["id"],
                 "route_info": route_info,
             }
+            if artifact.get("evidence"):
+                try:
+                    ev_raw = artifact["evidence"]
+                    ev = json.loads(ev_raw) if isinstance(ev_raw, str) else ev_raw
+                    ev_data = ev.get("evidence_identity_data")
+                    if ev_data:
+                        if site.fallback_revision != ev_data.get("fallback_revision"):
+                            return artifact, prediction, "stale_evidence_identity"
+                        if tuple(ev_data.get("choices", ())) != site.choices:
+                            return artifact, prediction, "stale_evidence_identity"
+                        eng_key = resolve_engine_key(payload["engine_data"]["engine"])
+                        if eng_key == "decision" and self.engines.get("decision"):
+                            curr_rev = (
+                                getattr(self.engines["decision"], "checkpoint_hash", None)
+                                or getattr(self.engines["decision"], "model_id", None)
+                            )
+                            if (
+                                ev_data.get("model_revision") not in ("none", None, "decision")
+                                and curr_rev
+                                and str(curr_rev) != ev_data.get("model_revision")
+                            ):
+                                return artifact, prediction, "stale_evidence_identity"
+                except Exception:
+                    pass
+
             if artifact["status"] != "ACTIVE" or profile is None or is_semantic_shadow:
                 return artifact, prediction, "shadow"
             if (
@@ -246,8 +462,7 @@ class Microloop:
             if secrets.randbelow(10**9) / 10**9 < eff_rate:
                 return artifact, prediction, "comparison"
             return artifact, prediction, None
-        except Exception:
-            # Engine exceptions must not turn a valid agent decision into a failed task.
+        except (sqlite3.Error, OSError, KeyError, ValueError, RuntimeError):
             return artifact, None, "engine_or_store_unavailable"
 
     def _save(self, site, state, value, task_id, started, artifact, prediction, reason):
@@ -324,9 +539,13 @@ class Microloop:
         return result
 
     def _save_fallback(self, site, state, value, task_id, started, artifact, prediction, reason):
-        try:
-            return self._save(site, state, value, task_id, started, artifact, prediction, reason)
-        except sqlite3.Error:
+        if reason in ("storage_unavailable", "storage_locked"):
+            logger.warning(
+                "Storage contention/error for site %s (%s); failing open without durable record",
+                site.name,
+                reason,
+            )
+            self._emit_event("fail_open", {"site": site.name, "reason": reason})
             choice = value.choice if isinstance(value, FallbackResult) else value
             if choice not in site.choices:
                 raise ValueError("Fallback returned an undeclared choice") from None
@@ -345,23 +564,118 @@ class Microloop:
             }
             return DecisionResult(
                 choice,
-                uuid.uuid4().hex,
+                None,
                 "fallback",
                 site.version,
-                fallback_reason="storage_unavailable",
+                fallback_reason=reason,
                 recorded=False,
                 receipt=receipt,
             )
+        try:
+            return self._save(site, state, value, task_id, started, artifact, prediction, reason)
+        except sqlite3.OperationalError as exc:
+            reason = (
+                "storage_locked"
+                if ("locked" in str(exc) or "busy" in str(exc))
+                else "storage_unavailable"
+            )
+        except sqlite3.Error:
+            reason = "storage_unavailable"
+
+        logger.warning(
+            "Storage contention/error for site %s (%s); failing open without durable record",
+            site.name,
+            reason,
+        )
+        self._emit_event("fail_open", {"site": site.name, "reason": reason})
+        choice = value.choice if isinstance(value, FallbackResult) else value
+        if choice not in site.choices:
+            raise ValueError("Fallback returned an undeclared choice") from None
+        receipt = {
+            "site": site.name,
+            "site_version": site.version,
+            "artifact": artifact["id"] if artifact else None,
+            "semantic_region": None,
+            "representation_version": "none",
+            "distance": None,
+            "radius": None,
+            "negative_margin": None,
+            "comparison_rate": None,
+            "served_by": "fallback",
+            "verification_status": "fallback",
+        }
+        return DecisionResult(
+            choice,
+            None,
+            "fallback",
+            site.version,
+            fallback_reason=reason,
+            recorded=False,
+            receipt=receipt,
+        )
 
     def decide(self, *, site, state, fallback, choices=None, task_id=None, fallback_revision=None):
         started = time.perf_counter()
+        if self._globally_disabled:
+            val = fallback()
+            if inspect.isawaitable(val):
+                if inspect.iscoroutine(val):
+                    val.close()
+                raise TypeError("Async fallbacks require decide_async")
+            choice = val.choice if isinstance(val, FallbackResult) else val
+            s_ver = site.version if isinstance(site, DecisionSite) else str(site)
+            res = DecisionResult(
+                choice,
+                None,
+                "fallback",
+                s_ver,
+                fallback_reason="globally_disabled",
+                recorded=False,
+            )
+            self._emit_event(
+                "decision",
+                {
+                    "site": str(site),
+                    "choice": choice,
+                    "source": "fallback",
+                    "reason": "globally_disabled",
+                },
+            )
+            return res
         site = self._site(site, state, choices, fallback_revision)
         state = site.encode(state)
-        artifact, prediction, reason = self._route(site, state)
+        try:
+            artifact, prediction, reason = self._route(site, state)
+        except (sqlite3.Error, OSError, KeyError, ValueError, RuntimeError) as exc:
+            logger.warning("Fast path routing error for site %s: %s; failing open", site.name, exc)
+            artifact, prediction, reason = None, None, "engine_or_store_unavailable"
         if reason is None:
             try:
-                return self._save(
+                res = self._save(
                     site, state, prediction["choice"], task_id, started, artifact, prediction, None
+                )
+                logger.debug(
+                    "Decide: site=%s source=fast_path choice=%s latency=%.4fs",
+                    site.name,
+                    res.choice,
+                    time.perf_counter() - started,
+                )
+                self._emit_event(
+                    "decision",
+                    {
+                        "site": site.name,
+                        "decision_id": res.decision_id,
+                        "choice": res.choice,
+                        "source": "fast_path",
+                        "reason": None,
+                    },
+                )
+                return res
+            except sqlite3.OperationalError as exc:
+                reason = (
+                    "storage_locked"
+                    if ("locked" in str(exc) or "busy" in str(exc))
+                    else "storage_unavailable"
                 )
             except sqlite3.Error:
                 reason = "storage_unavailable"
@@ -370,54 +684,170 @@ class Microloop:
             if inspect.iscoroutine(value):
                 value.close()
             raise TypeError("Async fallbacks require decide_async")
-        return self._save_fallback(
+        res = self._save_fallback(
             site, state, value, task_id, started, artifact, prediction, reason
         )
+        logger.debug(
+            "Decide: site=%s source=%s reason=%s choice=%s latency=%.4fs",
+            site.name,
+            res.source,
+            res.fallback_reason,
+            res.choice,
+            time.perf_counter() - started,
+        )
+        self._emit_event(
+            "decision",
+            {
+                "site": site.name,
+                "decision_id": res.decision_id,
+                "choice": res.choice,
+                "source": res.source,
+                "reason": res.fallback_reason,
+            },
+        )
+        return res
 
     async def decide_async(
         self, *, site, state, fallback, choices=None, task_id=None, fallback_revision=None
     ):
         started = time.perf_counter()
+        if self._globally_disabled:
+            if inspect.iscoroutinefunction(fallback):
+                val = await fallback()
+            else:
+                val = fallback()
+                if inspect.isawaitable(val):
+                    val = await val
+            choice = val.choice if isinstance(val, FallbackResult) else val
+            s_ver = site.version if isinstance(site, DecisionSite) else str(site)
+            res = DecisionResult(
+                choice,
+                None,
+                "fallback",
+                s_ver,
+                fallback_reason="globally_disabled",
+                recorded=False,
+            )
+            self._emit_event(
+                "decision",
+                {
+                    "site": str(site),
+                    "choice": choice,
+                    "source": "fallback",
+                    "reason": "globally_disabled",
+                },
+            )
+            return res
         site = self._site(site, state, choices, fallback_revision)
         state = site.encode(state)
-        artifact, prediction, reason = await asyncio.to_thread(self._route, site, state)
+        try:
+            artifact, prediction, reason = await asyncio.to_thread(self._route, site, state)
+        except (sqlite3.Error, OSError, KeyError, ValueError, RuntimeError) as exc:
+            logger.warning("Fast path routing error for site %s: %s; failing open", site.name, exc)
+            artifact, prediction, reason = None, None, "engine_or_store_unavailable"
         if reason is None:
             try:
-                return self._save(
+                res = self._save(
                     site, state, prediction["choice"], task_id, started, artifact, prediction, None
+                )
+                logger.debug(
+                    "Decide: site=%s source=fast_path choice=%s latency=%.4fs",
+                    site.name,
+                    res.choice,
+                    time.perf_counter() - started,
+                )
+                self._emit_event(
+                    "decision",
+                    {
+                        "site": site.name,
+                        "decision_id": res.decision_id,
+                        "choice": res.choice,
+                        "source": "fast_path",
+                        "reason": None,
+                    },
+                )
+                return res
+            except sqlite3.OperationalError as exc:
+                reason = (
+                    "storage_locked"
+                    if ("locked" in str(exc) or "busy" in str(exc))
+                    else "storage_unavailable"
                 )
             except sqlite3.Error:
                 reason = "storage_unavailable"
-        value = await fallback()
-        return self._save_fallback(
+        if inspect.iscoroutinefunction(fallback):
+            value = await fallback()
+        else:
+            value = fallback()
+            if inspect.isawaitable(value):
+                value = await value
+        res = self._save_fallback(
             site, state, value, task_id, started, artifact, prediction, reason
         )
+        logger.debug(
+            "Decide: site=%s source=%s reason=%s choice=%s latency=%.4fs",
+            site.name,
+            res.source,
+            res.fallback_reason,
+            res.choice,
+            time.perf_counter() - started,
+        )
+        self._emit_event(
+            "decision",
+            {
+                "site": site.name,
+                "decision_id": res.decision_id,
+                "choice": res.choice,
+                "source": res.source,
+                "reason": res.fallback_reason,
+            },
+        )
+        return res
 
-    def record_outcome(self, decision_id, *, quality, verifier, verifier_version, evidence):
-        outcome = Outcome(quality, verifier, verifier_version, evidence)
+    def record_outcome(
+        self, decision_id, *, quality, verifier, verifier_version, evidence: dict | None = None
+    ):
+        if self._globally_disabled or decision_id is None:
+            return None
+        ev = evidence if evidence is not None else {}
+        outcome = Outcome(quality, verifier, verifier_version, ev)
         payload = canonical(asdict(outcome))
-        with self.store.transaction() as db:
-            if not db.execute("SELECT 1 FROM decisions WHERE id=?", (decision_id,)).fetchone():
-                raise sqlite3.IntegrityError("FOREIGN KEY constraint failed: unknown decision")
-            existing = db.execute(
-                "SELECT payload FROM outcomes WHERE decision=?", (decision_id,)
-            ).fetchone()
-            if existing and existing[0] != payload:
-                raise ValueError("Conflicting outcome; recorded evidence is immutable")
-            if not existing:
-                db.execute(
-                    "INSERT INTO outcomes VALUES (?,?,?)", (decision_id, payload, time.time())
-                )
+        try:
+            with self.store.transaction() as db:
                 row = db.execute(
                     "SELECT site, state FROM decisions WHERE id=?", (decision_id,)
                 ).fetchone()
+                if not row:
+                    return None
+                existing = db.execute(
+                    "SELECT payload FROM outcomes WHERE decision=?", (decision_id,)
+                ).fetchone()
+                if existing:
+                    if existing[0] != payload:
+                        raise ValueError("Conflicting outcome; recorded evidence is immutable")
+                    return outcome
+                db.execute(
+                    "INSERT INTO outcomes VALUES (?,?,?)", (decision_id, payload, time.time())
+                )
                 db.execute(
                     """INSERT INTO state_coverage(site, state, observations, outcomes, quality_sum)
                     VALUES (?,?,0,1,?) ON CONFLICT(site, state) DO UPDATE SET
                     outcomes=outcomes+1, quality_sum=quality_sum+excluded.quality_sum""",
                     (row["site"], row["state"], outcome.quality),
                 )
-        return outcome
+            logger.debug(
+                "Recorded outcome: decision=%s quality=%s verifier=%s",
+                decision_id,
+                quality,
+                verifier,
+            )
+            self._emit_event(
+                "outcome",
+                {"decision_id": decision_id, "quality": quality, "verifier": verifier},
+            )
+            return outcome
+        except (sqlite3.OperationalError, sqlite3.DatabaseError):
+            return None
 
     def _resolve(self, site):
         if isinstance(site, DecisionSite):
@@ -497,19 +927,36 @@ class Microloop:
             self._event(db, artifact_id, "OBSERVE", "CANDIDATE", {"engine": engine})
             db.execute("UPDATE artifacts SET status='SHADOW' WHERE id=?", (artifact_id,))
             self._event(db, artifact_id, "CANDIDATE", "SHADOW", {})
+        logger.info(
+            "Compiled candidate artifact %s for site %s (engine=%s)",
+            artifact_id,
+            site.version,
+            engine,
+        )
+        self._emit_event(
+            "lifecycle",
+            {"site": site.name, "artifact": artifact_id, "action": "compile", "engine": engine},
+        )
         return artifact_id
 
-    def calibrate(self, site, *, verifier, requirements: PromotionRequirements):
+    def calibrate(self, site, *, verifier=None, requirements: PromotionRequirements | None = None):
         site = self._resolve(site)
+        requirements = requirements or self._maintenance_requirements or DEFAULT_REQUIREMENTS
         artifact = self._artifact(site.version)
         if artifact is None or artifact["status"] != "SHADOW" or artifact["profile"]:
             raise ValueError("Calibration requires an uncalibrated shadow candidate")
         payload = artifact["payload"]
+        eng_key = resolve_engine_key(payload["engine_data"]["engine"])
+        if verifier is None and eng_key != "exact":
+            raise ValueError(
+                f"Semantic engines require a verifier ({eng_key}). "
+                "Pass a callable verifier to calibrate() or maintenance()."
+            )
         ids = set(payload["partitions"]["calibration"])
         rows = [r for r in self.store.history(site.version) if r["id"] in ids]
         records = verify_rows(
             rows,
-            self.engines[resolve_engine_key(payload["engine_data"]["engine"])],
+            self.engines[eng_key],
             payload,
             verifier,
         )
@@ -561,9 +1008,14 @@ class Microloop:
             ).rowcount
             if not count:
                 raise ValueError("Candidate changed during calibration")
+        logger.info("Calibrated shadow candidate %s for site %s", artifact["id"], site.version)
+        self._emit_event(
+            "lifecycle",
+            {"site": site.name, "artifact": artifact["id"], "action": "calibrate"},
+        )
         return profile
 
-    def evaluate(self, site, *, verifier, auto_promote: bool = True):
+    def evaluate(self, site, *, verifier=None, auto_promote: bool = True):
         site = self._resolve(site)
         artifact = self._artifact(site.version)
         if artifact is None or artifact["status"] != "SHADOW" or not artifact["profile"]:
@@ -575,6 +1027,12 @@ class Microloop:
             coverage=profile["coverage"],
             coverage_engine=profile.get("coverage_engine"),
         )
+        eng_key = resolve_engine_key(payload["engine_data"]["engine"])
+        if verifier is None and eng_key != "exact":
+            raise ValueError(
+                f"Semantic engines require a verifier ({eng_key}). "
+                "Pass a callable verifier to evaluate() or maintenance()."
+            )
         history = self.store.history(site.version)
         shadow = [
             r
@@ -643,8 +1101,13 @@ class Microloop:
                 for stats in region.values()
             )
         )
+        ev_id, ev_id_data = compute_evidence_identity(
+            site, payload, profile, verifier, requirements
+        )
         evidence = {
             "profile_id": profile["id"],
+            "evidence_identity": ev_id,
+            "evidence_identity_data": ev_id_data,
             "holdout": held_stats,
             "shadow": shadow_stats,
             "holdout_records": held_records,
@@ -654,6 +1117,7 @@ class Microloop:
             "qualified_semantic_regions": qualified_sem_regions,
             "semantic_region_stats": sem_region_stats,
         }
+
         with self.store.transaction() as db:
             current = db.execute(
                 "SELECT status,epoch FROM artifacts WHERE id=?", (artifact["id"],)
@@ -686,10 +1150,28 @@ class Microloop:
                         "UPDATE artifacts SET status='ACTIVE',epoch=? WHERE id=?",
                         (time.time(), artifact["id"]),
                     )
+                    logger.info(
+                        "Promoted candidate %s to ACTIVE for site %s",
+                        artifact["id"],
+                        site.version,
+                    )
+                    self._emit_event(
+                        "lifecycle",
+                        {"site": site.name, "artifact": artifact["id"], "action": "promote"},
+                    )
                 else:
                     db.execute(
                         "UPDATE artifacts SET status='VERIFIED' WHERE id=?",
                         (artifact["id"],),
+                    )
+                    logger.info(
+                        "Marked candidate %s as VERIFIED for site %s",
+                        artifact["id"],
+                        site.version,
+                    )
+                    self._emit_event(
+                        "lifecycle",
+                        {"site": site.name, "artifact": artifact["id"], "action": "verify"},
                     )
         return evidence
 
@@ -735,8 +1217,35 @@ class Microloop:
             if enough
             else None
         )
+        stale_identity = False
+        if artifact.get("evidence"):
+            try:
+                ev_raw = artifact["evidence"]
+                ev = json.loads(ev_raw) if isinstance(ev_raw, str) else ev_raw
+                ev_data = ev.get("evidence_identity_data")
+                if ev_data:
+                    if site.fallback_revision != ev_data.get("fallback_revision"):
+                        stale_identity = True
+                    if tuple(ev_data.get("choices", ())) != site.choices:
+                        stale_identity = True
+                    eng_key = resolve_engine_key(artifact["payload"]["engine_data"]["engine"])
+                    if eng_key == "decision" and self.engines.get("decision"):
+                        curr_rev = (
+                            getattr(self.engines["decision"], "checkpoint_hash", None)
+                            or getattr(self.engines["decision"], "model_id", None)
+                        )
+                        if (
+                            ev_data.get("model_revision") not in ("none", None, "decision")
+                            and curr_rev
+                            and str(curr_rev) != ev_data.get("model_revision")
+                        ):
+                            stale_identity = True
+            except Exception:
+                pass
+
         demote = (
-            (len(rows) >= req.evaluation_window and (missing > 0 or not enough))
+            stale_identity
+            or (len(rows) >= req.evaluation_window and (missing > 0 or not enough))
             or (
                 enough
                 and (lower_bound(values) < req.min_quality or delta_lower < -req.max_degradation)
@@ -746,6 +1255,7 @@ class Microloop:
         )
         evidence = {
             "demoted": demote,
+            "stale_identity": stale_identity,
             "active_samples": len(values),
             "comparison_samples": len(baseline),
             "missing_outcomes": missing,
@@ -763,6 +1273,21 @@ class Microloop:
                 ).rowcount
                 if count:
                     self._event(db, artifact["id"], "ACTIVE", "SHADOW", evidence)
+                    logger.warning(
+                        "Site %s demoted from ACTIVE to SHADOW (delta_lower=%s, quality_lower=%s)",
+                        site.name,
+                        delta_lower,
+                        evidence["quality_lower"],
+                    )
+                    self._emit_event(
+                        "lifecycle",
+                        {
+                            "site": site.name,
+                            "artifact": artifact["id"],
+                            "action": "demote",
+                            "evidence": evidence,
+                        },
+                    )
         with self.store.transaction() as db:
             db.execute(
                 """INSERT INTO drift_checks(artifact, created, demoted, active_samples,
@@ -807,6 +1332,22 @@ class Microloop:
                 target_status,
                 {"reason": reason, "explicit": True},
             )
+        logger.info(
+            "Invalidated site %s: target=%s, reason=%s",
+            site.name,
+            target_status,
+            reason,
+        )
+        self._emit_event(
+            "lifecycle",
+            {
+                "site": site.name,
+                "artifact": artifact["id"],
+                "action": "invalidate",
+                "target": target_status,
+                "reason": reason,
+            },
+        )
         return {
             "site": site.name,
             "version": site.version,
@@ -829,7 +1370,12 @@ class Microloop:
         engine="decision",
     ):
         results = {}
-        engine = resolve_engine_key(engine)
+        chosen_engine = (
+            self._maintenance_engine
+            if (getattr(self, "_maintenance_engine", None) and engine == "decision")
+            else engine
+        )
+        engine = resolve_engine_key(chosen_engine)
         if sites is not None:
             resolved_sites = [self._resolve(s) for s in sites]
         else:
@@ -845,8 +1391,9 @@ class Microloop:
             last_drift = drift_checks[0]["created"] if drift_checks else 0.0
             hist = self.store.history(site.version)
             obs_count = len(hist)
+            last_visit = self._maintenance_visited.get(site.version, 0.0)
             if st == "ACTIVE":
-                return (0, last_drift, -obs_count, site.name)
+                return (0, last_drift, last_visit, -obs_count, site.name)
             elif st == "SHADOW":
                 shadow_outcomes = sum(
                     1
@@ -856,13 +1403,13 @@ class Microloop:
                     and r["prediction"] is not None
                     and r["outcome"] is not None
                 )
-                return (1, -shadow_outcomes, site.name)
+                return (1, -shadow_outcomes, last_visit, site.name)
             elif st == "CANDIDATE":
-                return (2, -obs_count, site.name)
+                return (2, -obs_count, last_visit, site.name)
             elif st == "OBSERVE":
-                return (3, -obs_count, site.name)
+                return (3, last_visit, -obs_count, site.name)
             else:
-                return (4, 0, site.name)
+                return (4, last_visit, site.name)
 
         prioritized = sorted(resolved_sites, key=site_priority_key)
         start_time = time.perf_counter()
@@ -870,31 +1417,44 @@ class Microloop:
 
         for site in prioritized:
             if max_sites is not None and len(results) >= max_sites:
-                results[site.name] = {"deferred": "max_sites_reached"}
+                results[site.name] = MaintenanceOutcome({"deferred": "max_sites_reached"})
                 continue
             if (
                 time_budget_sec is not None
                 and (time.perf_counter() - start_time) >= time_budget_sec
             ):
-                results[site.name] = {"deferred": "time_budget_exceeded"}
+                results[site.name] = MaintenanceOutcome({"deferred": "time_budget_exceeded"})
                 continue
             if max_rows is not None and total_rows >= max_rows:
-                results[site.name] = {"deferred": "max_rows_reached"}
+                results[site.name] = MaintenanceOutcome({"deferred": "max_rows_reached"})
                 continue
 
+            self._maintenance_visited[site.version] = time.time()
             site_rows = len(self.store.history(site.version))
             total_rows += site_rows
             try:
                 artifact = self._artifact(site.version)
+                req = requirements or self._maintenance_requirements or DEFAULT_REQUIREMENTS
+                ver = verifier if verifier is not None else self._maintenance_verifier
                 if artifact is None:
-                    if requirements is None:
-                        raise ValueError("Automatic compilation requires explicit requirements")
-                    self._require_compilation_support(site, requirements)
-                    results[site.name] = {"compiled": self.compile(site, engine=engine)}
+                    blocker = self._compile_blocker(site, req)
+                    if blocker is not None:
+                        results[site.name] = MaintenanceOutcome({"pending": blocker})
+                        continue
+                    artifact_id = self.compile(site, engine=engine)
+                    results[site.name] = MaintenanceOutcome({"compiled": artifact_id})
+                    artifact = self._artifact(site.version)
+                    if ver is not None or engine == "exact":
+                        try:
+                            self.calibrate(site, verifier=ver, requirements=req)
+                        except ValueError:
+                            pass
                 elif artifact["status"] == "ACTIVE":
                     reeval = self.reevaluate(site)
-                    results[site.name] = reeval
+                    results[site.name] = MaintenanceOutcome(reeval)
                     cur = self._artifact(site.version)
+
+
                     if cur and cur["status"] == "ACTIVE" and cur.get("profile"):
                         prof = cur["profile"]
                         cov_data = prof.get("coverage_engine")
@@ -967,25 +1527,30 @@ class Microloop:
 
                             if tightened_any:
                                 prof["coverage_engine"] = cov_engine.to_dict()
+                                prof.pop("id", None)
+                                prof["id"] = digest(prof)
                                 with self.store.transaction() as db:
                                     db.execute(
                                         "UPDATE artifacts SET profile=? WHERE id=?",
                                         (canonical(prof), cur["id"]),
                                     )
                                 results[site.name]["self_tuned"] = True
-                elif verifier is not None:
+                else:
+                    eng = resolve_engine_key(artifact["payload"]["engine_data"]["engine"])
+                    if ver is None and eng != "exact":
+                        results[site.name] = MaintenanceOutcome({"pending": "verifier_required"})
+                        continue
                     if artifact["profile"] is None:
-                        if requirements is None:
-                            continue
                         try:
-                            self.calibrate(site, verifier=verifier, requirements=requirements)
+                            self.calibrate(site, verifier=ver, requirements=req)
+                            artifact = self._artifact(site.version)
                         except ValueError as error:
                             if (
                                 str(error)
                                 != "No state regions have sufficient calibration evidence"
                             ):
                                 raise
-                            self._require_compilation_support(site, requirements)
+                            self._require_compilation_support(site, req)
                             history = self.store.history(site.version)
                             new_rows = [
                                 r
@@ -993,39 +1558,49 @@ class Microloop:
                                 if r["created"] > artifact["payload"]["created"]
                                 and r["outcome"] is not None
                             ]
-                            if len(new_rows) < requirements.min_samples:
+                            if len(new_rows) < req.min_samples:
                                 raise
                             self.compile(site, engine=engine, replace_existing=True)
-                            self.calibrate(site, verifier=verifier, requirements=requirements)
-                    req_dict = (
-                        artifact["profile"].get("requirements", {}) if artifact["profile"] else {}
-                    )
-                    if artifact["profile"] is not None and (
+                            self.calibrate(site, verifier=ver, requirements=req)
+                            artifact = self._artifact(site.version)
+                    prof = artifact.get("profile")
+                    req_dict = prof.get("requirements", {}) if prof else {}
+                    if artifact.get("profile") is not None and (
                         req_dict.get("high_risk", False)
                         or not req_dict.get("allow_auto_requalify", True)
                     ):
-                        results[site.name] = {"pending": "auto_requalify_disabled_for_site"}
+                        results[site.name] = MaintenanceOutcome(
+                            {"pending": "auto_requalify_disabled_for_site"}
+                        )
                     else:
-                        results[site.name] = self.evaluate(site, verifier=verifier)
+                        eval_res = self.evaluate(site, verifier=ver)
+                        results[site.name] = MaintenanceOutcome(eval_res)
             except (ValueError, KeyError, sqlite3.Error) as error:
-                results[site.name] = {"pending": str(error)}
+                results[site.name] = MaintenanceOutcome({"pending": str(error)})
+
+
         return results
 
-    def _require_compilation_support(self, site, requirements):
-        rows = [
-            r
-            for r in self.store.history(site.version)
-            if r["source"] == "fallback" and r["outcome"] is not None
-        ]
-        train, calibration, evaluation = split_history(rows)
-        if requirements.min_confidence == 1 or requirements.max_degradation == 0:
-            raise ValueError("Finite samples cannot meet the configured confidence bounds")
+    def _compile_blocker(self, site, requirements=None):
+        site = self._resolve(site)
+        req = requirements or self._maintenance_requirements or DEFAULT_REQUIREMENTS
+        rows = self.store.history(site.version)
+        if not rows:
+            return "waiting_for_observations"
+        eligible = [r for r in rows if r["source"] == "fallback" and r["outcome"] is not None]
+        if not eligible:
+            return "waiting_for_outcomes"
+        train, calibration, evaluation = split_history(eligible)
+        if not all((train, calibration, evaluation)):
+            return "insufficient_task_groups"
+        if req.min_confidence == 1 or req.max_degradation == 0:
+            return "impossible_bounds"
         calibration_min = max(
-            requirements.min_region_samples,
-            math.ceil(math.log(20) / (2 * (1 - requirements.min_confidence) ** 2)),
+            req.min_region_samples,
+            math.ceil(math.log(20) / (2 * (1 - req.min_confidence) ** 2)),
         )
         evaluation_min = max(
-            requirements.min_samples, math.ceil(2 * math.log(20) / requirements.max_degradation**2)
+            req.min_samples, math.ceil(2 * math.log(20) / req.max_degradation ** 2)
         )
         trained = {canonical(r["state"]) for r in train}
         cal, held = {}, {}
@@ -1037,6 +1612,14 @@ class Microloop:
             and len(held.get(region, ())) >= evaluation_min
             for region in trained
         ):
+            return "insufficient_samples_per_region"
+        return None
+
+    def _require_compilation_support(self, site, requirements):
+        blocker = self._compile_blocker(site, requirements)
+        if blocker == "impossible_bounds":
+            raise ValueError("Finite samples cannot meet the configured confidence bounds")
+        if blocker is not None:
             raise ValueError("Insufficient independent calibration/evaluation tasks to compile")
 
     def sites(self):
@@ -1104,14 +1687,88 @@ class Microloop:
         comparison = [
             r["outcome"]["quality"] for r in rows if r["reason"] == "comparison" and r["outcome"]
         ]
+        blocker = "none"
+        if artifact is None:
+            b = self._compile_blocker(site)
+            blocker = b if b is not None else "ready_to_compile"
+        elif artifact["status"] == "SHADOW":
+            if artifact["profile"] is None:
+                eng = resolve_engine_key(artifact["payload"]["engine_data"]["engine"])
+                if eng != "exact" and self._maintenance_verifier is None:
+                    blocker = "verifier_unavailable"
+                else:
+                    blocker = "waiting_for_calibration"
+            else:
+                req = PromotionRequirements(**artifact["profile"]["requirements"])
+                payload = artifact["payload"]
+                shadow = [
+                    r
+                    for r in rows
+                    if r["artifact"] == artifact["id"]
+                    and r["created"] > artifact["epoch"]
+                    and r["prediction"] is not None
+                    and r["source"] == "fallback"
+                ]
+                used_tasks = {
+                    r["task"]
+                    for r in rows
+                    if r["id"] in set(sum(payload["partitions"].values(), []))
+                }
+                shadow = [r for r in shadow if r["task"] not in used_tasks]
+                missing = any(
+                    r["outcome"] is None
+                    for r in shadow
+                    if canonical(r["state"]) in artifact["profile"]["coverage"]
+                )
+                shadow_tasks = {r["task"] for r in shadow}
+                if missing:
+                    blocker = "waiting_for_outcomes"
+                elif len(shadow_tasks) < req.min_samples:
+                    blocker = f"waiting_for_shadow_samples ({len(shadow_tasks)}/{req.min_samples})"
+                else:
+                    blocker = "ready_to_evaluate"
+        elif artifact["status"] == "ACTIVE":
+            if artifact.get("profile"):
+                req = PromotionRequirements(**artifact["profile"]["requirements"])
+                recent = [
+                    r
+                    for r in rows
+                    if r["artifact"] == artifact["id"] and r["created"] > artifact["epoch"]
+                ][-req.evaluation_window :]
+                comp_rows = [r for r in recent if r["reason"] == "comparison"]
+                if comp_rows and any(r["outcome"] is None for r in comp_rows):
+                    blocker = "waiting_for_comparison_outcomes"
+                else:
+                    blocker = "none (active)"
+            else:
+                blocker = "none (active)"
+        else:
+            blocker = f"status_{artifact['status'].lower()}"
+
+
         return {
             "name": site.name,
             "version": site.version,
             "contract": asdict(site),
+            "model": {
+                "enabled": self._model_enabled,
+                "loaded": bool(
+                    self.engines.get("decision")
+                    and getattr(self.engines["decision"], "_agents", {})
+                ),
+                "implementation": (
+                    self.engines["decision"].name if self.engines.get("decision") else None
+                ),
+            },
             "state": artifact["status"] if artifact else "OBSERVE",
+            "blocker": blocker,
+            "active_revision": (
+                artifact["id"] if artifact and artifact["status"] == "ACTIVE" else None
+            ),
             "error": error,
             "fast_path": artifact["id"] if artifact else None,
             "observations": len(rows),
+            "outcomes": sum(r["outcome"] is not None for r in rows),
             "unique_states": len({canonical(r["state"]) for r in rows}),
             "choices": dict(Counter(r["choice"] for r in rows)),
             "coverage": len(fast) / len(rows) if rows else 0,
@@ -1145,6 +1802,26 @@ class Microloop:
             )
             if artifact
             else [],
+            "auto_maintenance": self._auto_maintenance,
+        }
+
+    def status(self, site: str | DecisionSite) -> dict:
+        insp = self.inspect(site)
+        return {
+            "name": insp["name"],
+            "version": insp["version"],
+            "model_enabled": self._model_enabled,
+            "state": insp["state"],
+            "blocker": insp["blocker"],
+            "active_revision": insp["active_revision"],
+            "active_candidate": insp["active_revision"],
+            "observations": insp["observations"],
+            "outcomes": insp["outcomes"],
+            "outcome_coverage": insp["outcome_completeness"],
+            "fast_path": insp["fast_path"],
+            "fast_served": insp["fallbacks_avoided"],
+            "fallbacks": insp["fallbacks"],
+            "auto_maintenance": self._auto_maintenance,
         }
 
     def health(self, site: str | DecisionSite) -> dict:
@@ -1296,12 +1973,36 @@ class Microloop:
 
     def compact(
         self,
-        site,
+        site=None,
         *,
         keep_recent: int = 1000,
         before_timestamp: float | None = None,
+        max_age_days: float | None = None,
         vacuum: bool = False,
     ) -> dict:
+        if max_age_days is not None:
+            before_timestamp = time.time() - (max_age_days * 86400.0)
+        if site is None:
+            all_sites = [
+                DecisionSite(**json.loads(r["contract"]))
+                for r in self.store.rows("SELECT contract FROM sites ORDER BY name,created")
+            ]
+            pruned_total = 0
+            remaining_total = 0
+            for s in all_sites:
+                res = self.compact(
+                    s,
+                    keep_recent=keep_recent,
+                    before_timestamp=before_timestamp,
+                    vacuum=False,
+                )
+                pruned_total += res["pruned"]
+                remaining_total += res["remaining"]
+            if vacuum:
+                with self.store.lock:
+                    self.store.conn.execute("VACUUM")
+            return {"site": "all", "pruned": pruned_total, "remaining": remaining_total}
+
         site = self._resolve(site)
         with self.store.transaction() as db:
             active = db.execute(
@@ -1373,6 +2074,21 @@ class Microloop:
             with self.store.lock:
                 self.store.conn.execute("VACUUM")
 
+        logger.info(
+            "Compacted site %s: pruned %d, remaining %d",
+            site.name,
+            len(rows_to_prune),
+            remaining,
+        )
+        self._emit_event(
+            "lifecycle",
+            {
+                "site": site.name,
+                "action": "compact",
+                "pruned": len(rows_to_prune),
+                "remaining": remaining,
+            },
+        )
         return {
             "site": site.name,
             "version": site.version,

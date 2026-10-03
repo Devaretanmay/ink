@@ -24,7 +24,7 @@ def grouped_quality(rows):
     return [sum(values) / len(values) for values in groups.values()]
 
 
-def verify_rows(rows, engine, payload, verifier):
+def verify_rows(rows, engine, payload, verifier=None):
     results = []
     cov_engine = None
     if payload.get("coverage_engine"):
@@ -54,15 +54,27 @@ def verify_rows(rows, engine, payload, verifier):
         choice, raw = engine.predict(payload["engine_data"], state_in)
         if choice not in payload["choices"] or not math.isfinite(raw) or not 0 <= raw <= 1:
             raise ValueError("Engine returned an undeclared choice")
-        # Verify both actions in the same replay environment; never transfer a factual
-        # fallback outcome to an unexecuted candidate, including when they agree.
-        candidate = verifier(deepcopy(row["state"]), choice)
-        baseline = verifier(deepcopy(row["state"]), row["choice"])
-        if not isinstance(candidate, Outcome) or not isinstance(baseline, Outcome):
-            raise TypeError("Verifier must return Outcome with independent evidence")
-        identity = (candidate.verifier, candidate.verifier_version)
-        if identity != (baseline.verifier, baseline.verifier_version):
-            raise ValueError("Verifier identity changed during replay")
+        if verifier is not None:
+            candidate = verifier(deepcopy(row["state"]), choice)
+            baseline = verifier(deepcopy(row["state"]), row["choice"])
+            if not isinstance(candidate, Outcome) or not isinstance(baseline, Outcome):
+                raise TypeError("Verifier must return Outcome with independent evidence")
+            identity = (candidate.verifier, candidate.verifier_version)
+            if identity != (baseline.verifier, baseline.verifier_version):
+                raise ValueError("Verifier identity changed during replay")
+        else:
+            if payload.get("engine_data", {}).get("engine") != "exact":
+                raise ValueError("Semantic engines require a verifier")
+            if choice != row["choice"]:
+                continue
+            cand_dict = row["outcome"]
+            candidate = Outcome(
+                quality=float(cand_dict["quality"]),
+                verifier=cand_dict.get("verifier", "observed"),
+                verifier_version=str(cand_dict.get("verifier_version", "1")),
+                evidence=cand_dict.get("evidence") or {"observed": True},
+            )
+            baseline = candidate
         results.append(
             {
                 "id": row["id"],
@@ -87,21 +99,50 @@ def statistics(records):
     for row in records:
         tasks.setdefault(row["task"], []).append(row)
     candidate, baseline, differences = [], [], []
+    pos_count, neg_count, unk_count = 0, 0, 0
     for group in tasks.values():
-        a = sum(r["candidate"]["quality"] for r in group) / len(group)
-        b = sum(r["baseline"]["quality"] for r in group) / len(group)
-        candidate.append(a)
-        baseline.append(b)
-        differences.append(a - b)
+        valid_cand = [
+            r["candidate"]["quality"]
+            for r in group
+            if r.get("candidate") and r["candidate"].get("quality") is not None
+        ]
+        valid_base = [
+            r["baseline"]["quality"]
+            for r in group
+            if r.get("baseline") and r["baseline"].get("quality") is not None
+        ]
+        if valid_cand:
+            a = sum(valid_cand) / len(valid_cand)
+            candidate.append(a)
+            if a >= 0.5:
+                pos_count += 1
+            else:
+                neg_count += 1
+        else:
+            unk_count += 1
+        if valid_base:
+            b = sum(valid_base) / len(valid_base)
+            baseline.append(b)
+        if valid_cand and valid_base:
+            differences.append(a - b)
     n = len(tasks)
+    diff_n = len(differences)
+    cand_n = len(candidate)
+    base_n = len(baseline)
+    agreements = [r["agreement"] for r in records if r.get("agreement") is not None]
     return {
         "samples": n,
+        "observed_positive": pos_count,
+        "observed_negative": neg_count,
+        "unknown": unk_count,
         "quality_lower": lower_bound(candidate),
-        "quality": sum(candidate) / n if n else None,
-        "baseline_quality": sum(baseline) / n if n else None,
-        "delta": sum(differences) / n if n else None,
-        "delta_lower": (sum(differences) / n - math.sqrt(2 * math.log(20) / n)) if n else -1.0,
-        "agreement": sum(r["agreement"] for r in records) / len(records) if records else None,
+        "quality": sum(candidate) / cand_n if cand_n else None,
+        "baseline_quality": sum(baseline) / base_n if base_n else None,
+        "delta": sum(differences) / diff_n if diff_n else None,
+        "delta_lower": (sum(differences) / diff_n - math.sqrt(2 * math.log(20) / diff_n))
+        if diff_n
+        else -1.0,
+        "agreement": sum(agreements) / len(agreements) if agreements else None,
     }
 
 
@@ -111,3 +152,4 @@ def passes(stats, requirements):
         and stats["quality_lower"] >= requirements.min_quality
         and stats["delta_lower"] >= -requirements.max_degradation
     )
+

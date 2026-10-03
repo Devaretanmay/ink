@@ -4,99 +4,46 @@ on:
   push:
     tags: ["v*"]
 
-env:
-  CARGO_TERM_COLOR: always
-# Publishing is gated on repository variables, not `env`, because the `env`
-# context is not available in a job-level `if`.
-#
-#   gh variable set PUBLISH_PYPI true        # requires a PyPI trusted publisher
-#
-# Unset by default, so tagging produces verified wheels and artifacts
-# but publishes nothing.
-
 jobs:
-  # Nothing is published until the full gate passes: fmt, clippy, the whole-tree
-  # lint, the Rust and Python test suites, the documented example, and a wheel
-  # build. This is the same set of checks as `make check`.
   verify:
     name: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - run: pip install -e '.[dev]'
-      - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      - run: pip install ruff pytest build
       - run: ruff check .
-      - run: maturin build --manifest-path python/microloop/Cargo.toml --out dist
-      - run: pip install dist/*.whl
       - run: pytest python/microloop/tests/
       - run: python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
 
-  wheels:
-    name: wheels (${{ matrix.os }})
+  build-artifacts:
+    name: build release artifacts
     needs: verify
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            venv: .wheeltest/bin
-          - os: macos-latest
-            venv: .wheeltest/bin
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions-rust-lang/setup-rust-toolchain@v1
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install maturin
-      - run: maturin build --release --manifest-path python/microloop/Cargo.toml --out dist
-      # Install the freshly built wheel before it is allowed near PyPI.
-      - name: Install the wheel into a clean environment
-        run: |
-          python -m venv .wheeltest
-          "${{ matrix.venv }}/python" -m pip install --upgrade pip
-          "${{ matrix.venv }}/python" -m pip install dist/*.whl
-      - name: Installed console script runs
-        run: |
-          "${{ matrix.venv }}/microloop" --version
-      - name: Verify bundled neural inference
-        run: |
-          "${{ matrix.venv }}/python" -m pip install pytest
-          "${{ matrix.venv }}/microloop" model-install
-          "${{ matrix.venv }}/python" -m pytest python/microloop/tests/test_decision_path.py
-      - uses: actions/upload-artifact@v4
-        with:
-          name: wheels-${{ matrix.os }}
-          path: dist/*.whl
-
-  # Records what a tag actually produced, so an unpublushed release is visible
-  # rather than silent.
-  release-summary:
-    name: release summary
-    needs: [verify, wheels, publish-pypi]
-    if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Report publication state
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install build
+      - run: python -m build --wheel --sdist --outdir dist/
+      - name: Verify wheel in clean environment
         run: |
-          echo "verify:     ${{ needs.verify.result }}"
-          echo "wheels:     ${{ needs.wheels.result }}"
-          echo "pypi:       ${{ needs.publish-pypi.result }}"
+          python -m venv .wheeltest
+          source .wheeltest/bin/activate
+          pip install dist/*.whl
+          microloop --version
+          python -c "import microloop; print(microloop.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
 
   publish-pypi:
     name: publish (pypi)
-    needs: [verify, wheels]
+    needs: [verify, build-artifacts]
     if: vars.PUBLISH_PYPI == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -104,11 +51,20 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
+          name: dist
           path: dist
-          merge-multiple: true
-      # Trusted publishing (OIDC): requires a PyPI trusted publisher registered
-      # for this repository and the `microloop` project name. No long-lived
-      # token is stored in the repository.
       - uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
+
+  release-summary:
+    name: release summary
+    needs: [verify, build-artifacts, publish-pypi]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report publication state
+        run: |
+          echo "verify:          ${{ needs.verify.result }}"
+          echo "build-artifacts: ${{ needs.build-artifacts.result }}"
+          echo "publish-pypi:    ${{ needs.publish-pypi.result }}"

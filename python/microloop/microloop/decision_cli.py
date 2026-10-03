@@ -6,14 +6,13 @@ import argparse
 import importlib
 import json
 import sqlite3
+import time
 from pathlib import Path
 
 from .decision_api import Microloop
 from .discovery import discover_from_file
 from .internal.contracts import PromotionRequirements
 from .internal.engines import DecisionModelEngine
-from .internal.model.registry import install
-from .internal.model.training import finetune
 
 
 def load_callable(spec):
@@ -31,6 +30,7 @@ def main(argv):
         choices=[
             "sites",
             "inspect",
+            "status",
             "compile",
             "evaluate",
             "maintenance",
@@ -54,8 +54,10 @@ def main(argv):
     parser.add_argument("--checkpoint")
     parser.add_argument("--replace", action="store_true", help="Retire the current candidate")
     parser.add_argument("--verifier", help="Explicit trusted Python module:callable")
+    parser.add_argument("--engine", default="decision", help="Engine to compile: decision or exact")
     parser.add_argument("--requirements", help="JSON file with experiment requirements")
     parser.add_argument("--before", type=float, help="Retention cutoff as Unix timestamp")
+    parser.add_argument("--days", type=float, help="Retention cutoff in days")
     parser.add_argument("--data", help="JSONL rows for model-train: state/choices/choice")
     parser.add_argument("--output", help="Output directory for model-train checkpoint")
     parser.add_argument("--steps", type=int, default=50)
@@ -64,6 +66,8 @@ def main(argv):
     args = parser.parse_args(argv)
     try:
         if args.command == "model-install":
+            from .internal.model.registry import install
+
             print(
                 json.dumps(
                     {"model": "microloop-decision-v1", "path": str(install(args.checkpoint))}
@@ -73,6 +77,8 @@ def main(argv):
         if args.command == "model-train":
             if not args.data or not args.output:
                 raise ValueError("model-train requires --data JSONL and --output directory")
+            from .internal.model.training import finetune
+
             rows = [
                 json.loads(line)
                 for line in Path(args.data).read_text().splitlines()
@@ -194,7 +200,7 @@ def main(argv):
                     print(f"Sites past break-even : {past_break_even}/{len(sites)}")
                     print("=" * 45)
             return 0
-        if args.command in {"sites", "inspect"} and not Path(args.db).is_file():
+        if args.command in {"sites", "inspect", "status"} and not Path(args.db).is_file():
             if args.command == "sites":
                 print("[]" if args.json else "No decision sites recorded.")
                 return 0
@@ -202,7 +208,7 @@ def main(argv):
         with Microloop(
             args.db,
             engines=[DecisionModelEngine(args.checkpoint)],
-            readonly=args.command in {"sites", "inspect", "export"},
+            readonly=args.command in {"sites", "inspect", "status", "export"},
         ) as client:
             requirements = (
                 PromotionRequirements(**json.loads(Path(args.requirements).read_text()))
@@ -213,11 +219,21 @@ def main(argv):
             if args.command == "sites":
                 result = client.sites()
             elif args.command == "inspect":
+                if not args.site:
+                    raise ValueError(
+                        "inspect requires a site name (e.g. 'microloop inspect <site>')"
+                    )
                 result = client.inspect(args.site)
+            elif args.command == "status":
+                if args.site:
+                    result = client.status(args.site)
+                else:
+                    sites = client.sites()
+                    result = [client.status(s["name"]) for s in sites]
             elif args.command == "compile":
                 result = {
                     "artifact": client.compile(
-                        args.site, engine="decision", replace_existing=args.replace
+                        args.site, engine=args.engine, replace_existing=args.replace
                     )
                 }
             elif args.command == "evaluate":
@@ -232,7 +248,7 @@ def main(argv):
                 result = client.evaluate(site, verifier=verifier)
             elif args.command == "maintenance":
                 result = client.maintenance(
-                    verifier=verifier, requirements=requirements, engine="decision"
+                    verifier=verifier, requirements=requirements, engine=args.engine
                 )
             elif args.command == "export":
                 if not args.site:
@@ -240,18 +256,38 @@ def main(argv):
                 client.store.export(args.site)
                 result = {"exported": args.site}
             elif args.command == "retain":
+                before = args.before
+                if args.days is not None:
+                    before = time.time() - (args.days * 86400.0)
                 if args.site:
-                    result = client.compact(args.site, before_timestamp=args.before, vacuum=True)
+                    result = client.compact(args.site, before_timestamp=before, vacuum=True)
                 else:
-                    if args.before is None:
-                        raise ValueError("Retention across all sites requires --before timestamp")
-                    result = {"deleted": client.store.retain_since(args.before)}
-            if args.json or args.command not in {"sites", "inspect"}:
+                    if before is None:
+                        raise ValueError("Retention requires --before timestamp or --days cutoff")
+                    result = client.compact(None, before_timestamp=before, vacuum=True)
+            if args.json or args.command not in {"sites", "inspect", "status"}:
                 print(json.dumps(result, indent=2))
+            elif args.command == "status":
+                rows = result if isinstance(result, list) else [result]
+                if not rows:
+                    print("No decision sites recorded.")
+                for row in rows:
+                    print(
+                        f"{row['name']}  {row['state']}\n"
+                        f"  blocker       {row.get('blocker', 'none')}\n"
+                        f"  observations  {row['observations']}\n"
+                        f"  outcomes      {row['outcomes']} ({row['outcome_coverage']:.1%})\n"
+                        f"  fast served   {row['fast_served']}\n"
+                        f"  fallback      {row['fallbacks']}\n"
+                        f"  fast path     {row['active_revision'] or 'none'}"
+                    )
+                    if len(rows) > 1:
+                        print()
             else:
                 for row in result if isinstance(result, list) else [result]:
                     print(
                         f"{row['name']}  {row['state']}\n"
+                        f"  blocker       {row.get('blocker', 'none')}\n"
                         f"  observations  {row['observations']}\n"
                         f"  coverage      {row['coverage']:.1%}\n"
                         f"  fallback      {row['fallbacks']}\n"

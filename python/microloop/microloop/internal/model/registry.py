@@ -42,7 +42,14 @@ def install(source=None):
         return verify(destination)
     spec = specification()
     if source is None:
-        from huggingface_hub import snapshot_download
+        try:
+            from huggingface_hub import snapshot_download
+        except ImportError as exc:
+            msg = (
+                "huggingface-hub is not installed; reinstall microloop: "
+                "pip install --force-reinstall microloop"
+            )
+            raise RuntimeError(msg) from exc
 
         source = snapshot_download(
             spec["upstream"],

@@ -36,6 +36,14 @@ If your workload doesn't have bounded, repeating, verifiable decisions, Microloo
 pip install microloop
 ```
 
+This includes the internal learned decision model (421M MLX backend on macOS Apple Silicon and Linux). No separate `[neural]` extra is required.
+
+To disable the model on resource-constrained deployments:
+
+```python
+loop = Microloop(model_enabled=False)  # or MICROLOOP_MODEL_DISABLED=1
+```
+
 ### Evaluate before integrating
 
 Analyze your existing traces without changing production code:
@@ -129,9 +137,9 @@ From the [competitive benchmark](benchmarks/results/competitive_frontier/REPORT.
 ```text
 1. OBSERVE    Your agent runs normally. Microloop records decisions and outcomes.
 2. PROFILE    Microloop estimates repetition, entropy, and qualification cost.
-3. COMPILE    High-value sites get a local candidate fast path.
+3. COMPILE    The Decision Engine fits candidate paths (exact tier and learned decision models).
 4. SHADOW     The candidate runs alongside the model. Outcomes are compared.
-5. QUALIFY     Statistical tests confirm the fast path matches model quality.
+5. QUALIFY    Statistical tests confirm the fast path matches model quality (candidate != authority).
 6. ACTIVE     Qualified decisions serve locally in <0.2ms.
 7. COMPARE    Ongoing comparison traffic (5–10%) monitors for drift.
 8. DEOPT      If quality degrades, Microloop revokes the fast path automatically.
