@@ -8,7 +8,34 @@ import tempfile
 from pathlib import Path
 
 
-def specification():
+def specification(root=None):
+    """Return the integrity manifest belonging to a checkpoint.
+
+    The shipped base checkpoint is described by checkpoint.json. A Microloop-
+    trained checkpoint carries its own microloop-model.json, whose hashes must
+    be used instead of the base model hashes.
+    """
+    if root is not None:
+        manifest = Path(root) / "microloop-model.json"
+        if manifest.is_file():
+            payload = json.loads(manifest.read_text())
+            if not isinstance(payload.get("sha256"), dict) or not payload["sha256"]:
+                raise ValueError("Microloop checkpoint manifest has no file hashes")
+            if payload.get("weights_modified") is False:
+                # Older installed copies of the upstream base checkpoint used
+                # microloop-model.json but predate the trained-model version
+                # field. Accept only an exact identity/hash match with the
+                # current pinned base manifest.
+                base = json.loads(Path(__file__).with_name("checkpoint.json").read_text())
+                identity_fields = ("name", "upstream", "revision", "sha256")
+                if all(payload.get(key) == base.get(key) for key in identity_fields):
+                    return base
+                raise ValueError(
+                    "legacy base checkpoint manifest does not match the pinned base model"
+                )
+            if not payload.get("name") or not payload.get("version"):
+                raise ValueError("Microloop checkpoint manifest has no model identity")
+            return payload
     return json.loads(Path(__file__).with_name("checkpoint.json").read_text())
 
 
@@ -22,7 +49,7 @@ def model_path():
 
 def verify(root):
     root = Path(root)
-    for name, expected in specification()["sha256"].items():
+    for name, expected in specification(root)["sha256"].items():
         path = root / name
         if not path.is_file():
             raise FileNotFoundError(f"Model file missing: {name}; run microloop model-install")
@@ -40,7 +67,7 @@ def install(source=None):
     destination = model_path()
     if destination.exists():
         return verify(destination)
-    spec = specification()
+    spec = specification(source)
     if source is None:
         try:
             from huggingface_hub import snapshot_download
@@ -79,11 +106,11 @@ def install(source=None):
 
 
 def ensure_installed(auto_download=False):
-    """Ensure the pinned model is provisioned; auto-download only when explicitly allowed."""
+    """Verify a provisioned model without initiating network downloads."""
     destination = model_path()
     if (destination / "model.safetensors").is_file():
         return verify(destination)
-    if auto_download or os.environ.get("MICROLOOP_AUTO_INSTALL") == "1":
+    if auto_download:
         return install()
     msg = f"Microloop model is missing at {destination}; run 'microloop model-install'"
     raise FileNotFoundError(msg)

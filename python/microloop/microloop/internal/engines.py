@@ -115,7 +115,7 @@ class DecisionModelEngine:
         from .model.registry import ensure_installed, verify
 
         if self._managed_checkpoint:
-            ensure_installed(auto_download=True)
+            ensure_installed(auto_download=False)
             verify(self.checkpoint)
         examples = []
         seen = set()
