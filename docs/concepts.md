@@ -1,6 +1,6 @@
-# Microloop Concepts & Mental Model
+# Ink Concepts & Mental Model
 
-This document outlines the core concepts, entities, and operational mental models of the Microloop Decision JIT.
+This document outlines the core concepts, entities, and operational mental models of the Ink Decision JIT.
 
 ---
 
@@ -15,7 +15,7 @@ A **DecisionSite** represents a named, bounded choice within an AI agent's execu
 - `fallback_model_calls`: Optional fixed count of LLM invocations incurred by the fallback (e.g. `1`).
 
 ```python
-from microloop import DecisionSite
+from ink import DecisionSite
 
 site = DecisionSite(
     name="support.route",
@@ -38,10 +38,10 @@ The return value of `client.decide()`. It is an immutable dataclass containing:
 - `receipt`: Cryptographic receipt verifying execution origin and safety margins.
 
 ### 1.3 FallbackResult
-When an agent's fallback executes, it can return either a plain choice string or a structured `FallbackResult`. Returning a `FallbackResult` allows Microloop to record exact model calls, token counts, and cloud costs:
+When an agent's fallback executes, it can return either a plain choice string or a structured `FallbackResult`. Returning a `FallbackResult` allows Ink to record exact model calls, token counts, and cloud costs:
 
 ```python
-from microloop import FallbackResult
+from ink import FallbackResult
 
 def my_fallback():
     response = call_cloud_llm(...)
@@ -112,7 +112,7 @@ Not every decision site is worth compiling. `client.profile(site)` produces a `S
 
 ## 4. When to Use (and When NOT to Use)
 
-| Dimension | Ideal for Microloop | DO NOT Use Microloop |
+| Dimension | Ideal for Ink | DO NOT Use Ink |
 | :--- | :--- | :--- |
 | **Output Type** | Discrete choices, tools, actions, routes | Open-ended text, dialogue, creative prose |
 | **Output Space** | Bounded ($\le 20$ discrete actions) | Unbounded / high entropy ($> 4.5$ bits) |

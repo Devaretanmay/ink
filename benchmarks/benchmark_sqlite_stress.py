@@ -1,4 +1,4 @@
-"""SQLite Write Stress & Concurrency Benchmark for Microloop Decision JIT.
+"""SQLite Write Stress & Concurrency Benchmark for Ink Decision JIT.
 
 Measures transactional write throughput, WAL file growth, latency percentiles,
 and concurrency contention across 100, 500, 1,000, and 5,000 writes.
@@ -16,17 +16,17 @@ import uuid
 
 import numpy as np
 
-sys.path.insert(0, os.path.abspath("python/microloop"))
+sys.path.insert(0, os.path.abspath("python/ink"))
 
-from microloop.decision_api import Microloop
-from microloop.internal.contracts import DecisionSite, FallbackResult
+from ink.decision_api import Ink
+from ink.internal.contracts import DecisionSite, FallbackResult
 
 
 def run_write_tier(tier_writes: int, num_workers: int = 4) -> dict:
     print(f"\n--- Stress Testing {tier_writes} writes with {num_workers} concurrent workers ---")
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = os.path.join(tmpdir, "stress.db")
-        client = Microloop(db_path)
+        client = Ink(db_path)
         site = DecisionSite("stress.test", {"id": "integer", "payload": "string"}, ("A", "B"))
         client.register(site)
 

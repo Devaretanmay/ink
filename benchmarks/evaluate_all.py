@@ -1,4 +1,4 @@
-"""Comprehensive evaluation and benchmark across upstream, Microloop v1, Exact, and classical baselines."""
+"""Comprehensive evaluation and benchmark across upstream, Ink v1, Exact, and classical baselines."""
 
 from __future__ import annotations
 
@@ -12,12 +12,12 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.internal.contracts import DecisionSite, canonical
-from microloop.internal.engines import ExactEngine
-from microloop.internal.model.agent import Agent
-from microloop.internal.model.registry import model_path
+from ink.internal.contracts import DecisionSite, canonical
+from ink.internal.engines import ExactEngine
+from ink.internal.model.agent import Agent
+from ink.internal.model.registry import model_path
 
 
 def compute_ece(probs, labels, n_bins=10):
@@ -125,10 +125,10 @@ def main():
     ood_rows = [json.loads(line) for line in (data_dir / "ood.jsonl").read_text().strip().split("\n")]
     
     upstream_dir = model_path()
-    trained_dir = Path(".microloop/models/microloop-decision-v1").resolve()
+    trained_dir = Path(".ink/models/ink-decision-v1").resolve()
     
     print("=" * 60)
-    print("MICROLOOP DECISION MODEL V1 - COMPREHENSIVE BENCHMARK")
+    print("INK DECISION MODEL V1 - COMPREHENSIVE BENCHMARK")
     print("=" * 60)
     
     # 1. Classical Baseline
@@ -244,10 +244,10 @@ def main():
     print("\nEvaluating Upstream Base Checkpoint...")
     results["upstream_base"], agent_upstream = eval_neural(upstream_dir, "upstream")
     
-    print("Evaluating Microloop Decision Model v1...")
-    results["microloop_v1"], agent_v1 = eval_neural(trained_dir, "microloop_v1")
+    print("Evaluating Ink Decision Model v1...")
+    results["ink_v1"], agent_v1 = eval_neural(trained_dir, "ink_v1")
 
-    # OOD Evaluation on Microloop v1
+    # OOD Evaluation on Ink v1
     print("\nRunning OOD and Adversarial Evaluation...")
     ood_results = {}
     for cat in ("paraphrase", "ambiguous", "distractor", "injection", "irrelevant"):

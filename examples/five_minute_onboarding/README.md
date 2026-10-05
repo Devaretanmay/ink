@@ -4,10 +4,10 @@ Get from raw agent execution traces to local verified fast paths in 5 minutes.
 
 ---
 
-### Step 1: Install Microloop
+### Step 1: Install Ink
 
 ```bash
-pip install microloop
+pip install ink
 ```
 
 *(Zero neural model download required for discovery, profiling, exact, or sparse semantic paths).*
@@ -19,7 +19,7 @@ pip install microloop
 Run discovery on your existing agent traces:
 
 ```bash
-microloop discover examples/five_minute_onboarding/traces.jsonl
+ink discover examples/five_minute_onboarding/traces.jsonl
 ```
 
 Output:
@@ -41,7 +41,7 @@ Found 2 candidate call sites.
 Or view the ready-to-paste integration snippet:
 
 ```bash
-microloop discover examples/five_minute_onboarding/traces.jsonl --snippet
+ink discover examples/five_minute_onboarding/traces.jsonl --snippet
 ```
 
 ---
@@ -64,5 +64,5 @@ The script:
 Check your local savings anytime:
 
 ```bash
-microloop value
+ink value
 ```

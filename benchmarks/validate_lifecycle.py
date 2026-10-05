@@ -1,4 +1,4 @@
-"""Validate Microloop Decision Model v1 through the full decision lifecycle:
+"""Validate Ink Decision Model v1 through the full decision lifecycle:
 OBSERVE -> COMPILE -> CALIBRATE -> SHADOW -> EVALUATE -> ACTIVE -> DRIFT -> DEMOTE
 """
 
@@ -9,10 +9,10 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
-from microloop.internal.engines import DecisionModelEngine
+from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
+from ink.internal.engines import DecisionModelEngine
 
 SITE = DecisionSite("refund.lifecycle", {"request": "string"}, ("refund", "request_information", "specialist"))
 REQ = PromotionRequirements(10, 0.5, 0.5, 0.8, 0.25, 5, 100)
@@ -55,14 +55,14 @@ def run_traffic(client, count, phase_name, bad=False):
     return results
 
 def main():
-    checkpoint = Path(".microloop/models/microloop-decision-v1").resolve()
+    checkpoint = Path(".ink/models/ink-decision-v1").resolve()
     print("=" * 60)
-    print("MICROLOOP DECISION MODEL V1 - LIFECYCLE VALIDATION")
+    print("INK DECISION MODEL V1 - LIFECYCLE VALIDATION")
     print(f"Checkpoint: {checkpoint}")
     print("=" * 60)
     
     engine = DecisionModelEngine(checkpoint=str(checkpoint))
-    with Microloop(":memory:", engines=(engine,)) as client:
+    with Ink(":memory:", engines=(engine,)) as client:
         # Register site
         client.register(SITE)
         print("\n1. OBSERVE PHASE: Recording baseline observation decisions...")

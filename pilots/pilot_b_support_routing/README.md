@@ -1,10 +1,10 @@
 # Pilot B: Enterprise Customer Support & Workflow Routing
 
 ## Overview
-Pilot B integrates Microloop into a multi-tier customer support ticket triage and routing service. In support workloads, incoming tickets repeatedly exhibit common intent clusters (billing refunds, credential resets, technical errors, spam/duplicates).
+Pilot B integrates Ink into a multi-tier customer support ticket triage and routing service. In support workloads, incoming tickets repeatedly exhibit common intent clusters (billing refunds, credential resets, technical errors, spam/duplicates).
 
 ## Discovery Audit
-Running `microloop discover traces.jsonl` against raw support traces identified 4 callsites:
+Running `ink discover traces.jsonl` against raw support traces identified 4 callsites:
 - **`support.triage_route`**: RECOMMENDED (`compile`). High repetition (88.0%), 5 bounded choices, verifier ready (100.0% coverage), break-even in 300 decisions. Volatile fields `created_at_epoch` and `session_id` flagged for developer review and excluded from state.
 - **`support.urgency_tagger`**: RECOMMENDED (`compile`). 86.7% repetition, 4 choices, verifier ready.
 - **`support.draft_reply`**: REJECTED (`ignore`). High output entropy (6.57 bits, 95 choices, avg length 168 chars). Unbounded email body text generation.
@@ -13,7 +13,7 @@ Running `microloop discover traces.jsonl` against raw support traces identified 
 ## Verifier Design
 - **Source**: Factual ticket resolution signal (`status: resolved`, `reopened: False`).
 - **Timing**: Immediate ticket lifecycle resolution receipt.
-- **Teacher-as-Verifier Shortcut Avoided**: Correctness is grounded strictly in whether the customer issue was resolved without reopen, not whether Microloop matched the cloud model's text.
+- **Teacher-as-Verifier Shortcut Avoided**: Correctness is grounded strictly in whether the customer issue was resolved without reopen, not whether Ink matched the cloud model's text.
 
 ## Policy Drift & Explicit Invalidation Experiment
 We tested both passive drift detection and explicit policy invalidation:

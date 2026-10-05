@@ -14,6 +14,7 @@ __pycache__/
 !benchmarks/results/
 benchmarks/data/
 .microloop/
+.ink/
 .agents/
 .idea/
 .vscode/

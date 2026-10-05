@@ -79,7 +79,7 @@ def generate_pilot_a(output_path: Path):
 
     # 3. agent.response_synthesis: 90 records, freeform text (unbounded)
     freeform_texts = [
-        "I have located get_user_by_id in microloop/user.py. Here is the implementation...",
+        "I have located get_user_by_id in ink/user.py. Here is the implementation...",
         "Test suite failed with exit code 1. Assertion error at line 42 in test_auth.py...",
         "According to documentation, parameter 'timeout' expects milliseconds...",
         "Git diff indicates 4 files modified, 12 insertions, 3 deletions across src/engine.rs...",
@@ -249,7 +249,7 @@ def generate_pilot_c(output_path: Path):
         ("SyntaxError unexpected EOF while parsing", "patch_ast"),
         ("All unit tests passing cleanly in test_engine.py", "commit_patch"),
         ("Multiple cyclic dependency errors across module imports", "replan"),
-        ("Modified python/microloop/discovery.py staged for verification", "run_pytest"),
+        ("Modified python/ink/discovery.py staged for verification", "run_pytest"),
     ]
 
     # 1. coding.action_dispatch: 160 records

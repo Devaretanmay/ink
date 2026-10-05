@@ -4,10 +4,10 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "python" / "microloop"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "python" / "ink"))
 
-from microloop.internal.contracts import canonical
-from microloop.internal.coverage import CoverageEngine, SemanticRegion
+from ink.internal.contracts import canonical
+from ink.internal.coverage import CoverageEngine, SemanticRegion
 
 
 def create_mock_regions(count: int, dim: int = 64) -> list[SemanticRegion]:
@@ -100,7 +100,7 @@ def run_scale_benchmark():
         "vectorization_comparison": {},
     }
 
-    print("=== Microloop Phase 6 Large-Scale Semantic Region Benchmark ===")
+    print("=== Ink Phase 6 Large-Scale Semantic Region Benchmark ===")
 
     for count in scale_counts:
         regions = create_mock_regions(count, dim=dim)

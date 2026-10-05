@@ -1,13 +1,13 @@
-# Microloop Architecture
+# Ink Architecture
 
-Microloop is a **behavior JIT for production AI**. It intercepts repetitive, bounded agent decisions and executes them locally in sub-milliseconds with mathematical safety guarantees, falling back seamlessly to the host application's original model whenever novelty, uncertainty, or policy drift occurs.
+Ink is a **behavior JIT for production AI**. It intercepts repetitive, bounded agent decisions and executes them locally in sub-milliseconds with mathematical safety guarantees, falling back seamlessly to the host application's original model whenever novelty, uncertainty, or policy drift occurs.
 
 ```text
 Application decision request
           │
           ▼
 ┌──────────────────────────────┐
-│ Microloop Decision Engine    │
+│ Ink Decision Engine    │
 │                              │
 │  1. Contract / state         │
 │  2. Exact learned behavior   │
@@ -17,7 +17,7 @@ Application decision request
 │  6. Serving authority        │
 └──────────────┬───────────────┘
                │
-        Can Microloop safely
+        Can Ink safely
         serve this decision?
           /            \
         yes             no
@@ -33,7 +33,7 @@ Application decision request
 
 The architecture strictly distinguishes three concepts:
 
-1. **Model Capability:** Microloop's owned learned representation and decision prediction capability. Microloop conceptually includes an internal learned decision model trained specifically for bounded decision tasks.
+1. **Model Capability:** Ink's owned learned representation and decision prediction capability. Ink conceptually includes an internal learned decision model trained specifically for bounded decision tasks.
 2. **Serving Engine:** The concrete execution mechanism used to generate a candidate choice for an incoming state:
    - `ExactEngine`: Ultra-fast frequency table execution tier bypassing heavier inference for proven exact states.
    - `CoverageEngine`: Sparse TF-IDF representation measuring distance to verified prototype states.
@@ -48,8 +48,8 @@ candidate != authority
 
 ## 2. Architectural Invariants
 
-### Invariant 1 — Microloop owns a learned decision model
-The Decision Engine conceptually includes a Microloop-owned learned decision model trained and fine-tuned specifically for bounded categorical decisions. Microloop is not merely a cache or wrapper; learned decision modeling is a core architectural component.
+### Invariant 1 — Ink owns a learned decision model
+The Decision Engine conceptually includes a Ink-owned learned decision model trained and fine-tuned specifically for bounded categorical decisions. Ink is not merely a cache or wrapper; learned decision modeling is a core architectural component.
 
 ### Invariant 2 — Serving authority is separate from candidate production
 A candidate emitted by an internal learned model or exact engine has **zero serving authority** on its own. Serving authority requires:
@@ -60,16 +60,16 @@ A candidate emitted by an internal learned model or exact engine has **zero serv
 If any condition is not met, the host application's original fallback model executes.
 
 ### Invariant 3 — The 421M model is the default implementation, not the architecture
-The current ~421M neural model (ModernBERT-large with custom DecisionHead and Scorer) is Microloop-owned work and ships as a default part of every standard installation. It can be disabled on resource-constrained deployments (`model_enabled=False`). The architecture permits future learned backends (distilled, quantized, linear, hybrid) without altering core contracts.
+The current ~421M neural model (ModernBERT-large with custom DecisionHead and Scorer) is Ink-owned work and ships as a default part of every standard installation. It can be disabled on resource-constrained deployments (`model_enabled=False`). The architecture permits future learned backends (distilled, quantized, linear, hybrid) without altering core contracts.
 
 ### Invariant 4 — Exact fast paths are an execution tier, not a separate product
-`ExactEngine` is an ultra-fast qualified execution tier within the Decision Engine. It operates analogously to a compiler branch optimization: when repeated exact states accumulate conclusive statistical evidence, Microloop serves them directly in under 0.2ms, bypassing full model inference.
+`ExactEngine` is an ultra-fast qualified execution tier within the Decision Engine. It operates analogously to a compiler branch optimization: when repeated exact states accumulate conclusive statistical evidence, Ink serves them directly in under 0.2ms, bypassing full model inference.
 
 ### Invariant 5 — Sparse / semantic mechanisms govern coverage and boundaries
 Sparse n-gram vectorization and spherical semantic regions define representation boundaries. They determine whether an incoming state resembles verified behavior, calculate distance margins, and trigger abstention when an input falls outside safe regions.
 
 ### Invariant 6 — Original host model fallback is always retained
-Microloop handles proven, repetitive behavior; the host model handles novelty, exploration, and ambiguity. Novel, uncertain, unsupported, or drifted requests always execute through the host model fallback callable.
+Ink handles proven, repetitive behavior; the host model handles novelty, exploration, and ambiguity. Novel, uncertain, unsupported, or drifted requests always execute through the host model fallback callable.
 
 ---
 
@@ -114,8 +114,8 @@ Persist Decision Record           Record Comparison / Shadow Outcome
 | Term | Exact Meaning |
 |---|---|
 | **Decision Engine** | The complete in-process system managing state contracts, candidate generation, coverage boundaries, qualification evidence, and serving authority. |
-| **Internal Decision Model** | Microloop-owned learned capability trained/fine-tuned for bounded categorical decision tasks. Proposes candidates; holds zero serving authority. |
-| **421M Model** | Concrete neural implementation of the internal decision model (`microloop-decision-v1`: ModernBERT-large + DecisionHead + Scorer via MLX). |
+| **Internal Decision Model** | Ink-owned learned capability trained/fine-tuned for bounded categorical decision tasks. Proposes candidates; holds zero serving authority. |
+| **421M Model** | Concrete neural implementation of the internal decision model (`ink-decision-v1`: ModernBERT-large + DecisionHead + Scorer via MLX). |
 | **Exact Engine** | Ultra-fast qualified execution tier (`ExactEngine`) serving proven repeated states directly from an empirical frequency table. |
 | **Sparse / Coverage Engine** | Subsystem (`CoverageEngine`) computing n-gram representations, cosine distances, and negative margins to enforce safe decision boundaries. |
 | **Candidate** | An unverified choice hypothesis produced by an internal engine (`ExactEngine` or `DecisionModelEngine`). Cannot affect the host application on its own. |
@@ -128,6 +128,6 @@ Persist Decision Record           Record Comparison / Shadow Outcome
 
 ## 5. Storage and Operational Invariants
 
-- **Zero External Infrastructure:** Runs in-process with embedded SQLite WAL storage (`.microloop/decisions.db`). No Redis, Pinecone, or background daemons required.
+- **Zero External Infrastructure:** Runs in-process with embedded SQLite WAL storage (`.ink/decisions.db`). No Redis, Pinecone, or background daemons required.
 - **Fail-Open Guarantee:** Storage locks, database errors, or engine exceptions fail open immediately to the host fallback without raising unexpected exceptions to the host application.
 - **Write-Before-Return:** Verified fast-path decisions are durably recorded in WAL before returning to the caller.

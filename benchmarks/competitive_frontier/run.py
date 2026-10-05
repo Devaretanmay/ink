@@ -14,7 +14,7 @@ import time
 from typing import Any
 
 sys.path.insert(0, os.path.abspath("."))
-sys.path.insert(0, os.path.abspath("python/microloop"))
+sys.path.insert(0, os.path.abspath("python/ink"))
 
 from benchmarks.competitive_frontier.arms import ArmRunner
 from benchmarks.competitive_frontier.metrics import (
@@ -296,15 +296,15 @@ def main():
                     )
                     all_summaries.append(m)
 
-                # Arm F: Microloop Sweeps
-                microloop_configs = [
+                # Arm F: Ink Sweeps
+                ink_configs = [
                     {"comparison_rate": 0.05, "min_confidence": 0.95, "is_default": False},
                     {"comparison_rate": 0.10, "min_confidence": 0.95, "is_default": True},
                     {"comparison_rate": 0.20, "min_confidence": 0.95, "is_default": False},
                     {"comparison_rate": 0.10, "min_confidence": 0.90, "is_default": False},
                     {"comparison_rate": 0.10, "min_confidence": 0.98, "is_default": False},
                 ]
-                for mlc in microloop_configs:
+                for mlc in ink_configs:
                     decisions, meta = runner.run_arm_f(
                         comparison_rate=mlc["comparison_rate"],
                         min_confidence=mlc["min_confidence"],
@@ -316,7 +316,7 @@ def main():
                         decisions,
                         arm_a_decisions,
                         cfg,
-                        arm_name="microloop",
+                        arm_name="ink",
                         config_dict=mlc,
                         mode=mode,
                         meta=meta,

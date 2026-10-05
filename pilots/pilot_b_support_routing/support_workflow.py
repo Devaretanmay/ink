@@ -1,4 +1,4 @@
-"""Pilot B: Enterprise Support Triage & Workflow Router (Before Microloop)."""
+"""Pilot B: Enterprise Support Triage & Workflow Router (Before Ink)."""
 
 import time
 from typing import Any

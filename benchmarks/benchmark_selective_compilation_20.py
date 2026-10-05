@@ -8,9 +8,9 @@ import shutil
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.decision_api import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
+from ink.decision_api import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
 
 
 def generate_fleet_contracts() -> list[dict]:
@@ -52,7 +52,7 @@ def run_selective_compilation_study():
     print("=" * 60)
 
     fleet = generate_fleet_contracts()
-    db_root = Path(".microloop/selective_study")
+    db_root = Path(".ink/selective_study")
     if db_root.exists():
         shutil.rmtree(db_root)
     db_root.mkdir(parents=True, exist_ok=True)
@@ -88,7 +88,7 @@ def run_selective_compilation_study():
 
     for strat_name, target_sites in strategies.items():
         db_path = db_root / f"{strat_name}.db"
-        with Microloop(str(db_path)) as client:
+        with Ink(str(db_path)) as client:
             for cfg in fleet:
                 site = DecisionSite(
                     name=cfg["name"],

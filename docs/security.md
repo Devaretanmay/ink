@@ -7,10 +7,10 @@ Nothing by default. All data stays local on the user's machine unless explicitly
 Decision states, possible choices, outcomes, artifact payloads, and coverage maps.
 
 ## Where is SQLite located?
-Local SQLite WAL database, located by default in the `.microloop/` directory.
+Local SQLite WAL database, located by default in the `.ink/` directory.
 
-## What happens if Microloop crashes?
-If Microloop crashes, the agent's fallback function handles the decision. There is no data loss and execution continues seamlessly.
+## What happens if Ink crashes?
+If Ink crashes, the agent's fallback function handles the decision. There is no data loss and execution continues seamlessly.
 
 ## What happens if artifact integrity fails?
 Artifact integrity is verified via a SHA-256 digest before every serve. If verification fails, the system safely falls back to the model.
@@ -28,4 +28,4 @@ Outcomes are recorded explicitly by the application calling `client.record_outco
 ACTIVE means the fast path has passed shadow qualification against independent outcome verification and is now serving decisions locally.
 
 ## Can it execute business actions itself?
-No. Microloop never executes business actions. It only selects which action the agent should take; the host agent executes it.
+No. Ink never executes business actions. It only selects which action the agent should take; the host agent executes it.

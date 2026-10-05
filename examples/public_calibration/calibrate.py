@@ -1,6 +1,6 @@
 """Public-data threshold calibration (Banking77, CC-BY-4.0).
 
-Measures Microloop Decision v1 agreement against versioned intent mapping on a
+Measures Ink Decision v1 agreement against versioned intent mapping on a
 calibration split, freezes promotion gate thresholds, then confirms once on
 untouched test data. Public provenance only; never customer traffic.
 """
@@ -15,8 +15,8 @@ import time
 import urllib.request
 from pathlib import Path
 
-from microloop.internal.engines import DecisionModelEngine
-from microloop.internal.verification import lower_bound
+from ink.internal.engines import DecisionModelEngine
+from ink.internal.verification import lower_bound
 
 HERE = Path(__file__).resolve().parent
 TRAIN_URL = "https://raw.githubusercontent.com/PolyAI-LDN/task-specific-datasets/master/banking_data/train.csv"

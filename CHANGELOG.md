@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Microloop are documented here. This project follows
+All notable changes to Ink are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
 > Note (2026-09-28 audit): two 0.4.0 blocks overlap below. "[0.4.0]
@@ -12,14 +12,14 @@ All notable changes to Microloop are documented here. This project follows
 
 ### Added
 - Zero-touch DecisionSite discovery and trace ingestion supporting OpenTelemetry (OTLP), LangSmith, and LiteLLM trace logs.
-- Economic DecisionSite profiling (`microloop profile` / `microloop discover`) with repetition estimation, drift sensitivity, and net value ROI projections.
+- Economic DecisionSite profiling (`ink profile` / `ink discover`) with repetition estimation, drift sensitivity, and net value ROI projections.
 - Multi-site fleet management and 100k semantic-region scale local verification with zero cloud dependencies.
 - Production pilot integration patterns across autonomous agent loops, customer service routing, and triage workflows.
 - Public benchmark claim governance and rigorous false-serve avoidance metrics.
 
 ## [0.4.0] - 2026-09-28
 
-- Integrated Microloop Decision v1: bundled Laya-derived neural inference,
+- Integrated Ink Decision v1: bundled Laya-derived neural inference,
   mandatory runtime dependencies, neural compilation by default, explicit
   checksum-verified model provisioning. Linux/macOS runtime targets; Windows
   removed from wheel CI. Upstream attribution retained; weights unchanged.
@@ -39,7 +39,7 @@ All notable changes to Microloop are documented here. This project follows
 
 ### Changed
 
-- Legacy Python implementation moved behind `microloop.internal`; v0.x imports,
+- Legacy Python implementation moved behind `ink.internal`; v0.x imports,
   Rust exports, trajectory schema 0.3.0, and episode databases remain compatible.
 - Public documentation now describes verified decision fast paths.
 
@@ -53,7 +53,7 @@ All notable changes to Microloop are documented here. This project follows
 
 ## [0.3.0]
 
-The productization release. Microloop is now a developer-ready local reliability
+The productization release. Ink is now a developer-ready local reliability
 runtime rather than a benchmark harness.
 
 ### Added
@@ -63,9 +63,9 @@ runtime rather than a benchmark harness.
 - Canonical structured event model with `state`, `metrics` and `metadata`.
 - Decoupled detection and policy: `Monitor.observe` classifies, `Policy`
   decides the intervention.
-- Rust workspace with `crates/microloop-core` and `python/microloop`.
-- CLI: `microloop inspect`, `microloop replay`, `microloop monitor` (live view,
-  `--follow`) and `microloop doctor`.
+- Rust workspace with `crates/ink-core` and `python/ink`.
+- CLI: `ink inspect`, `ink replay`, `ink monitor` (live view,
+  `--follow`) and `ink doctor`.
 - Schema `0.3.0` trajectory JSONL with real compatibility checking: a
   trajectory whose `schema_version` major version differs from the runtime's is
   rejected instead of being analyzed on a guess.
@@ -74,8 +74,8 @@ runtime rather than a benchmark harness.
 - Benchmark provenance gate: every run bundle declares `run_mode`
   (`real`/`simulated`), simulated runs are confined to their own directory, and
   the report generator rejects anything that is not `real`.
-- `pip install microloop` published from the release workflow, continuing the
-  existing `microloop` distribution (0.1.1 .. 0.2.0).
+- `pip install ink` published from the release workflow, continuing the
+  existing `ink` distribution (0.1.1 .. 0.2.0).
 
 ### Changed
 
@@ -86,7 +86,7 @@ runtime rather than a benchmark harness.
   canonicalization) are private. Only `Monitor`, `Event`, `Decision`, `Policy`,
   the configs, the progress state and the intervention are public.
 - `MonitorConfig` moved out of the event module into its own `config` module.
-- `microloop inspect` now reports detection under the default observation-only
+- `ink inspect` now reports detection under the default observation-only
   policy, so it no longer displays a `replan` that a normal runtime would not
   produce. `replay` and `monitor` still show recommended interventions, labelled
   as recommendations.
@@ -108,10 +108,10 @@ runtime rather than a benchmark harness.
   generators from the public tree.
 - Committed raw benchmark run directories and committed benchmark-derived
   result JSON.
-- The experimental `microloop-compress` crate, which was never part of the
+- The experimental `ink-compress` crate, which was never part of the
   public product surface.
 - A repository-wide macOS linker override in `.cargo/config.toml`.
-- `microloop.wrap` / `MonitoredAgent` / `RunReport`. The agent wrapper's
+- `ink.wrap` / `MonitoredAgent` / `RunReport`. The agent wrapper's
   duck-typed contract is not committed to as a stable API in this release; the
   host-owned loop over `Monitor` is the supported integration. See
   `docs/integration.md`.
@@ -145,7 +145,7 @@ runtime rather than a benchmark harness.
   existing cooldown, cap and hard step limit, adds budget enforcement and
   capability checking, and never recommends an action the adapter cannot
   perform. `Policy` remains as the stable compatibility surface.
-- `microloop explain` renders the recommendation together with the runtime
+- `ink explain` renders the recommendation together with the runtime
   conditions it was made under. `inspect` and `replay` add a runtime block when
   a trajectory carries one.
 - `Episode` and `AdaptationRecord` define the data model for the future learning
@@ -163,7 +163,7 @@ runtime rather than a benchmark harness.
   It is opt-in, so the default posture stays advisory and the engine stays
   deterministic.
 - `ApplyResult` and `RuntimeAdapter.can_apply`, so a runtime at the top of its
-  model ladder can decline an action without Microloop knowing model names.
+  model ladder can decline an action without Ink knowing model names.
 - `ControllerConfig` in Rust and matching rule knobs on the Python
   `RuntimeController`: `context_compaction_threshold`, `deescalate_after` and
   `escalate_cooldown`, alongside the per-state actions, cooldown, cap and step
@@ -180,7 +180,7 @@ runtime rather than a benchmark harness.
   unchanged as the `rule` baseline, never deleted.
 - `ActionScore` and `ControllerTrace`: every scored decision reports the
   candidates it considered, their scores and the selected action. The trace is
-  omitted from normal output and surfaced by `microloop replay --verbose` and in
+  omitted from normal output and surfaced by `ink replay --verbose` and in
   the `--json` views.
 - `ActionScorer`/`HeuristicScorer` and `ScoringConfig` (with per-action
   evaluation horizons and `min_benefit`) as the seam a future `LearnedScorer`
@@ -215,11 +215,11 @@ runtime rather than a benchmark harness.
 - `AdaptationResult` (one action's before/after/outcome) and `TaskOutcome`
   (`success`, `verifier`, `score`): the host's verdict on the task, which action
   outcomes are eventually judged against.
-- `microloop.store.EpisodeStore`, a local SQLite store with one row per episode,
+- `ink.store.EpisodeStore`, a local SQLite store with one row per episode,
   per adaptation, and per candidate the scored controller considered. Counter-
   factual traces are persisted so the scorer can be audited later. Local only:
   no server, no account, no telemetry.
-- `microloop stats [db] [--json]`: adaptations attempted, improved, no-change and
+- `ink stats [db] [--json]`: adaptations attempted, improved, no-change and
   regressed per action, plus cost per successful task.
 - `Episode`/`AdaptationRecord` now retain each adaptation's step, model tier and
   controller trace.
@@ -227,7 +227,7 @@ runtime rather than a benchmark harness.
   twice on the same workspace and provider, and the report compares task success,
   cost, tokens and steps per success. The default is an offline deterministic
   agent model labelled `run_mode="simulated"`; `--real` maps the tier ladder onto
-  Anthropic model ids from the environment. Microloop is allowed to lose.
+  Anthropic model ids from the environment. Ink is allowed to lose.
 - `EpisodeStore.segmented()` and `EpisodeStore.attribution()`. `segmented()`
   groups adaptation outcomes by the situation they were chosen in, so "replan
   helped when the run was stalled and the error kept recurring" can be compared
@@ -237,7 +237,7 @@ runtime rather than a benchmark harness.
 - `ControllerPolicy`, `POLICIES` and `run_sweep` (`--sweep`): run the static
   baseline and several controller configurations over the same task set and
   compare them pairwise. Every policy is printed, including the ones that lose.
-- `microloop stats` now renders the per-arm table, the situation breakdown and
+- `ink stats` now renders the per-arm table, the situation breakdown and
   the success attribution. The attribution table is labelled as confounded: an
   action usually fires on runs that were already in trouble, so it is read beside
   the arm table rather than instead of it.
@@ -356,7 +356,7 @@ Three things this run established that reasoning had not:
   transcript the harness records.
 - The offline experiment was not an experiment. `ScriptedCodingProvider` (now
   `SimulatedCodingProvider`) applied the known fix only after spotting a
-  Microloop-shaped phrase in the transcript, which made the static arm
+  Ink-shaped phrase in the transcript, which made the static arm
   structurally incapable of success. It reported 0/40 against 40/40 -- a
   measurement of the harness, and one that could not have come out the other
   way. The simulated provider is now a model of an agent: it reacts to
@@ -456,7 +456,7 @@ has been smoke-tested against a stub client but not run against the API.
   `runtime/rules.rs`) instead of delegating to `Policy`, so it can space and
   order several actuators. `Policy` and `PolicyConfig` are unchanged and still
   convert into a controller.
-- `microloop explain` reports the selected actuator and its reason, and (with
+- `ink explain` reports the selected actuator and its reason, and (with
   `replay --verbose`) the candidates it scored.
 - `RuntimeController` gained a `strategy` (`rule` or `scored`) and a `scoring`
   block. The default is the existing rule behaviour, so this is additive.
@@ -485,20 +485,20 @@ has been smoke-tested against a stub client but not run against the API.
   the old unmeasured latency claim. `benchmarks/perf.py` and `make perf`
   reproduce them; the script measures the engine, not agent performance.
 - Added a short section answering why this is not a prompt, and a disambiguating
-  line separating Microloop from the agent it observes.
+  line separating Ink from the agent it observes.
 - Doc titles are now verb phrases naming what the reader gets, and llms.txt is a
   machine-readable index of the documentation.
 
 > Note (2026-09-28 audit): the per-step figures referenced above now live in
 > docs/legacy/README-v0.3.md ("Cost"), not the root README.
-- `microloop inspect` no longer renders a Decision for a terminal. It tells the
+- `ink inspect` no longer renders a Decision for a terminal. It tells the
   trajectory as a story: only meaningful transitions, in plain language, then one
   outcome line. The fixed-width Status/Worst at/Recovered/Evidence/Action block is
-  gone, as is the word "recovered", which implied Microloop caused a recovery it
+  gone, as is the word "recovered", which implied Ink caused a recovery it
   did not cause in observe-only mode. Internal states read as progressing,
   uncertain, stalled and regressing; reason enums are no longer shown by default.
   Adds `--verbose` and `--json` layers.
-- `microloop replay` is now the timeline: every step, with evidence rendered
+- `ink replay` is now the timeline: every step, with evidence rendered
   underneath and `->` marking a recommendation. `inspect` says what happened,
   `replay` shows how. Its `--json` output now includes evidence.
 

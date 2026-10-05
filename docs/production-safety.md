@@ -1,6 +1,6 @@
 # Production Safety
 
-Microloop focuses on safely accelerating AI decisions by aggressively bounding and verifying behavior.
+Ink focuses on safely accelerating AI decisions by aggressively bounding and verifying behavior.
 
 ## Qualification Lifecycle
 Every decision site follows a strict lifecycle before entering production serving:
@@ -10,10 +10,10 @@ Every decision site follows a strict lifecycle before entering production servin
 4. **Deopt:** If real-world drift is detected or outcomes fail, the fast path is immediately demoted and control falls back to the model.
 
 ## Comparison Traffic
-Microloop relies on a strict temporal evaluation split (e.g., 70/30) to evaluate whether a compiled fast path performs reliably compared to live model calls.
+Ink relies on a strict temporal evaluation split (e.g., 70/30) to evaluate whether a compiled fast path performs reliably compared to live model calls.
 
 ## Drift Detection Mechanics
-Microloop continuously monitors live outcomes. In competitive benchmarks under drift, traditional semantic caches produced 12–18% stale wrong-serve rates, while Microloop incurred only 7–8 wrong serves before automatically detecting the drift and demoting the fast path.
+Ink continuously monitors live outcomes. In competitive benchmarks under drift, traditional semantic caches produced 12–18% stale wrong-serve rates, while Ink incurred only 7–8 wrong serves before automatically detecting the drift and demoting the fast path.
 
 ## "Verified" Definition
 "Verified" means that a decision has been evaluated against independent, objective outcome signals from the system (e.g., successful compilation, test pass, user acceptance). High-entropy workloads that cannot be verified are correctly rejected.

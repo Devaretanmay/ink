@@ -1,10 +1,10 @@
 # Pilot A: Autonomous Agent Tool Orchestration
 
 ## Overview
-Pilot A integrates Microloop into an autonomous agent orchestration loop. In agent systems, the execution controller repeatedly assesses scratchpad state and task context to select the next tool action (`read_file`, `bash`, `web_search`, `ask_user`, `finish`).
+Pilot A integrates Ink into an autonomous agent orchestration loop. In agent systems, the execution controller repeatedly assesses scratchpad state and task context to select the next tool action (`read_file`, `bash`, `web_search`, `ask_user`, `finish`).
 
 ## Discovery Audit
-Running `microloop discover traces.jsonl` against raw agent telemetry identified 4 callsites:
+Running `ink discover traces.jsonl` against raw agent telemetry identified 4 callsites:
 - **`agent.tool_selector`**: RECOMMENDED (`compile`). High repetition (96.0%), bounded 5 choices, verifier ready (91.3% coverage). High-cardinality volatile field `request_id` flagged for explicit developer review and excluded from state contract.
 - **`agent.continuation_gate`**: RECOMMENDED (`compile`). Binary decision (`continue`, `await_user`), 88.8% repetition, verifier ready.
 - **`agent.response_synthesis`**: REJECTED (`ignore`). High output entropy (6.49 bits, 90 choices, avg length 155 chars). Free-form natural language generation is unbounded.

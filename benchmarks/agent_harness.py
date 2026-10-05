@@ -1,4 +1,4 @@
-"""Multi-Step Agent Harness for Microloop Decision JIT Validation.
+"""Multi-Step Agent Harness for Ink Decision JIT Validation.
 
 Simulates an autonomous multi-step customer operations agent executing a 3-step workflow:
   Step 1: Intent Classification (agent.intent -> inquiry, action, escalation)
@@ -7,7 +7,7 @@ Simulates an autonomous multi-step customer operations agent executing a 3-step 
 
 Compares:
   Baseline: Teacher-Only Agent (Live Groq LLM fallback on all 3 steps)
-  Microloop: Microloop-Instrumented Agent (Decision JIT fast-paths on repeated decisions)
+  Ink: Ink-Instrumented Agent (Decision JIT fast-paths on repeated decisions)
 """
 
 from __future__ import annotations
@@ -21,10 +21,10 @@ import urllib.request
 
 import numpy as np
 
-sys.path.insert(0, os.path.abspath("python/microloop"))
+sys.path.insert(0, os.path.abspath("python/ink"))
 
-from microloop.decision_api import Microloop
-from microloop.internal.contracts import (
+from ink.decision_api import Ink
+from ink.internal.contracts import (
     DecisionSite,
     FallbackResult,
     Outcome,
@@ -54,7 +54,7 @@ def call_groq_llm(
         headers={
             "Authorization": f"Bearer {GROQ_API_KEY}",
             "Content-Type": "application/json",
-            "User-Agent": "MicroloopAgentHarness/1.0",
+            "User-Agent": "InkAgentHarness/1.0",
         },
         data=json.dumps(payload).encode("utf-8"),
     )
@@ -167,10 +167,10 @@ def run_agent_harness():
         teacher_inp_tokens * INPUT_COST_PER_M + teacher_out_tokens * OUTPUT_COST_PER_M
     ) / 1_000_000
 
-    print("Running Microloop-Instrumented Agent (Decision JIT Fast-Paths)...")
+    print("Running Ink-Instrumented Agent (Decision JIT Fast-Paths)...")
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = os.path.join(tmpdir, "agent_jit.db")
-        client = Microloop(db_path)
+        client = Ink(db_path)
 
         site_intent = DecisionSite(
             "agent.intent", {"query": "string"}, ("inquiry", "action", "escalation")
@@ -380,7 +380,7 @@ def run_agent_harness():
             "cost_per_task_usd": round(teacher_cost / len(tasks), 6),
             "accuracy": round(teacher_success / len(tasks) * 100.0, 1),
         },
-        "microloop_agent": {
+        "ink_agent": {
             "total_model_calls": ml_total_calls,
             "calls_per_task": round(ml_total_calls / len(tasks), 2),
             "avoided_model_calls": avoided,
@@ -400,14 +400,14 @@ def run_agent_harness():
         json.dump(report, f, indent=2)
 
     lat_t = report["teacher_only_agent"]["latency_p50_ms"]
-    lat_m = report["microloop_agent"]["latency_p50_ms"]
+    lat_m = report["ink_agent"]["latency_p50_ms"]
     cost_t = report["teacher_only_agent"]["cost_usd"]
-    cost_m = report["microloop_agent"]["cost_usd"]
+    cost_m = report["ink_agent"]["cost_usd"]
     print(f"\nSaved agent harness report to {out_path}")
     print("\nSummary Comparison:")
     print(f"  Teacher Agent:   3.0 calls/task, Latency p50: {lat_t}ms, Cost: ${cost_t}")
     print(
-        f"  Microloop Agent: {report['microloop_agent']['calls_per_task']} calls/task, "
+        f"  Ink Agent: {report['ink_agent']['calls_per_task']} calls/task, "
         f"Latency p50: {lat_m}ms, Cost: ${cost_m}"
     )
     print(f"  Calls Avoided:   {avoided} ({reduction_pct}% reduction)")

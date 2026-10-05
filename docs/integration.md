@@ -1,33 +1,33 @@
-# Integrating Microloop
+# Integrating Ink
 
-This guide covers integrating the Microloop Decision JIT into your AI agent systems, from simple routing functions to multi-step autonomous agent loops (such as browser-use, LangGraph, or custom agent frameworks).
+This guide covers integrating the Ink Decision JIT into your AI agent systems, from simple routing functions to multi-step autonomous agent loops (such as browser-use, LangGraph, or custom agent frameworks).
 
 ---
 
 ## 1. Installation
 
-Install Microloop directly into your environment:
+Install Ink directly into your environment:
 
 ```bash
-pip install -e python/microloop
+pip install -e python/ink
 ```
 
 Verify the installation:
 ```bash
-python -c "import microloop; print(microloop.__version__)"
+python -c "import ink; print(ink.__version__)"
 ```
 
 ---
 
 ## 2. Core Integration Pattern
 
-Integrating Microloop requires three steps:
+Integrating Ink requires three steps:
 1. **Define a DecisionSite:** Declare the input state schema and discrete choices.
 2. **Dispatch Decisions:** Call `client.decide()` with your original LLM fallback.
 3. **Record Outcomes:** Call `client.record_outcome()` with independent verification receipts.
 
 ```python
-from microloop import DecisionSite, Microloop, FallbackResult
+from ink import DecisionSite, Ink, FallbackResult
 
 # 1. Declare the DecisionSite
 site = DecisionSite(
@@ -37,7 +37,7 @@ site = DecisionSite(
     fallback_revision="1",
 )
 
-with Microloop() as client:
+with Ink() as client:
     client.register(site)
 
     # 2. Decide: Serves locally (<0.5ms) if verified; otherwise calls fallback
@@ -72,7 +72,7 @@ with Microloop() as client:
 Web agents repeatedly decide between browser actions (click, input, scroll, navigate) given page state. Repetitive checkout, navigation, or data extraction workflows have high state repetition.
 
 ```python
-from microloop import DecisionSite, Microloop, FallbackResult
+from ink import DecisionSite, Ink, FallbackResult
 
 browser_site = DecisionSite(
     name="browser.action_dispatch",
@@ -81,7 +81,7 @@ browser_site = DecisionSite(
     fallback_revision="1",
 )
 
-client = Microloop()
+client = Ink()
 client.register(browser_site)
 
 def execute_browser_step(page_state):
@@ -110,7 +110,7 @@ def execute_browser_step(page_state):
 In multi-agent StateGraphs, routing nodes classify customer requests or choose next agent nodes.
 
 ```python
-from microloop import DecisionSite, Microloop, FallbackResult
+from ink import DecisionSite, Ink, FallbackResult
 
 router_site = DecisionSite(
     name="agent.node_router",
@@ -119,7 +119,7 @@ router_site = DecisionSite(
     fallback_revision="1",
 )
 
-client = Microloop()
+client = Ink()
 client.register(router_site)
 
 def router_node(state):
@@ -159,7 +159,7 @@ If `profile.recommendation == "poor_repetition"` or `"weak_verifier"`, compilati
 You can run the discovery tool on historical agent logs (JSON/JSONL) before instrumenting code:
 
 ```python
-from microloop.discovery import discover_from_file
+from ink.discovery import discover_from_file
 
 candidates = discover_from_file("agent_traces.jsonl")
 for site in candidates:

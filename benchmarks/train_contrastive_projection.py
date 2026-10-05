@@ -1,4 +1,4 @@
-"""Train Microloop-owned Contrastive Projection Head on top of frozen ModernBERT encoder.
+"""Train Ink-owned Contrastive Projection Head on top of frozen ModernBERT encoder.
 
 Architecture:
   Encoder (1024-d, frozen)
@@ -23,9 +23,9 @@ import mlx.nn as nn
 import mlx.optimizers as opt
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.internal.model.agent import Agent
+from ink.internal.model.agent import Agent
 
 
 class ContrastiveProjectionHead(nn.Module):
@@ -42,7 +42,7 @@ class ContrastiveProjectionHead(nn.Module):
 
 
 def get_encoder():
-    checkpoint_dir = Path(".microloop/models/microloop-decision-v1").resolve()
+    checkpoint_dir = Path(".ink/models/ink-decision-v1").resolve()
     agent = Agent(str(checkpoint_dir), dtype="float16")
 
     def encode(text: str) -> np.ndarray:
@@ -167,7 +167,7 @@ def train():
     print(f"Raw Negation Cosine: {np.mean(raw_negation):.4f} -> Projected Negation Cosine: {final_metrics['negation_cosine_mean']:.4f}")
 
     # Save weights
-    out_dir = Path(".microloop/models").resolve()
+    out_dir = Path(".ink/models").resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
     weights_path = out_dir / "contrastive_head.npz"
 

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MicroloopBenchmarkCanonicalEvent",
+  "title": "InkBenchmarkCanonicalEvent",
   "type": "object",
   "required": [
     "benchmark_schema_version",
@@ -17,7 +17,7 @@
     "benchmark_schema_version": {
       "type": "string",
       "const": "benchmark-0.1",
-      "description": "Version of the BENCHMARK telemetry event format emitted by the harness. This is distinct from the runtime's trajectory `schema_version` (currently 0.3.0) used by the `microloop` CLI; the two formats are mapped in benchmarks/runner/bridge.py."
+      "description": "Version of the BENCHMARK telemetry event format emitted by the harness. This is distinct from the runtime's trajectory `schema_version` (currently 0.3.0) used by the `ink` CLI; the two formats are mapped in benchmarks/runner/bridge.py."
     },
     "run_id": {
       "type": "string",

@@ -7,8 +7,8 @@ import random
 import time
 from pathlib import Path
 
-from microloop.discovery import discover_from_traces
-from microloop.internal.profiler import profile_history
+from ink.discovery import discover_from_traces
+from ink.internal.profiler import profile_history
 
 
 def generate_agent_traces(n_episodes: int = 500, seed: int = 42) -> list[dict]:

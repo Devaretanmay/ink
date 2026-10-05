@@ -1,17 +1,17 @@
-# Contributing to Microloop
+# Contributing to Ink
 
-Microloop is a small, deliberate project. Please keep changes focused.
+Ink is a small, deliberate project. Please keep changes focused.
 
 By participating you agree to the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Getting started
 
 ```bash
-git clone https://github.com/Devaretanmay/microloop
-cd microloop
+git clone https://github.com/Devaretanmay/ink
+cd ink
 uv venv --python 3.13
 uv pip install maturin pytest ruff
-maturin develop --manifest-path python/microloop/Cargo.toml
+maturin develop --manifest-path python/ink/Cargo.toml
 make check
 ```
 
@@ -35,9 +35,9 @@ deterministic simulation on purpose.
 ## Repository layout
 
 ```
-crates/microloop-core   Rust trajectory compatibility engine
-python/microloop        decision-JIT SDK, PyO3 bindings, CLI
-python/microloop/tests  Python tests and the trajectory fixture
+crates/ink-core   Rust trajectory compatibility engine
+python/ink        decision-JIT SDK, PyO3 bindings, CLI
+python/ink/tests  Python tests and the trajectory fixture
 benchmarks              evaluation harness, perf.py, decision_jit.py
 benchmarks/schemas      authoritative run-result and event schemas
 docs                    decision-JIT docs (integration, architecture, cli,

@@ -10,9 +10,9 @@ import time
 import tracemalloc
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.discovery import CanonicalTrace, discover_from_stream
+from ink.discovery import CanonicalTrace, discover_from_stream
 
 
 def generate_trace_stream(count: int):

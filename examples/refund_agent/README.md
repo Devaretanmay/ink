@@ -1,5 +1,5 @@
-The default engine is now the bundled Microloop Decision v1 neural runtime.
-Run `microloop model-install` once before the demo. `--engine exact` is only an
+The default engine is now the bundled Ink Decision v1 neural runtime.
+Run `ink model-install` once before the demo. `--engine exact` is only an
 explicit deterministic test reference. Historical results below retain their
 original runtime identity.
 
@@ -8,8 +8,8 @@ original runtime identity.
 Run from the repository root after installing this checkout:
 
 ```bash
-python -m examples.refund_agent.agent --output .microloop/refund-exact --engine exact
-python -m examples.refund_agent.agent --output .microloop/refund-decision \
+python -m examples.refund_agent.agent --output .ink/refund-exact --engine exact
+python -m examples.refund_agent.agent --output .ink/refund-decision \
   --engine decision --checkpoint /absolute/local/checkpoint
 ```
 
@@ -17,8 +17,8 @@ Both commands use generated cases and a labelled deterministic fallback fixture.
 The decision variant performs real checkpoint inference, but the original fallback is
 still a fixture. Neither is customer-production evidence.
 
-For a real original model, set `MICROLOOP_API_KEY` and optionally
-`MICROLOOP_API_BASE` to an OpenAI-compatible endpoint, then add `--model MODEL`.
+For a real original model, set `INK_API_KEY` and optionally
+`INK_API_BASE` to an OpenAI-compatible endpoint, then add `--model MODEL`.
 The run makes thousands of calls; choose a model and account appropriate for that
 experiment. Transient 429/5xx responses retry with backoff; persistent failures
 abort visibly. No fabricated usage hides failures.
@@ -45,7 +45,7 @@ A credential-free real-model run can use a pre-existing local MLX checkpoint:
 
 ```bash
 uv pip install 'mlx-lm==0.31.3'
-python -m examples.refund_agent.agent --output .microloop/real-local \
+python -m examples.refund_agent.agent --output .ink/real-local \
   --engine decision --checkpoint /absolute/decision/checkpoint \
   --local-model /absolute/qwen/checkpoint --require-lifecycle
 ```

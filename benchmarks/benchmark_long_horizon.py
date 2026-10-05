@@ -1,4 +1,4 @@
-"""Long-horizon economic benchmark evaluating Microloop over 10k, 100k, and 1M decisions."""
+"""Long-horizon economic benchmark evaluating Ink over 10k, 100k, and 1M decisions."""
 
 from __future__ import annotations
 
@@ -202,7 +202,7 @@ def main():
     uniform_run = next(r for r in results["runs"] if r["distribution"] == "uniform")
 
     results["steady_state_claim_analysis"] = {
-        "claim": "Microloop achieves 75-85% model-call reduction in steady state",
+        "claim": "Ink achieves 75-85% model-call reduction in steady state",
         "validation_verdict": "CONDITIONALLY_VERIFIED",
         "steady_state_zipf_1m_pct": zipf_1m["steady_state_reduction_pct"],
         "steady_state_high_drift_pct": zipf_drift_5k["steady_state_reduction_pct"],

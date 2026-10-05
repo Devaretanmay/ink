@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "MicroloopRunResult",
+  "title": "InkRunResult",
   "type": "object",
   "required": [
     "run_mode",
@@ -8,7 +8,7 @@
     "run_id",
     "task_id",
     "condition",
-    "microloop_commit",
+    "ink_commit",
     "harness_commit",
     "mini_swe_version",
     "docker_image",
@@ -49,10 +49,10 @@
         "vanilla",
         "retry",
         "supervisor",
-        "microloop"
+        "ink"
       ]
     },
-    "microloop_commit": {
+    "ink_commit": {
       "type": "string"
     },
     "harness_commit": {

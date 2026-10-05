@@ -1,9 +1,9 @@
-"""4-Arm Comparative Benchmark for Microloop Semantic Coverage Engine:
+"""4-Arm Comparative Benchmark for Ink Semantic Coverage Engine:
 
 Arm A: Exact Coverage (Production Baseline)
 Arm B: Naive Similarity (Cosine > 0.8 without boundaries)
 Arm C: Semantic Coverage Without Qualification (Ablation)
-Arm D: Full Microloop Semantic Coverage (Geometric + Margins + Qualification Lifecycle)
+Arm D: Full Ink Semantic Coverage (Geometric + Margins + Qualification Lifecycle)
 
 Evaluates on benchmarks/data/coverage_eval.jsonl.
 Outputs structured JSON report to benchmarks/results/coverage_arms_report.json.
@@ -19,11 +19,11 @@ import time
 
 import numpy as np
 
-sys.path.insert(0, os.path.abspath("python/microloop"))
+sys.path.insert(0, os.path.abspath("python/ink"))
 
-from microloop.decision_api import Microloop
-from microloop.internal.contracts import DecisionSite, Outcome, PromotionRequirements, canonical
-from microloop.internal.coverage import (
+from ink.decision_api import Ink
+from ink.internal.contracts import DecisionSite, Outcome, PromotionRequirements, canonical
+from ink.internal.coverage import (
     CoverageEngine,
     SemanticRegion,
     TextVectorizer,
@@ -93,7 +93,7 @@ def run_benchmark():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "benchmark.db")
-        with Microloop(db_path) as client:
+        with Ink(db_path) as client:
             for query, choice in seed_queries * 80:
                 res = client.decide(site=site, state={"request": query}, fallback=lambda c=choice: c)
                 client.record_outcome(
@@ -141,7 +141,7 @@ def run_benchmark():
 
     seed_vecs = [(vectorizer.transform(q), c) for q, c in seed_queries]
 
-    arms = ["arm_a_exact", "arm_b_naive_sim", "arm_c_semantic_unqualified", "arm_d_full_microloop"]
+    arms = ["arm_a_exact", "arm_b_naive_sim", "arm_c_semantic_unqualified", "arm_d_full_ink"]
     results = {arm: {"total": len(items), "fast_served": 0, "correct_fast": 0, "false_served": 0, "abstained": 0, "latencies_us": []} for arm in arms}
 
     for item in items:
@@ -222,7 +222,7 @@ def run_benchmark():
         else:
             results["arm_c_semantic_unqualified"]["abstained"] += 1
 
-        # --- Arm D: Full Microloop Semantic Coverage ---
+        # --- Arm D: Full Ink Semantic Coverage ---
         t0 = time.perf_counter()
         # Qualified regions only (only regions with earned qualification are ACTIVE)
         qualified_set = set(eval_res.get("qualified_semantic_regions", []))
@@ -248,16 +248,16 @@ def run_benchmark():
         )
         lvl_d, reg_d, _ = arm_d_engine.route({"request": query})
         t_d = (time.perf_counter() - t0) * 1e6
-        results["arm_d_full_microloop"]["latencies_us"].append(t_d)
+        results["arm_d_full_ink"]["latencies_us"].append(t_d)
         if lvl_d in ("exact", "semantic") and reg_d:
-            results["arm_d_full_microloop"]["fast_served"] += 1
+            results["arm_d_full_ink"]["fast_served"] += 1
             choice = reg_d["choice"]
             if ground_truth_eval(item, choice):
-                results["arm_d_full_microloop"]["correct_fast"] += 1
+                results["arm_d_full_ink"]["correct_fast"] += 1
             else:
-                results["arm_d_full_microloop"]["false_served"] += 1
+                results["arm_d_full_ink"]["false_served"] += 1
         else:
-            results["arm_d_full_microloop"]["abstained"] += 1
+            results["arm_d_full_ink"]["abstained"] += 1
 
     # Summarize metrics
     summary = {}

@@ -7,7 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from microloop import Microloop
+from ink import Ink
 
 from .live_groq import LiveGroqCodingAgent
 
@@ -273,9 +273,9 @@ def setup_task_worktrees(base_dir: Path, task: dict[str, Any]) -> tuple[Path, Pa
     ).stdout.strip()
 
     baseline_dir = task_dir / "baseline"
-    microloop_dir = task_dir / "microloop"
+    ink_dir = task_dir / "ink"
 
-    for d in (baseline_dir, microloop_dir):
+    for d in (baseline_dir, ink_dir):
         if d.exists():
             shutil.rmtree(d)
         shutil.copytree(repo_cache, d)
@@ -283,7 +283,7 @@ def setup_task_worktrees(base_dir: Path, task: dict[str, Any]) -> tuple[Path, Pa
             ["git", "reset", "--hard", head_rev], cwd=d, capture_output=True, check=True
         )
 
-    return baseline_dir, microloop_dir, head_rev
+    return baseline_dir, ink_dir, head_rev
 
 
 def verify_reproduction(worktree: Path, reproduce_cmd: str) -> bool:
@@ -331,10 +331,10 @@ def run_live_alpha(
     (out_path / "diffs").mkdir(exist_ok=True)
     (out_path / "test_results").mkdir(exist_ok=True)
 
-    base_scratch = Path("/tmp/microloop-live")
+    base_scratch = Path("/tmp/ink-live")
     base_scratch.mkdir(parents=True, exist_ok=True)
 
-    db_path = base_scratch / "microloop_live.db"
+    db_path = base_scratch / "ink_live.db"
     run_file = out_path / "run.json"
     report_data = _load_existing([], run_file)
     by_task = {d["task_id"]: d for d in report_data}
@@ -349,7 +349,7 @@ def run_live_alpha(
         (out_path / "run.json").write_text(json.dumps(list(by_task.values()), indent=2))
         (out_path / "summary.md").write_text(generate_summary_markdown(list(by_task.values())))
 
-    with Microloop(db_path) as ml:
+    with Ink(db_path) as ml:
         for t_idx, task in enumerate(selected, start=1):
             entry = by_task.get(task["task_id"], {
                 "task_id": task["task_id"],
@@ -357,7 +357,7 @@ def run_live_alpha(
                 "title": task["title"],
             })
             done_a = "baseline" in entry
-            done_b = "microloop" in entry
+            done_b = "ink" in entry
             if (not want_a or done_a) and (not want_b or done_b):
                 print(f"\n[Skip] Task {t_idx}/{len(selected)}: {task['task_id']} already complete.")
                 continue
@@ -367,7 +367,7 @@ def run_live_alpha(
             print(f"Issue: {task['title']} ({task['issue_url']})")
             print(f"{'='*70}")
 
-            baseline_dir, microloop_dir, commit_sha = setup_task_worktrees(base_scratch, task)
+            baseline_dir, ink_dir, commit_sha = setup_task_worktrees(base_scratch, task)
             entry["commit"] = commit_sha
 
             pre_base_pass = verify_reproduction(baseline_dir, task["reproduce_cmd"])
@@ -404,29 +404,29 @@ def run_live_alpha(
                 print("[Incremental Save] Condition A persisted.")
 
             if want_b and not done_b:
-                print("\n--- Running Condition B: Groq + Microloop (observe, no injection) ---")
+                print("\n--- Running Condition B: Groq + Ink (observe, no injection) ---")
                 agent_b = LiveGroqCodingAgent(
-                    microloop_dir, max_tool_actions=max_tool_actions, model_id=forced_model
+                    ink_dir, max_tool_actions=max_tool_actions, model_id=forced_model
                 )
                 res_b = agent_b.run_task(
-                    task_id=f"{task['task_id']}_microloop",
+                    task_id=f"{task['task_id']}_ink",
                     issue_description=task["description"],
                     condition="B_observe",
-                    microloop_client=ml,
+                    ink_client=ml,
                     observe_only=True,
                 )
-                post_b_pass = verify_reproduction(microloop_dir, task["reproduce_cmd"])
+                post_b_pass = verify_reproduction(ink_dir, task["reproduce_cmd"])
                 print(
                     f"[Condition B Complete] Completed: {res_b.completed}, "
                     f"Tool calls: {res_b.tool_calls}, Tokens: {res_b.total_tokens}, "
                     f"ML Serves: {res_b.local_fast_path_serves}, Verified: {post_b_pass}"
                 )
-                (out_path / "diffs" / f"{task['task_id']}_microloop.diff").write_text(res_b.diff)
-                (out_path / "trajectories" / f"{task['task_id']}_microloop.txt").write_text(
+                (out_path / "diffs" / f"{task['task_id']}_ink.diff").write_text(res_b.diff)
+                (out_path / "trajectories" / f"{task['task_id']}_ink.txt").write_text(
                     res_b.raw_trajectory_excerpt
                 )
-                entry["microloop"] = asdict(res_b)
-                entry["microloop_verified"] = post_b_pass
+                entry["ink"] = asdict(res_b)
+                entry["ink_verified"] = post_b_pass
                 by_task[task["task_id"]] = entry
                 _save()
                 print("[Incremental Save] Condition B persisted.")
@@ -436,12 +436,12 @@ def run_live_alpha(
 
 def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
     lines = [
-        "# Microloop — Live Groq Coding Agent Alpha Report",
+        "# Ink — Live Groq Coding Agent Alpha Report",
         "",
         "## 1. Executive Summary & Verdict",
         "",
         (
-            "This evaluation tested Microloop's Decision JIT (`coding_agent.recovery_action`) on a "
+            "This evaluation tested Ink's Decision JIT (`coding_agent.recovery_action`) on a "
             "**live Groq-hosted LLM** solving **real, currently open software-engineering issues** "
             "from open-source GitHub repositories (`marshmallow-code/marshmallow` and "
             "`pallets/jinja`)."
@@ -450,22 +450,22 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
         "**Zero synthetic benchmarks. Zero deterministic replayed traces. Zero core changes.**",
         "",
         "### High-Level Outcomes:",
-        "| Metric | Condition A (Groq Agent Alone) | Condition B (Groq + Microloop) | Delta |",
+        "| Metric | Condition A (Groq Agent Alone) | Condition B (Groq + Ink) | Delta |",
         "|---|:---:|:---:|:---:|",
     ]
 
     total_tasks = len(report_data)
     a_solved = sum(1 for d in report_data if d.get("baseline_verified"))
-    b_solved = sum(1 for d in report_data if d.get("microloop_verified"))
+    b_solved = sum(1 for d in report_data if d.get("ink_verified"))
     bases = [d["baseline"] for d in report_data if "baseline" in d]
-    mls = [d["microloop"] for d in report_data if "microloop" in d]
+    mls = [d["ink"] for d in report_data if "ink" in d]
     a_tokens = sum(b["total_tokens"] for b in bases)
     b_tokens = sum(m["total_tokens"] for m in mls)
     a_tools = sum(b["tool_calls"] for b in bases)
     b_tools = sum(m["tool_calls"] for m in mls)
     a_time = sum(b["wall_clock_sec"] for b in bases)
     b_time = sum(m["wall_clock_sec"] for m in mls)
-    total_ml_decisions = sum(m["microloop_decisions"] for m in mls)
+    total_ml_decisions = sum(m["ink_decisions"] for m in mls)
     total_ml_serves = sum(m["local_fast_path_serves"] for m in mls)
     total_retrievals = sum(m["context_retrievals"] for m in mls)
     total_opps = sum(m.get("opportunities", 0) for m in mls)
@@ -479,7 +479,7 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
     a_prov = sum(b.get("provider_latency_sec", 0.0) for b in bases)
     b_prov = sum(m.get("provider_latency_sec", 0.0) for m in mls)
     b_tool = sum(m.get("tool_latency_sec", 0.0) for m in mls)
-    b_ml = sum(m.get("microloop_latency_sec", 0.0) for m in mls)
+    b_ml = sum(m.get("ink_latency_sec", 0.0) for m in mls)
 
     tok_pct = f"{((b_tokens - a_tokens) / a_tokens * 100):+.1f}%" if a_tokens > 0 else "N/A"
     tool_pct = f"{((b_tools - a_tools) / a_tools * 100):+.1f}%" if a_tools > 0 else "N/A"
@@ -493,11 +493,11 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
     lines.append(f"| **Tool Invocations** | {a_tools} | {b_tools} | {tool_pct} |")
     lines.append(f"| **Total Wall Clock** | {a_time:.1f}s | {b_time:.1f}s | {time_pct} |")
     lines.append(
-        f"| **Microloop Decisions** | 0 (disabled) | "
+        f"| **Ink Decisions** | 0 (disabled) | "
         f"{total_ml_decisions} | +{total_ml_decisions} |"
     )
     lines.append(
-        f"| **Microloop Fast-Path Serves** | 0 | {total_ml_serves} | +{total_ml_serves} |"
+        f"| **Ink Fast-Path Serves** | 0 | {total_ml_serves} | +{total_ml_serves} |"
     )
     lines.append(f"| **Context Injections** | 0 | {total_retrievals} | +{total_retrievals} |")
     lines.append(f"| **Recovery Opportunities** | 0 (no detector) | {total_opps} | +{total_opps} |")
@@ -520,7 +520,7 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
     lines.append(f"- Condition A provider latency: {a_prov:.1f}s of {a_time:.1f}s total")
     lines.append(f"- Condition B provider latency: {b_prov:.1f}s of {b_time:.1f}s total")
     lines.append(f"- Condition B tool latency: {b_tool:.1f}s")
-    lines.append(f"- Condition B Microloop latency: {b_ml:.3f}s")
+    lines.append(f"- Condition B Ink latency: {b_ml:.3f}s")
     lines.append("")
 
     lines.append("## 2. Per-Task Execution Breakdown")
@@ -534,23 +534,23 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
         title = d["title"]
         pre = "✓ Reproducible" if d.get("pre_fix_reproduction_fails") else "✗ Not Reproduced"
         v_a = "✓ PASS" if d.get("baseline_verified") else "✗ FAIL"
-        v_b = "✓ PASS" if d.get("microloop_verified") else "✗ FAIL"
-        m = d.get("microloop")
+        v_b = "✓ PASS" if d.get("ink_verified") else "✗ FAIL"
+        m = d.get("ink")
         dec = (
-            f"{m['microloop_decisions']} (serves={m['local_fast_path_serves']})"
+            f"{m['ink_decisions']} (serves={m['local_fast_path_serves']})"
             if m
             else "(not run)"
         )
         lines.append(f"| `{t_id}` | {title} | {pre} | {v_a} | {v_b} | {dec} |")
     lines.append("")
 
-    lines.append("## 3. Microloop Recovery Trajectory Observations")
+    lines.append("## 3. Ink Recovery Trajectory Observations")
     lines.append("")
     for d in report_data:
         lines.append(f"### {d['task_id']}")
         lines.append(f"- **Issue URL**: {d['issue_url']}")
         b = d.get("baseline")
-        m = d.get("microloop")
+        m = d.get("ink")
         if b:
             lines.append(
                 f"- **Baseline Completed**: {b['completed']}, "
@@ -558,16 +558,16 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
             )
         if m:
             lines.append(
-                f"- **Microloop Completed**: {m['completed']}, "
-                f"Verified: {d.get('microloop_verified')}"
+                f"- **Ink Completed**: {m['completed']}, "
+                f"Verified: {d.get('ink_verified')}"
             )
         if b and m:
             lines.append(
                 f"- **Tokens**: Baseline={b['total_tokens']:,} vs "
-                f"Microloop={m['total_tokens']:,}"
+                f"Ink={m['total_tokens']:,}"
             )
             lines.append(
-                f"- **Tool Calls**: Baseline={b['tool_calls']} vs Microloop={m['tool_calls']}"
+                f"- **Tool Calls**: Baseline={b['tool_calls']} vs Ink={m['tool_calls']}"
             )
             lines.append(
                 f"- **Opportunities**: {m.get('opportunities', 0)} "
@@ -577,11 +577,11 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
             lines.append(
                 f"- **Latency**: provider={m.get('provider_latency_sec', '?')}s "
                 f"tool={m.get('tool_latency_sec', '?')}s "
-                f"microloop={m.get('microloop_latency_sec', '?')}s"
+                f"ink={m.get('ink_latency_sec', '?')}s"
             )
         lines.append("")
         if m:
-            lines.append("#### Microloop Trajectory Excerpt:")
+            lines.append("#### Ink Trajectory Excerpt:")
             lines.append("```text")
             lines.append(m.get("raw_trajectory_excerpt", "").strip() or "(no excerpt)")
             lines.append("```")
@@ -590,7 +590,7 @@ def generate_summary_markdown(report_data: list[dict[str, Any]]) -> str:
     lines.append("## 4. Architectural Invariants Verified")
     lines.append("")
     lines.append(
-        "1. **Core Microloop Code Changes**: One alpha-required bug fix in "
+        "1. **Core Ink Code Changes**: One alpha-required bug fix in "
         "`internal/verification.py::statistics` (ZeroDivisionError when no comparison "
         "agreement evidence exists), with a regression test. No architectural change."
     )

@@ -18,10 +18,10 @@ from pathlib import Path
 import mlx.core as mx
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.internal.coverage import TextVectorizer
-from microloop.internal.model.agent import Agent
+from ink.internal.coverage import TextVectorizer
+from ink.internal.model.agent import Agent
 
 CONTRASTIVE_PAIRS = [
     # (Text A, Choice A, Text B, Choice B, Category)
@@ -87,8 +87,8 @@ def main():
     sparse_lat_ms = (time.perf_counter() - t0) / 100 * 1000
 
     print("=== Step 2: Loading ModernBERT & Contrastive Projection Head ===")
-    ckpt_dir = Path(".microloop/models/microloop-decision-v1").resolve()
-    weights_path = Path(".microloop/models/contrastive_head.npz").resolve()
+    ckpt_dir = Path(".ink/models/ink-decision-v1").resolve()
+    weights_path = Path(".ink/models/contrastive_head.npz").resolve()
     contrastive_model = ContrastiveModel(str(ckpt_dir), str(weights_path))
 
     print("=== Step 3: Encoding Training Vectors for All Models ===")

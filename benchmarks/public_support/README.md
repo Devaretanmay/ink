@@ -3,12 +3,12 @@
 This uses the established [PolyAI BANKING77 dataset](https://github.com/PolyAI-LDN/task-specific-datasets),
 licensed CC-BY-4.0, pinned at commit
 `57ec275d8078af65b7731c2a98be812d844a6d6b`. Attribution: PolyAI and the BANKING77
-creators. It is a public intent-classification benchmark, not Microloop customer
+creators. It is a public intent-classification benchmark, not Ink customer
 traffic, a production refund ledger, or independently observed business outcomes.
 
 ```bash
-microloop model-install
-python benchmarks/public_support/evaluate.py --output .microloop/public-support-new
+ink model-install
+python benchmarks/public_support/evaluate.py --output .ink/public-support-new
 ```
 
 The probe selects three declared intents before evaluation. Fixed instructions

@@ -19,9 +19,9 @@ import time
 from pathlib import Path
 
 import numpy as np
-from microloop import Microloop, PromotionRequirements
-from microloop.discovery import discover_from_file
-from microloop.internal.verification import Outcome
+from ink import Ink, PromotionRequirements
+from ink.discovery import discover_from_file
+from ink.internal.verification import Outcome
 
 from pilots.pilot_a_orchestrator.agent_orchestrator import UninstrumentedAgentOrchestrator
 from pilots.pilot_a_orchestrator.integrated_agent import IntegratedAgentOrchestrator
@@ -66,7 +66,7 @@ def run_discovery_audit():
 def execute_pilot_a(db_dir: Path):
     db_path = db_dir / "pilot_a.db"
     baseline = UninstrumentedAgentOrchestrator()
-    client = Microloop(str(db_path))
+    client = Ink(str(db_path))
     integrated = IntegratedAgentOrchestrator(client)
 
     task_pool = [
@@ -140,7 +140,7 @@ def execute_pilot_a(db_dir: Path):
 def execute_pilot_b(db_dir: Path):
     db_path = db_dir / "pilot_b.db"
     baseline = UninstrumentedSupportRouter()
-    client = Microloop(str(db_path))
+    client = Ink(str(db_path))
     integrated = IntegratedSupportRouter(client)
 
     tickets = [
@@ -231,7 +231,7 @@ def execute_pilot_b(db_dir: Path):
 def execute_pilot_c(db_dir: Path):
     db_path = db_dir / "pilot_c.db"
     baseline = UninstrumentedCodingAgent()
-    client = Microloop(str(db_path))
+    client = Ink(str(db_path))
     integrated = IntegratedCodingAgent(client)
 
     scenarios = [

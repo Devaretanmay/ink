@@ -10,7 +10,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
-from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
+from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
 
 REQ = PromotionRequirements(10, 0.5, 0.5, 0.6, 0.25, 5, 100)
 
@@ -41,7 +41,7 @@ def benchmark_fleet(tier: int, temp_dir: Path) -> dict:
     sites = [make_site(i) for i in range(tier)]
     t_start = time.perf_counter()
 
-    with Microloop(db_path) as client:
+    with Ink(db_path) as client:
         # 1. Register and seed sites
         for site in sites:
             # Seed 30 decisions per site
@@ -124,7 +124,7 @@ def benchmark_fleet(tier: int, temp_dir: Path) -> dict:
 
 def main():
     print("Running Fleet Scale Benchmark (10, 100, 500 sites)...")
-    temp_dir = Path(tempfile.mkdtemp(prefix="microloop_scale_"))
+    temp_dir = Path(tempfile.mkdtemp(prefix="ink_scale_"))
     results = {"tiers": {}}
 
     try:

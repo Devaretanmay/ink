@@ -6,9 +6,9 @@ import json
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.discovery import CanonicalTrace, discover_from_traces
+from ink.discovery import CanonicalTrace, discover_from_traces
 
 
 def build_labeled_traces():

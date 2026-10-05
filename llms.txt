@@ -1,8 +1,8 @@
-# Microloop
+# Ink
 
-Microloop turns repeated agent decisions into verified fast paths.
+Ink turns repeated agent decisions into verified fast paths.
 
-The Python SDK exposes Microloop, DecisionSite, DecisionResult, FallbackResult,
+The Python SDK exposes Ink, DecisionSite, DecisionResult, FallbackResult,
 Outcome, PromotionRequirements, decision, and record_outcome. Existing v0.3 imports
 remain for compatibility. New integrations should use the decision API.
 

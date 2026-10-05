@@ -1,4 +1,4 @@
-"""Quantization study comparing FP16, INT8, and INT4 for Microloop Decision Model v1."""
+"""Quantization study comparing FP16, INT8, and INT4 for Ink Decision Model v1."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ import mlx.nn as nn
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.internal.model.agent import Agent
+from ink.internal.model.agent import Agent
 
 from benchmarks.evaluate_all import compute_metrics
 
@@ -26,10 +26,10 @@ def main():
     subset_3way = [r for r in test_rows if len(r["choices"]) == 3]
     choices_3way = ["refund", "request_information", "specialist"]
     
-    checkpoint_dir = Path(".microloop/models/microloop-decision-v1").resolve()
+    checkpoint_dir = Path(".ink/models/ink-decision-v1").resolve()
     
     print("=" * 60)
-    print("MICROLOOP DECISION MODEL V1 - QUANTIZATION STUDY")
+    print("INK DECISION MODEL V1 - QUANTIZATION STUDY")
     print("=" * 60)
     
     report = {}

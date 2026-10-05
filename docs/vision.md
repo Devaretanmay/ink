@@ -1,7 +1,7 @@
-# Vision: Microloop Future Strategy
+# Vision: Ink Future Strategy
 
 ## Current State: Fast Paths
-Microloop currently implements **Fast Paths**: verifying repeated, single-step decisions and executing them locally. Based on benchmarks, bounded and verifiable decision traffic constitutes approximately 15–25% of total app LLM calls, yielding a whole-app call reduction of 3.99–10.10% and whole-app spend reduction of 3.51–8.87%, with local execution at ~0.18–0.19 ms.
+Ink currently implements **Fast Paths**: verifying repeated, single-step decisions and executing them locally. Based on benchmarks, bounded and verifiable decision traffic constitutes approximately 15–25% of total app LLM calls, yielding a whole-app call reduction of 3.99–10.10% and whole-app spend reduction of 3.51–8.87%, with local execution at ~0.18–0.19 ms.
 
 ## Future Concept: Long Paths
 **Long Paths** represent verified, repeated multi-step agent behavior compiled into local procedures, including safe checkpoints and deoptimization loops. 

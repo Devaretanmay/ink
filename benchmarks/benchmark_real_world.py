@@ -1,10 +1,10 @@
-"""Real-World Production Validation & Adoption Proof Benchmark for Microloop Decision JIT.
+"""Real-World Production Validation & Adoption Proof Benchmark for Ink Decision JIT.
 
 Evaluates 4 arms across 3 realistic production agent workloads:
   Arm A: Teacher Only (Direct LLM inference on every decision)
   Arm B: Exact Hash Cache (JSON exact state lookup)
   Arm C: Naive Semantic Cache (TF-IDF Cosine > 0.82 threshold without verification/lifecycle)
-  Arm D: Full Microloop Decision JIT (Observe -> Calibrate -> Shadow -> Promote -> Demote)
+  Arm D: Full Ink Decision JIT (Observe -> Calibrate -> Shadow -> Promote -> Demote)
 """
 
 from __future__ import annotations
@@ -20,17 +20,17 @@ from collections.abc import Callable
 
 import numpy as np
 
-sys.path.insert(0, os.path.abspath("python/microloop"))
+sys.path.insert(0, os.path.abspath("python/ink"))
 
-from microloop.decision_api import Microloop
-from microloop.internal.contracts import (
+from ink.decision_api import Ink
+from ink.internal.contracts import (
     DecisionSite,
     FallbackResult,
     Outcome,
     PromotionRequirements,
     canonical,
 )
-from microloop.internal.coverage import TextVectorizer
+from ink.internal.coverage import TextVectorizer
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = "qwen/qwen3.8-27b"
@@ -71,7 +71,7 @@ class RealWorldLLMClient:
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": "MicroloopBenchmark/1.0",
+                "User-Agent": "InkBenchmark/1.0",
             },
             data=json.dumps(payload).encode("utf-8"),
         )
@@ -403,7 +403,7 @@ class NaiveSemanticCacheArm:
             return choice, "cache_miss"
 
 
-class MicroloopArm:
+class InkArm:
     def __init__(
         self,
         db_path: str,
@@ -411,7 +411,7 @@ class MicroloopArm:
         requirements: PromotionRequirements,
         policy_fn: Callable[[dict, bool], str],
     ):
-        self.client = Microloop(db_path)
+        self.client = Ink(db_path)
         self.site = site
         self.requirements = requirements
         self.policy_fn = policy_fn
@@ -606,10 +606,10 @@ def run_workload_benchmark(
         + semantic_arm.total_output_tokens * OUTPUT_COST_PER_M
     ) / 1_000_000
 
-    print("Executing Arm D: Full Microloop Decision JIT...")
+    print("Executing Arm D: Full Ink Decision JIT...")
     with tempfile.TemporaryDirectory() as tmpdir:
-        db_path = os.path.join(tmpdir, "microloop_workload.db")
-        ml_arm = MicroloopArm(db_path, site_def, reqs, policy_fn)
+        db_path = os.path.join(tmpdir, "ink_workload.db")
+        ml_arm = InkArm(db_path, site_def, reqs, policy_fn)
         ml_disagreements_with_teacher = 0
 
         for idx, item in enumerate(dataset):
@@ -680,7 +680,7 @@ def run_workload_benchmark(
                 "false_serves": semantic_arm.false_serves,
                 "false_serve_rate": round(semantic_arm.false_serves / len(dataset), 4),
             },
-            "arm_d_microloop_jit": {
+            "arm_d_ink_jit": {
                 "model_calls": ml_arm.calls,
                 "avoided_calls": ml_arm.avoided,
                 "reduction_pct": round(ml_arm.avoided / len(dataset) * 100.0, 2),
@@ -698,13 +698,13 @@ def run_workload_benchmark(
     }
 
     lat_a = results["arms"]["arm_a_teacher_only"]["latency"]["p50_ms"]
-    lat_d = results["arms"]["arm_d_microloop_jit"]["latency"]["p50_ms"]
+    lat_d = results["arms"]["arm_d_ink_jit"]["latency"]["p50_ms"]
     print(f"Results for {name}:")
     print(f"  Teacher: Latency p50: {lat_a}ms | Disagreements: {arm_a_teacher_disagreements}")
     print(f"  Exact Cache:    {exact_arm.calls} calls, False: {exact_arm.false_serves}")
     print(f"  Naive Semantic: {semantic_arm.calls} calls, False: {semantic_arm.false_serves}")
     print(
-        f"  Microloop JIT:  {ml_arm.calls} calls, Cost: ${arm_d_cost:.4f}, Latency p50: {lat_d}ms, "
+        f"  Ink JIT:  {ml_arm.calls} calls, Cost: ${arm_d_cost:.4f}, Latency p50: {lat_d}ms, "
         f"False: {ml_arm.false_serves}, Demotions: {ml_arm.demotion_count}"
     )
     return results
@@ -826,16 +826,16 @@ def main():
         "workloads": [supp_res, tool_res, escl_res],
         "summary": {
             "total_decisions_per_arm": 2100,
-            "overall_avoided_calls_microloop": (
-                supp_res["arms"]["arm_d_microloop_jit"]["avoided_calls"]
-                + tool_res["arms"]["arm_d_microloop_jit"]["avoided_calls"]
-                + escl_res["arms"]["arm_d_microloop_jit"]["avoided_calls"]
+            "overall_avoided_calls_ink": (
+                supp_res["arms"]["arm_d_ink_jit"]["avoided_calls"]
+                + tool_res["arms"]["arm_d_ink_jit"]["avoided_calls"]
+                + escl_res["arms"]["arm_d_ink_jit"]["avoided_calls"]
             ),
-            "overall_call_reduction_pct_microloop": round(
+            "overall_call_reduction_pct_ink": round(
                 (
-                    supp_res["arms"]["arm_d_microloop_jit"]["avoided_calls"]
-                    + tool_res["arms"]["arm_d_microloop_jit"]["avoided_calls"]
-                    + escl_res["arms"]["arm_d_microloop_jit"]["avoided_calls"]
+                    supp_res["arms"]["arm_d_ink_jit"]["avoided_calls"]
+                    + tool_res["arms"]["arm_d_ink_jit"]["avoided_calls"]
+                    + escl_res["arms"]["arm_d_ink_jit"]["avoided_calls"]
                 )
                 / 2100.0
                 * 100.0,
@@ -880,10 +880,10 @@ def main():
                     + tool_res["arms"]["arm_c_naive_semantic_cache"]["false_serves"]
                     + escl_res["arms"]["arm_c_naive_semantic_cache"]["false_serves"]
                 ),
-                "arm_d_microloop_jit": (
-                    supp_res["arms"]["arm_d_microloop_jit"]["false_serves"]
-                    + tool_res["arms"]["arm_d_microloop_jit"]["false_serves"]
-                    + escl_res["arms"]["arm_d_microloop_jit"]["false_serves"]
+                "arm_d_ink_jit": (
+                    supp_res["arms"]["arm_d_ink_jit"]["false_serves"]
+                    + tool_res["arms"]["arm_d_ink_jit"]["false_serves"]
+                    + escl_res["arms"]["arm_d_ink_jit"]["false_serves"]
                 ),
             },
         },

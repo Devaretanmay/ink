@@ -3,10 +3,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "microloop"
-version = "0.6.0rc1"
+name = "ink"
+version = "0.6.0rc2"
 description = "Behavior JIT for production AI — learns which repeated decisions no longer need inference"
-authors = [{ name = "Microloop Team" }]
+authors = [{ name = "Ink Team" }]
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 readme = "README.md"
@@ -45,18 +45,18 @@ benchmarks = [
 ]
 
 [project.scripts]
-microloop = "microloop.cli:main"
+ink = "ink.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/Devaretanmay/microloop"
-Repository = "https://github.com/Devaretanmay/microloop"
+Homepage = "https://github.com/Devaretanmay/ink"
+Repository = "https://github.com/Devaretanmay/ink"
 
 [tool.hatch.build.targets.wheel]
-packages = ["python/microloop/microloop"]
+packages = ["python/ink/ink"]
 
 [tool.hatch.build.targets.sdist]
 only-include = [
-    "python/microloop",
+    "python/ink",
     "README.md",
     "LICENSE",
     "NOTICE",
@@ -75,5 +75,5 @@ select = ["E", "F", "I", "UP", "B"]
 "benchmarks/*" = ["E501", "B905", "F841", "E741", "E731", "B007", "F401", "I001"]
 
 [tool.pytest.ini_options]
-pythonpath = ["python/microloop"]
-testpaths = ["python/microloop/tests"]
+pythonpath = ["python/ink"]
+testpaths = ["python/ink/tests"]

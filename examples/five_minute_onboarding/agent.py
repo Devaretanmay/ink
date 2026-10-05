@@ -6,7 +6,7 @@ import shutil
 import time
 from pathlib import Path
 
-from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
+from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
 
 site = DecisionSite(
     name="support.route",
@@ -40,16 +40,16 @@ def verifier(state: dict, choice: str) -> Outcome:
 
 def main():
     print("=" * 65)
-    print("MICROLOOP FIVE-MINUTE ONBOARDING DEMO")
+    print("INK FIVE-MINUTE ONBOARDING DEMO")
     print("=" * 65)
 
-    db_dir = Path(".microloop/onboarding_demo")
+    db_dir = Path(".ink/onboarding_demo")
     if db_dir.exists():
         shutil.rmtree(db_dir)
     db_dir.mkdir(parents=True, exist_ok=True)
     db_path = str(db_dir / "decisions.db")
 
-    with Microloop(db_path) as ml:
+    with Ink(db_path) as ml:
         ml.register(site)
         print(f"\n1. REGISTERED SITE: '{site.name}'")
         print("   State Schema :", site.state_schema)
@@ -120,7 +120,7 @@ def main():
         print("   Avoided Model Calls : 1")
         print("   Avoided Cost        : $0.0004")
 
-        print("\n5. LOCAL ROI SUMMARY (via microloop value):")
+        print("\n5. LOCAL ROI SUMMARY (via ink value):")
         inspect_data = ml.inspect(site)
         print(f"   Total Observations   : {inspect_data['observations']}")
         print(f"   Model Calls Avoided  : {inspect_data['fallbacks_avoided']}")

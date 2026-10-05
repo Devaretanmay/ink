@@ -1,4 +1,4 @@
-"""Validation script for the complete Microloop Semantic Coverage Lifecycle:
+"""Validation script for the complete Ink Semantic Coverage Lifecycle:
 OBSERVE -> COMPILE -> CALIBRATE (SHADOW) -> SHADOW EVIDENCE -> EVALUATE (ACTIVE)
 -> ACTIVE SERVING -> DRIFT / DEGRADATION -> DEMOTE -> SAFE FALLBACK.
 """
@@ -9,10 +9,10 @@ import os
 import sys
 import tempfile
 
-sys.path.insert(0, os.path.abspath("python/microloop"))
+sys.path.insert(0, os.path.abspath("python/ink"))
 
-from microloop.decision_api import Microloop
-from microloop.internal.contracts import DecisionSite, Outcome, PromotionRequirements
+from ink.decision_api import Ink
+from ink.internal.contracts import DecisionSite, Outcome, PromotionRequirements
 
 
 def make_site():
@@ -57,7 +57,7 @@ def test_complete_semantic_lifecycle():
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         db_path = os.path.join(tmp_dir, "lifecycle.db")
-        with Microloop(db_path) as client:
+        with Ink(db_path) as client:
             print("=== Step 2: OBSERVE - Recording historical observations ===")
             training_queries = [
                 ("I was charged twice on my card", "refund"),

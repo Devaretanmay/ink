@@ -6,7 +6,7 @@ Public provenance only; never customer traffic. Local-only (laya-mlx, darwin arm
 
 ```bash
 python examples/public_calibration/calibrate.py \
-  --checkpoint <laya-mlx snapshot> --output .microloop/public-cal-v01/report.json
+  --checkpoint <laya-mlx snapshot> --output .ink/public-cal-v01/report.json
 ```
 
 ## Finding: provisional production gate infeasible

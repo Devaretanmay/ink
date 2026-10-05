@@ -5,7 +5,7 @@
   Arm C: Semantic Cache (TF-IDF cosine similarity sweep: 0.70 to 0.99)
   Arm D: Cheaper Model (Always cheap + confidence-gated fallback sweep)
   Arm E: Small Supervised Classifier (Pure NumPy TF-IDF Naive Bayes trained on history, confidence sweep)
-  Arm F: Microloop (Full lifecycle: OBSERVE -> COMPILE -> CALIBRATE -> SHADOW -> ACTIVE, comparison sampling, drift demotion, requalification)
+  Arm F: Ink (Full lifecycle: OBSERVE -> COMPILE -> CALIBRATE -> SHADOW -> ACTIVE, comparison sampling, drift demotion, requalification)
 """
 
 from __future__ import annotations
@@ -21,12 +21,12 @@ from typing import Any
 
 import numpy as np
 
-# Ensure microloop package is importable
-sys.path.insert(0, os.path.abspath("python/microloop"))
+# Ensure ink package is importable
+sys.path.insert(0, os.path.abspath("python/ink"))
 
-from microloop.decision_api import Microloop
-from microloop.internal.contracts import DecisionSite, FallbackResult, Outcome, PromotionRequirements, canonical
-from microloop.internal.coverage import CoverageEngine, TextVectorizer, _extract_text
+from ink.decision_api import Ink
+from ink.internal.contracts import DecisionSite, FallbackResult, Outcome, PromotionRequirements, canonical
+from ink.internal.coverage import CoverageEngine, TextVectorizer, _extract_text
 
 
 class SmallNaiveBayesClassifier:
@@ -450,7 +450,7 @@ class ArmRunner:
         return results, training_cost + retraining_cost
 
     # -------------------------------------------------------------
-    # ARM F: Microloop Decision JIT
+    # ARM F: Ink Decision JIT
     # -------------------------------------------------------------
     def run_arm_f(
         self,
@@ -458,7 +458,7 @@ class ArmRunner:
         min_confidence: float = 0.95,
         explicit_invalidation: bool = False,
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        """Executes full standard Microloop lifecycle."""
+        """Executes full standard Ink lifecycle."""
         # For negative control, inspect entropy and refuse compilation
         if self.cfg.is_negative_control:
             results = []
@@ -469,7 +469,7 @@ class ArmRunner:
                     "decision_id": item["decision_id"],
                     "timestamp": time.time(),
                     "workload": self.cfg.name,
-                    "arm": "microloop",
+                    "arm": "ink",
                     "configuration": {
                         "comparison_rate": comparison_rate,
                         "min_confidence": min_confidence,
@@ -500,7 +500,7 @@ class ArmRunner:
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             db_path = os.path.join(tmp_dir, "decisions.db")
-            loop = Microloop(db_path)
+            loop = Ink(db_path)
 
             type_map = {str: "string", int: "integer", float: "number", bool: "boolean"}
             site = DecisionSite(
@@ -671,7 +671,7 @@ class ArmRunner:
                     "decision_id": item["decision_id"],
                     "timestamp": time.time(),
                     "workload": self.cfg.name,
-                    "arm": "microloop",
+                    "arm": "ink",
                     "configuration": {
                         "comparison_rate": comparison_rate,
                         "min_confidence": min_confidence,

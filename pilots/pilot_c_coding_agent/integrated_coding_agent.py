@@ -1,13 +1,13 @@
-"""Pilot C: Autonomous Coding & CI Agent (Integrated with Microloop)."""
+"""Pilot C: Autonomous Coding & CI Agent (Integrated with Ink)."""
 
 import time
 from typing import Any
 
-from microloop import DecisionSite, Microloop
+from ink import DecisionSite, Ink
 
 
 class IntegratedCodingAgent:
-    def __init__(self, client: Microloop):
+    def __init__(self, client: Ink):
         self.ml = client
         self.site = DecisionSite(
             name="coding.action_dispatch",

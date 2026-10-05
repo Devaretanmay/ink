@@ -1,13 +1,13 @@
-"""Pilot A: Autonomous Agent Tool Orchestrator (Integrated with Microloop)."""
+"""Pilot A: Autonomous Agent Tool Orchestrator (Integrated with Ink)."""
 
 import time
 from typing import Any
 
-from microloop import DecisionSite, Microloop
+from ink import DecisionSite, Ink
 
 
 class IntegratedAgentOrchestrator:
-    def __init__(self, client: Microloop):
+    def __init__(self, client: Ink):
         self.ml = client
         self.site = DecisionSite(
             name="agent.tool_selector",

@@ -2,7 +2,7 @@
 
 ## 1. Executive Summary
 
-Phase 10 subjects Microloop to external validation: integrating into three distinct, realistic application codebases without benchmark-specific runtime optimizations, framework dependencies, or cloud data exfiltration.
+Phase 10 subjects Ink to external validation: integrating into three distinct, realistic application codebases without benchmark-specific runtime optimizations, framework dependencies, or cloud data exfiltration.
 
 The three external pilots represent major agent application archetypes:
 1. **Pilot A: Agent / Tool Orchestrator**: Repeated action/tool dispatching loop in autonomous agent tasks.
@@ -10,8 +10,8 @@ The three external pilots represent major agent application archetypes:
 3. **Pilot C: Autonomous Coding & CI Agent**: Test repair, traceback inspection, and AST patch automation.
 
 ### Core Empirical Findings
-- **Real-World Value Delivered**: In active serving, Microloop avoided **38.8% to 49.2% of model calls**, cutting decision latency from 250–1,200 ms down to **1.00–1.21 ms** (up to a **99.9% latency reduction**) with **0 false serves** observed across all pilots.
-- **Trace-First Discovery Precision**: Evaluated on 12 candidate callsites across the three pilots. Microloop discovery recommended 5 bounded callsites, rejected 3 for unbounded high-entropy text generation, rejected 3 for sub-threshold sample volume, and rejected 1 for low repetition rate, achieving a **100% acceptance rate on viable candidates** with **0% false recommendation rate**.
+- **Real-World Value Delivered**: In active serving, Ink avoided **38.8% to 49.2% of model calls**, cutting decision latency from 250–1,200 ms down to **1.00–1.21 ms** (up to a **99.9% latency reduction**) with **0 false serves** observed across all pilots.
+- **Trace-First Discovery Precision**: Evaluated on 12 candidate callsites across the three pilots. Ink discovery recommended 5 bounded callsites, rejected 3 for unbounded high-entropy text generation, rejected 3 for sub-threshold sample volume, and rejected 1 for low repetition rate, achieving a **100% acceptance rate on viable candidates** with **0% false recommendation rate**.
 - **Minimal Integration Friction**: Zero neural model weights downloaded for exact/sparse mode, zero external SDK dependencies introduced, requiring only **18–20 LOC** and **1 file touched** per pilot.
 - **Factual Verifiers & Invariants**: Tested delayed tool outcomes, missing/interrupted session outcomes, and factual downstream verifiers (`tool_execution` exit code, `ticket_resolution_status`, and `pytest_exit_code`), avoiding the naive teacher-as-verifier shortcut.
 - **Controlled Policy Drift & Explicit Invalidation**: Validated both passive comparison drift detection and instant explicit policy invalidation (`client.invalidate(site, reason="...")`), immediately stepping down active artifacts to `SHADOW` without serving stale decisions.
@@ -31,7 +31,7 @@ The three external pilots represent major agent application archetypes:
 
 ## 3. Discovery Results (All Candidate & Rejected Sites)
 
-Running `microloop discover traces.jsonl` on raw telemetry produced the following audit across 12 candidate callsites:
+Running `ink discover traces.jsonl` on raw telemetry produced the following audit across 12 candidate callsites:
 
 | Pilot | Callsite | Observed Calls | Repetition | Entropy | Verifier Readiness | Recommendation | Reason / Diagnosis |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
@@ -75,12 +75,12 @@ Phase 9 automatically flagged volatile fields (`request_id`, `session_id`, `crea
 
 | Pilot | Files Modified | LOC Added | Active Dev Time | Dependencies Added | Friction Encountered |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Pilot A (Agent)** | 1 (`integrated_agent.py`) | 20 LOC | ~4 minutes | 0 (pure stdlib + microloop) | Verifying delayed outcomes after tool finish |
-| **Pilot B (Support)** | 1 (`integrated_support.py`) | 18 LOC | ~3 minutes | 0 (pure stdlib + microloop) | Excluding `session_id` and timestamp fields |
-| **Pilot C (Coding)** | 1 (`integrated_coding_agent.py`) | 18 LOC | ~3 minutes | 0 (pure stdlib + microloop) | Mapping test failure strings into clean state |
+| **Pilot A (Agent)** | 1 (`integrated_agent.py`) | 20 LOC | ~4 minutes | 0 (pure stdlib + ink) | Verifying delayed outcomes after tool finish |
+| **Pilot B (Support)** | 1 (`integrated_support.py`) | 18 LOC | ~3 minutes | 0 (pure stdlib + ink) | Excluding `session_id` and timestamp fields |
+| **Pilot C (Coding)** | 1 (`integrated_coding_agent.py`) | 18 LOC | ~3 minutes | 0 (pure stdlib + ink) | Mapping test failure strings into clean state |
 
 ### Installation Profile
-- `pip install microloop` installs clean local wheels without compilation.
+- `pip install ink` installs clean local wheels without compilation.
 - Zero neural model weights downloaded when operating in exact and sparse TF-IDF modes.
 - No network requests, API keys, or background services required.
 
@@ -111,7 +111,7 @@ All candidate sites underwent strict production qualification without relaxation
 ## 8. Real Before / After Performance
 
 ### Pilot A: Agent / Tool Orchestrator
-| Metric | Before Microloop | After Microloop | Net Change |
+| Metric | Before Ink | After Ink | Net Change |
 | :--- | ---:| ---:| :--- |
 | Total Decisions | 200 | 250 | — |
 | Model Invocations | 200 | 287 | — |
@@ -123,7 +123,7 @@ All candidate sites underwent strict production qualification without relaxation
 | Total Serving Cost | $0.640 | $0.918 | (includes 200 observe + 60 shadow calls) |
 
 ### Pilot B: Support Workflow Routing
-| Metric | Before Microloop | After Microloop | Net Change |
+| Metric | Before Ink | After Ink | Net Change |
 | :--- | ---:| ---:| :--- |
 | Total Decisions | 200 | 260 | — |
 | Model Invocations | 200 | 292 | — |
@@ -134,7 +134,7 @@ All candidate sites underwent strict production qualification without relaxation
 | False Serves | 0 | **0** | **0.0% false serve rate** |
 
 ### Pilot C: Autonomous Coding & CI Agent
-| Metric | Before Microloop | After Microloop | Net Change |
+| Metric | Before Ink | After Ink | Net Change |
 | :--- | ---:| ---:| :--- |
 | Total Decisions | 200 | 200 | — |
 | Model Invocations | 200 | 270 | — |
@@ -170,7 +170,7 @@ In Pilot B, a fraud policy revision was injected (free-tier refunds must route t
 
 ## 11. Missing & Delayed Outcome Results
 
-- **Delayed Outcomes (Pilot A & C)**: Microloop decoupled dispatch from verification. `ml.decide` immediately returned execution actions; outcomes were registered seconds later when tool execution or unit test suites finished. Zero race conditions or table locks occurred.
+- **Delayed Outcomes (Pilot A & C)**: Ink decoupled dispatch from verification. `ml.decide` immediately returned execution actions; outcomes were registered seconds later when tool execution or unit test suites finished. Zero race conditions or table locks occurred.
 - **Missing Outcomes (Pilot A)**: Tested a 10% rate of aborted agent sessions where `record_outcome` was never invoked. Missing outcomes did not stall subsequent dispatches or corrupt the database.
 
 ---
@@ -214,7 +214,7 @@ Only two patterns appeared consistently across all three pilots:
 
 ## 16. Remaining Risks & Mitigations
 
-1. **Host Maintenance Discipline**: Microloop relies on the host process to invoke `client.maintenance()`. If host never runs maintenance, drift checks only occur during explicit host calls.
+1. **Host Maintenance Discipline**: Ink relies on the host process to invoke `client.maintenance()`. If host never runs maintenance, drift checks only occur during explicit host calls.
    - *Mitigation*: In-process comparison traffic still monitors live performance during active dispatches.
 2. **High-Entropy State Proliferation**: If developers do not heed volatile field warnings and include continuous floats or session IDs in state, repetition rate collapses.
    - *Mitigation*: Discovery actively flags high-cardinality fields with warnings.
@@ -230,4 +230,4 @@ PRODUCT DECISION: READY FOR DESIGN PARTNERS
 ```
 
 ### Rationale
-Microloop has demonstrated that an external application can integrate with fewer than 20 LOC, discover viable sites from existing logs, pass shadow qualification on factual downstream verifiers, and avoid 38%–49% of model calls at ~1 ms latency with zero false serves. Microloop is ready for selective external design partner deployments.
+Ink has demonstrated that an external application can integrate with fewer than 20 LOC, discover viable sites from existing logs, pass shadow qualification on factual downstream verifiers, and avoid 38%–49% of model calls at ~1 ms latency with zero false serves. Ink is ready for selective external design partner deployments.

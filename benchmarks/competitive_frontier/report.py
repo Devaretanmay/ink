@@ -53,7 +53,7 @@ def generate_svg_chart(
 
     # Color palette
     colors = {
-        "microloop": "#2563eb",       # Blue
+        "ink": "#2563eb",       # Blue
         "semantic_cache": "#dc2626",  # Red
         "exact_cache": "#ea580c",     # Orange
         "small_classifier": "#7c3aed",# Purple
@@ -62,7 +62,7 @@ def generate_svg_chart(
     }
 
     arm_labels = {
-        "microloop": "Microloop (JIT)",
+        "ink": "Ink (JIT)",
         "semantic_cache": "Semantic Cache",
         "exact_cache": "Exact Cache",
         "small_classifier": "Small Classifier",
@@ -263,7 +263,7 @@ def build_full_report_markdown(summaries: list[dict[str, Any]]) -> str:
     s_sem = get_row("support", "semantic_cache", "passive_drift", "similarity_threshold", 0.85)
     s_cheap = get_row("support", "cheap_model", "passive_drift", "confidence_threshold", 0.0)
     s_clf = get_row("support", "small_classifier", "passive_drift", "confidence_threshold", 0.80)
-    s_ml = get_row("support", "microloop", "passive_drift", "is_default", True)
+    s_ml = get_row("support", "ink", "passive_drift", "is_default", True)
 
     # Tool Select runs
     t_orig = get_row("tool_select", "original_model", "baseline")
@@ -271,7 +271,7 @@ def build_full_report_markdown(summaries: list[dict[str, Any]]) -> str:
     t_sem = get_row("tool_select", "semantic_cache", "passive_drift", "similarity_threshold", 0.85)
     t_cheap = get_row("tool_select", "cheap_model", "passive_drift", "confidence_threshold", 0.0)
     t_clf = get_row("tool_select", "small_classifier", "passive_drift", "confidence_threshold", 0.80)
-    t_ml = get_row("tool_select", "microloop", "passive_drift", "is_default", True)
+    t_ml = get_row("tool_select", "ink", "passive_drift", "is_default", True)
 
     # Incident Triage runs
     i_orig = get_row("incident_triage", "original_model", "baseline")
@@ -279,7 +279,7 @@ def build_full_report_markdown(summaries: list[dict[str, Any]]) -> str:
     i_sem = get_row("incident_triage", "semantic_cache", "passive_drift", "similarity_threshold", 0.85)
     i_cheap = get_row("incident_triage", "cheap_model", "passive_drift", "confidence_threshold", 0.0)
     i_clf = get_row("incident_triage", "small_classifier", "passive_drift", "confidence_threshold", 0.80)
-    i_ml = get_row("incident_triage", "microloop", "passive_drift", "is_default", True)
+    i_ml = get_row("incident_triage", "ink", "passive_drift", "is_default", True)
 
     # Negative Control runs
     n_orig = get_row("research_novelty", "original_model", "baseline")
@@ -287,12 +287,12 @@ def build_full_report_markdown(summaries: list[dict[str, Any]]) -> str:
     n_sem = get_row("research_novelty", "semantic_cache", "passive_drift", "similarity_threshold", 0.85)
     n_cheap = get_row("research_novelty", "cheap_model", "passive_drift", "confidence_threshold", 0.0)
     n_clf = get_row("research_novelty", "small_classifier", "passive_drift", "confidence_threshold", 0.80)
-    n_ml = get_row("research_novelty", "microloop", "passive_drift", "is_default", True)
+    n_ml = get_row("research_novelty", "ink", "passive_drift", "is_default", True)
 
     return f"""# Competitive Safety × Savings Frontier Benchmark Report
-**Benchmark Suite Version:** Microloop v0.5.0  
-**Evaluation Date:** 2026-10-02  
-**Dataset Scale:** 18,000 decisions across 4 distinct workloads (3 production candidate workloads + 1 negative control)  
+**Benchmark Suite Version:** Ink v0.5.0
+**Evaluation Date:** 2026-10-02
+**Dataset Scale:** 18,000 decisions across 4 distinct workloads (3 production candidate workloads + 1 negative control)
 **Evaluation Protocol:** Strict temporal split (70% history / 30% strict future eval). Zero future leakage.
 
 ---
@@ -300,14 +300,14 @@ def build_full_report_markdown(summaries: list[dict[str, Any]]) -> str:
 ## 1. Executive Summary
 
 This benchmark rigorously evaluates the fundamental empirical question:
-> **At the same level of model-call reduction, does Microloop produce fewer incorrect production decisions than obvious alternatives (exact cache, semantic cache, cheaper model, and small classifier)?**
+> **At the same level of model-call reduction, does Ink produce fewer incorrect production decisions than obvious alternatives (exact cache, semantic cache, cheaper model, and small classifier)?**
 
 ### Core Finding
-**Yes, under temporal policy stability and distribution shifts.** On repetitive, verifiable decision sites, Microloop occupies a **strictly superior safety frontier** compared to exact and semantic caches. Specifically:
-1. **Under Passive Policy Drift:** Semantic caches suffered a disastrous **12.0% to 18.0% verified wrong-serve rate** because they blindly matched semantic prototypes calibrated on stale historical policies. Microloop, by maintaining active comparison traffic and factual outcome verification, detected drift within **3 consecutive disagreements**, demoted the stale artifact back to shadow, and incurred **only 7 to 8 wrong serves before revocation** in customer support and tool selection (a **2.26% to 2.68%** verified error rate; Wilson 95% CI: `[1.10%, 5.19%]`).
-2. **Whole-Application Savings Realism:** When accounting for whole-application denominators (where bounded decision sites constitute 15–25% of total LLM calls), Microloop avoids **3.99% to 10.10% of whole-application model calls** and achieves **3.51% to 8.87% net LLM spend reduction**.
-3. **Cheap Model vs. Microloop Tradeoff:** Cheaper models achieve high call reduction cheaply but suffer from a persistent baseline error rate (11–14% error), whereas Microloop provides deterministic near-zero errors on qualified fast paths with sub-millisecond latency (<0.2ms vs. 35–48ms for cheap models).
-4. **Negative Control Rejection:** On the high-entropy research agent negative control, Microloop refused compilation and safely abstained (0% false serves), while naive semantic caching served with a 2.56% wrong-serve rate and exact caching had 0% hit rate.
+**Yes, under temporal policy stability and distribution shifts.** On repetitive, verifiable decision sites, Ink occupies a **strictly superior safety frontier** compared to exact and semantic caches. Specifically:
+1. **Under Passive Policy Drift:** Semantic caches suffered a disastrous **12.0% to 18.0% verified wrong-serve rate** because they blindly matched semantic prototypes calibrated on stale historical policies. Ink, by maintaining active comparison traffic and factual outcome verification, detected drift within **3 consecutive disagreements**, demoted the stale artifact back to shadow, and incurred **only 7 to 8 wrong serves before revocation** in customer support and tool selection (a **2.26% to 2.68%** verified error rate; Wilson 95% CI: `[1.10%, 5.19%]`).
+2. **Whole-Application Savings Realism:** When accounting for whole-application denominators (where bounded decision sites constitute 15–25% of total LLM calls), Ink avoids **3.99% to 10.10% of whole-application model calls** and achieves **3.51% to 8.87% net LLM spend reduction**.
+3. **Cheap Model vs. Ink Tradeoff:** Cheaper models achieve high call reduction cheaply but suffer from a persistent baseline error rate (11–14% error), whereas Ink provides deterministic near-zero errors on qualified fast paths with sub-millisecond latency (<0.2ms vs. 35–48ms for cheap models).
+4. **Negative Control Rejection:** On the high-entropy research agent negative control, Ink refused compilation and safely abstained (0% false serves), while naive semantic caching served with a 2.56% wrong-serve rate and exact caching had 0% hit rate.
 
 ---
 
@@ -337,14 +337,14 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 
 ## 4. Market Boundary Analysis
 
-| Workload | All Application LLM Calls | Bounded Decision Calls | Bounded + Verifiable Calls | Microloop Recommended | Microloop Active Coverage |
+| Workload | All Application LLM Calls | Bounded Decision Calls | Bounded + Verifiable Calls | Ink Recommended | Ink Active Coverage |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **support** | 25,000 | 5,000 (20.0%) | 5,000 (20.0%) | 5,000 (100%) | 299 (19.9% of eval) |
 | **tool_select** | 20,000 | 5,000 (25.0%) | 5,000 (25.0%) | 5,000 (100%) | 310 (20.7% of eval) |
 | **incident_triage** | 20,000 | 5,000 (25.0%) | 5,000 (25.0%) | 5,000 (100%) | 606 (40.4% of eval) |
 | **research_novelty** | 21,000 | 3,000 (14.3%) | 600 (2.9%) | 0 (0.0% - REJECTED) | 0 (0.0%) |
 
-**Boundary Reality:** Across typical enterprise agents, bounded verifiable decisions constitute approximately **15% to 25%** of total LLM calls. Claims that Microloop replaces 80%+ of an entire enterprise AI stack are unsupported; Microloop accelerates the **bounded decision layer** of that stack.
+**Boundary Reality:** Across typical enterprise agents, bounded verifiable decisions constitute approximately **15% to 25%** of total LLM calls. Claims that Ink replaces 80%+ of an entire enterprise AI stack are unsupported; Ink accelerates the **bounded decision layer** of that stack.
 
 ---
 
@@ -355,7 +355,7 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 3. **Arm C (Semantic Cache):** TF-IDF n-gram vectorizer + Cosine similarity; full threshold sweep from 0.70 to 0.99.
 4. **Arm D (Cheap Model):** Materially cheaper model tier ($0.15–$0.20/M in, $0.60–$0.80/M out; ~30–38ms latency); swept over confidence thresholds.
 5. **Arm E (Small Classifier):** Pure NumPy TF-IDF Naive Bayes trained on historical 70%; swept confidence thresholds from 0.50 to 0.98.
-6. **Arm F (Microloop JIT):** Complete production lifecycle (Observe -> Compile -> Calibrate -> Shadow -> Active -> Demote -> Requalify); swept comparison rates (0.05, 0.10, 0.20) and confidence thresholds.
+6. **Arm F (Ink JIT):** Complete production lifecycle (Observe -> Compile -> Calibrate -> Shadow -> Active -> Demote -> Requalify); swept comparison rates (0.05, 0.10, 0.20) and confidence thresholds.
 
 ---
 
@@ -364,7 +364,7 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 - **Semantic Cache Sweep:** Evaluated 9 similarity thresholds: `[0.70, 0.75, 0.80, 0.85, 0.90, 0.925, 0.95, 0.975, 0.99]`.
 - **Cheap Model Sweep:** Evaluated confidence gates: `[0.0, 0.60, 0.70, 0.80, 0.85, 0.90, 0.95]`.
 - **Small Classifier Sweep:** Evaluated 9 confidence thresholds: `[0.50, 0.60, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.98]`.
-- **Microloop Sweeps:** Evaluated comparison rates `0.05, 0.10, 0.20` and confidence requirements `0.90, 0.95, 0.98`. Default: `rate=0.10, conf=0.95`.
+- **Ink Sweeps:** Evaluated comparison rates `0.05, 0.10, 0.20` and confidence requirements `0.90, 0.95, 0.98`. Default: `rate=0.10, conf=0.95`.
 
 ---
 
@@ -378,7 +378,7 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 | **Semantic Cache** | sim=0.85 | {s_sem.get("local_serves", 1500)} | {s_sem.get("wrong_serves", 270)} | {s_sem.get("wrong_serve_rate_pct", 18.00)}% | [{s_sem.get("wilson_ci_lower_pct", 16.14)}%, {s_sem.get("wilson_ci_upper_pct", 20.03)}%] | {s_sem.get("teacher_agreement_pct", 80.53)}% | {s_sem.get("outcome_correctness_pct", 82.00)}% |
 | **Cheap Model** | conf=0.0 (Always) | {s_cheap.get("local_serves", 0)} | {s_cheap.get("wrong_serves", 0)} | {s_cheap.get("wrong_serve_rate_pct", 0.00)}% (Model Err: {s_cheap.get("model_error_rate_pct", 11.87)}%) | N/A | {s_cheap.get("teacher_agreement_pct", 86.53)}% | {s_cheap.get("outcome_correctness_pct", 88.13)}% |
 | **Small Classifier** | conf=0.80 | {s_clf.get("local_serves", 1500)} | {s_clf.get("wrong_serves", 270)} | {s_clf.get("wrong_serve_rate_pct", 18.00)}% | [{s_clf.get("wilson_ci_lower_pct", 16.14)}%, {s_clf.get("wilson_ci_upper_pct", 20.03)}%] | {s_clf.get("teacher_agreement_pct", 80.53)}% | {s_clf.get("outcome_correctness_pct", 82.00)}% |
-| **Microloop** | default (0.10/0.95) | **{s_ml.get("local_serves", 299)}** | **{s_ml.get("wrong_serves", 8)}** | **{s_ml.get("wrong_serve_rate_pct", 2.68)}%** | **[{s_ml.get("wilson_ci_lower_pct", 1.36)}%, {s_ml.get("wilson_ci_upper_pct", 5.19)}%]** | **{s_ml.get("teacher_agreement_pct", 98.80)}%** | **{s_ml.get("outcome_correctness_pct", 97.93)}%** |
+| **Ink** | default (0.10/0.95) | **{s_ml.get("local_serves", 299)}** | **{s_ml.get("wrong_serves", 8)}** | **{s_ml.get("wrong_serve_rate_pct", 2.68)}%** | **[{s_ml.get("wilson_ci_lower_pct", 1.36)}%, {s_ml.get("wilson_ci_upper_pct", 5.19)}%]** | **{s_ml.get("teacher_agreement_pct", 98.80)}%** | **{s_ml.get("outcome_correctness_pct", 97.93)}%** |
 
 ### Workload 2: Agent Tool Selection (`tool_select`)
 | Arm | Configuration | Local Serves | Wrong Serves | Wrong-Serve Rate (%) | Wilson 95% CI (%) | Teacher Agreement (%) | Factual Correctness (%) |
@@ -388,7 +388,7 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 | **Semantic Cache** | sim=0.85 | {t_sem.get("local_serves", 1500)} | {t_sem.get("wrong_serves", 270)} | {t_sem.get("wrong_serve_rate_pct", 18.00)}% | [{t_sem.get("wilson_ci_lower_pct", 16.14)}%, {t_sem.get("wilson_ci_upper_pct", 20.03)}%] | {t_sem.get("teacher_agreement_pct", 82.00)}% | {t_sem.get("outcome_correctness_pct", 82.00)}% |
 | **Cheap Model** | conf=0.0 (Always) | {t_cheap.get("local_serves", 0)} | {t_cheap.get("wrong_serves", 0)} | 0.00% (Model Err: {t_cheap.get("model_error_rate_pct", 13.60)}%) | N/A | {t_cheap.get("teacher_agreement_pct", 86.40)}% | {t_cheap.get("outcome_correctness_pct", 86.40)}% |
 | **Small Classifier** | conf=0.80 | {t_clf.get("local_serves", 1500)} | {t_clf.get("wrong_serves", 270)} | {t_clf.get("wrong_serve_rate_pct", 18.00)}% | [{t_clf.get("wilson_ci_lower_pct", 16.14)}%, {t_clf.get("wilson_ci_upper_pct", 20.03)}%] | {t_clf.get("teacher_agreement_pct", 82.00)}% | {t_clf.get("outcome_correctness_pct", 82.00)}% |
-| **Microloop** | default (0.10/0.95) | **{t_ml.get("local_serves", 310)}** | **{t_ml.get("wrong_serves", 7)}** | **{t_ml.get("wrong_serve_rate_pct", 2.26)}%** | **[{t_ml.get("wilson_ci_lower_pct", 1.10)}%, {t_ml.get("wilson_ci_upper_pct", 4.59)}%]** | **{t_ml.get("teacher_agreement_pct", 98.67)}%** | **{t_ml.get("outcome_correctness_pct", 98.20)}%** |
+| **Ink** | default (0.10/0.95) | **{t_ml.get("local_serves", 310)}** | **{t_ml.get("wrong_serves", 7)}** | **{t_ml.get("wrong_serve_rate_pct", 2.26)}%** | **[{t_ml.get("wilson_ci_lower_pct", 1.10)}%, {t_ml.get("wilson_ci_upper_pct", 4.59)}%]** | **{t_ml.get("teacher_agreement_pct", 98.67)}%** | **{t_ml.get("outcome_correctness_pct", 98.20)}%** |
 
 ---
 
@@ -398,19 +398,19 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: |
 | **support** | Exact Cache (min=2) | {s_exact.get("eligible_site_call_reduction_pct", 49.07)}% | {s_exact.get("whole_app_call_reduction_pct", 9.81)}% | {s_exact.get("eligible_site_cost_reduction_pct", 48.76)}% | {s_exact.get("whole_app_spend_reduction_pct", 9.75)}% | ${s_exact.get("net_savings_usd", 0.294)} |
 | **support** | Semantic Cache (0.85) | {s_sem.get("eligible_site_call_reduction_pct", 100.0)}% | {s_sem.get("whole_app_call_reduction_pct", 20.00)}% | {s_sem.get("eligible_site_cost_reduction_pct", 100.0)}% | {s_sem.get("whole_app_spend_reduction_pct", 20.00)}% | ${s_sem.get("net_savings_usd", 0.603)} |
-| **support** | Microloop (Default) | {s_ml.get("eligible_site_call_reduction_pct", 19.93)}% | **{s_ml.get("whole_app_call_reduction_pct", 3.99)}%** | {s_ml.get("eligible_site_cost_reduction_pct", 17.54)}% | **{s_ml.get("whole_app_spend_reduction_pct", 3.51)}%** | **${s_ml.get("net_savings_usd", 0.106)}** |
+| **support** | Ink (Default) | {s_ml.get("eligible_site_call_reduction_pct", 19.93)}% | **{s_ml.get("whole_app_call_reduction_pct", 3.99)}%** | {s_ml.get("eligible_site_cost_reduction_pct", 17.54)}% | **{s_ml.get("whole_app_spend_reduction_pct", 3.51)}%** | **${s_ml.get("net_savings_usd", 0.106)}** |
 | **tool_select** | Exact Cache (min=2) | {t_exact.get("eligible_site_call_reduction_pct", 53.73)}% | {t_exact.get("whole_app_call_reduction_pct", 13.43)}% | {t_exact.get("eligible_site_cost_reduction_pct", 53.48)}% | {t_exact.get("whole_app_spend_reduction_pct", 13.37)}% | ${t_exact.get("net_savings_usd", 0.528)} |
 | **tool_select** | Semantic Cache (0.85) | {t_sem.get("eligible_site_call_reduction_pct", 100.0)}% | {t_sem.get("whole_app_call_reduction_pct", 25.00)}% | {t_sem.get("eligible_site_cost_reduction_pct", 100.0)}% | {t_sem.get("whole_app_spend_reduction_pct", 25.00)}% | ${t_sem.get("net_savings_usd", 0.988)} |
-| **tool_select** | Microloop (Default) | {t_ml.get("eligible_site_call_reduction_pct", 20.67)}% | **{t_ml.get("whole_app_call_reduction_pct", 5.17)}%** | {t_ml.get("eligible_site_cost_reduction_pct", 18.27)}% | **{t_ml.get("whole_app_spend_reduction_pct", 4.57)}%** | **${t_ml.get("net_savings_usd", 0.180)}** |
+| **tool_select** | Ink (Default) | {t_ml.get("eligible_site_call_reduction_pct", 20.67)}% | **{t_ml.get("whole_app_call_reduction_pct", 5.17)}%** | {t_ml.get("eligible_site_cost_reduction_pct", 18.27)}% | **{t_ml.get("whole_app_spend_reduction_pct", 4.57)}%** | **${t_ml.get("net_savings_usd", 0.180)}** |
 
 ---
 
 ## 10. Cost Breakdown & Overhead
 
 - **Classifier Training Cost:** ~0.0003 USD (pure CPU vectorized fitting).
-- **Microloop Qualification Overhead:** ~$0.005 USD per candidate site.
-- **Microloop Comparison Traffic Cost:** ~$0.021 USD (10% sampling of active traffic to monitor drift).
-- **Net Economic Result:** Microloop is net positive within **35 to 65 decisions** from start of evaluation.
+- **Ink Qualification Overhead:** ~$0.005 USD per candidate site.
+- **Ink Comparison Traffic Cost:** ~$0.021 USD (10% sampling of active traffic to monitor drift).
+- **Net Economic Result:** Ink is net positive within **35 to 65 decisions** from start of evaluation.
 
 ---
 
@@ -423,9 +423,9 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 | **Semantic Cache** | 0.14 | 0.18 | 148.7 | 148.6 | 648.6 |
 | **Cheap Model** | 31.8 | 41.2 | N/A | 41.2 | 541.2 |
 | **Small Classifier** | 0.18 | 0.22 | 148.7 | 148.6 | 648.6 |
-| **Microloop (JIT)** | **0.17** | **0.21** | 148.7 | **148.6** | **500.2 (on hit)** |
+| **Ink (JIT)** | **0.17** | **0.21** | 148.7 | **148.6** | **500.2 (on hit)** |
 
-*Local Fast Path Latency:* Microloop routes local semantic decisions in **0.17ms**, which is **~800x faster than the original model (125ms)** and **~180x faster than a cheap cloud model (32ms)**.
+*Local Fast Path Latency:* Ink routes local semantic decisions in **0.17ms**, which is **~800x faster than the original model (125ms)** and **~180x faster than a cheap cloud model (32ms)**.
 
 ---
 
@@ -437,9 +437,9 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 | **Semantic Cache** | 1 | 1 | Nearest neighbor hit from step 1 |
 | **Cheap Model** | 1 | 1 | Zero upfront qualification required |
 | **Small Classifier** | 1 | 2 | Negligible training compute cost |
-| **Microloop** | 28 | 42 | Requires 25 shadow verification samples before promotion |
+| **Ink** | 28 | 42 | Requires 25 shadow verification samples before promotion |
 
-*Honest Tradeoff:* Microloop intentionally incurs a higher cold-start barrier (28 calls) to ensure safety invariants hold.
+*Honest Tradeoff:* Ink intentionally incurs a higher cold-start barrier (28 calls) to ensure safety invariants hold.
 
 ---
 
@@ -450,7 +450,7 @@ Under passive policy drift (eval decisions 600–900):
 - **Semantic Cache:** Served **212 wrong decisions** (blindly matched old prototypes).
 - **Small Classifier:** Served **165 wrong decisions** (obsolete historical weights).
 - **Cheap Model:** Unchanged prompt -> degraded accuracy; made 54 errors during drift.
-- **Microloop:** Incurred **3 wrong serves before autonomous demotion**!
+- **Ink:** Incurred **3 wrong serves before autonomous demotion**!
   - Disagreement detected via comparison traffic and downstream verifier within 4 decisions.
   - Active artifact demoted to SHADOW; further traffic automatically redirected to fallback.
   - Requalified under new policy during recovery phase.
@@ -468,14 +468,14 @@ Under passive policy drift (eval decisions 600–900):
 ## 15. Primary Frontier (Calls Avoided vs. Verified Error)
 See standalone vector SVG: [frontier_primary_calls_vs_wrong_serves.svg](frontier_primary_calls_vs_wrong_serves.svg)
 
-**Key Takeaway:** At call reductions between 30% and 50%, Microloop maintains a verified wrong-serve rate of **0.42%**, whereas semantic caches at the same call reduction incur a **15.2% to 22.1% error rate**.
+**Key Takeaway:** At call reductions between 30% and 50%, Ink maintains a verified wrong-serve rate of **0.42%**, whereas semantic caches at the same call reduction incur a **15.2% to 22.1% error rate**.
 
 ---
 
 ## 16. Secondary Frontier (Spend Reduction vs. Cost-Weighted Severity)
 See standalone vector SVG: [frontier_secondary_cost_vs_weighted_error.svg](frontier_secondary_cost_vs_weighted_error.svg)
 
-Microloop accumulated a cost-weighted error score of **12.0**, compared to **845.0 for semantic caching** and **612.0 for exact caching**.
+Ink accumulated a cost-weighted error score of **12.0**, compared to **845.0 for semantic caching** and **612.0 for exact caching**.
 
 ---
 
@@ -487,17 +487,17 @@ See standalone vector SVG: [frontier_latency_vs_error.svg](frontier_latency_vs_e
 ## 18. Negative Control Evaluation (`research_novelty`)
 
 - **Workload:** High-entropy open-ended web research agent.
-- **Microloop Behavior:** Profiler detected high entropy and lack of repeated clusters; **refused compilation** (`REFUSED_HIGH_ENTROPY`).
+- **Ink Behavior:** Profiler detected high entropy and lack of repeated clusters; **refused compilation** (`REFUSED_HIGH_ENTROPY`).
 - **Calls Avoided:** 0.0%.
 - **Wrong Serves:** 0.
 - **Competitor Failure:** Naive semantic cache (threshold 0.85) served 48.2% of decisions locally, resulting in a **41.2% wrong-serve rate** on novel research topics.
-- **Verdict:** Microloop successfully rejected an unsuitable workload, protecting the application from catastrophic hallucinations.
+- **Verdict:** Ink successfully rejected an unsuitable workload, protecting the application from catastrophic hallucinations.
 
 ---
 
 ## 19. ICP Findings (Ideal Customer Profile)
 
-Microloop delivers decisive ROI when:
+Ink delivers decisive ROI when:
 1. **Repeat Rate ≥ 25%:** Workloads with repeated states (e.g. ticket triage, tool calls, workflow dispatch).
 2. **Deterministic Verifier Available:** Downstream execution checks (HTTP 200, unit tests, schema validation, customer satisfaction signals).
 3. **Latency-Critical Service Loops:** Agent loops requiring sub-millisecond execution where 120ms model calls cause user-perceptible lag.
@@ -507,7 +507,7 @@ Microloop delivers decisive ROI when:
 
 ## 20. Competitive Verdict
 
-| Competitor | Where it Beats Microloop | Where Microloop Beats it |
+| Competitor | Where it Beats Ink | Where Ink Beats it |
 | :--- | :--- | :--- |
 | **Original Model** | Handles arbitrary zero-shot novelty; zero cold start | 800x lower latency on repetitive decisions; 45% lower site spend |
 | **Exact Cache** | Simpler; zero cold-start delay (hit on 2nd repeat) | Handles semantic paraphrases; autonomously demotes under drift |
@@ -518,29 +518,29 @@ Microloop delivers decisive ROI when:
 ---
 
 ## 21. Claims We Can Now Make (MEASURED)
-- `MEASURED`: Under passive policy drift, Microloop limits wrong serves before revocation to ≤ 3, maintaining a verified wrong-serve rate under 0.5% (Wilson 95% CI upper bound: 1.23%).
-- `MEASURED`: Microloop local fast-path dispatch executes in <0.20ms, delivering >600x latency reduction relative to teacher models.
-- `MEASURED`: Microloop autonomously refuses compilation on high-entropy non-repetitive workloads, preventing false serves.
+- `MEASURED`: Under passive policy drift, Ink limits wrong serves before revocation to ≤ 3, maintaining a verified wrong-serve rate under 0.5% (Wilson 95% CI upper bound: 1.23%).
+- `MEASURED`: Ink local fast-path dispatch executes in <0.20ms, delivering >600x latency reduction relative to teacher models.
+- `MEASURED`: Ink autonomously refuses compilation on high-entropy non-repetitive workloads, preventing false serves.
 
 ---
 
 ## 22. Claims We Must Stop Making (NOT SUPPORTED)
-- `NOT SUPPORTED`: "Microloop reduces whole-company AI spend by 80%." (Actual whole-app reduction is bounded by decision site share, typically 10–20%).
-- `NOT SUPPORTED`: "Microloop replaces all LLM calls." (Open-ended synthesis and unstructured reasoning cannot be compiled into local decision regions).
-- `NOT SUPPORTED`: "Microloop has zero error." (Microloop achieved 0.42% error during drift detection; Wilson CI upper bound is ~1.2%).
+- `NOT SUPPORTED`: "Ink reduces whole-company AI spend by 80%." (Actual whole-app reduction is bounded by decision site share, typically 10–20%).
+- `NOT SUPPORTED`: "Ink replaces all LLM calls." (Open-ended synthesis and unstructured reasoning cannot be compiled into local decision regions).
+- `NOT SUPPORTED`: "Ink has zero error." (Ink achieved 0.42% error during drift detection; Wilson CI upper bound is ~1.2%).
 
 ---
 
 ## 23. Product Implication
 
-**Microloop is fundamentally a LATENCY & SAFETY product for agentic loops, with cost savings as an economic bonus.**
-Positioning Microloop purely as a "cheaper LLM cache" invites unfavorable comparisons to cheap models ($0.15/M). Positioning Microloop as a **Verified Local Decision JIT** that delivers sub-millisecond speed and guaranteed drift demotion addresses what LLMs cannot do: deterministic sub-millisecond local execution without hallucination risk.
+**Ink is fundamentally a LATENCY & SAFETY product for agentic loops, with cost savings as an economic bonus.**
+Positioning Ink purely as a "cheaper LLM cache" invites unfavorable comparisons to cheap models ($0.15/M). Positioning Ink as a **Verified Local Decision JIT** that delivers sub-millisecond speed and guaranteed drift demotion addresses what LLMs cannot do: deterministic sub-millisecond local execution without hallucination risk.
 
 ---
 
 ## 24. YC Implication (One-Sentence Punchline)
 
-> **"Microloop compiles repeated AI agent decisions into sub-millisecond local code with guaranteed safety under policy drift—giving agents the speed of a cache without the hallucinations."**
+> **"Ink compiles repeated AI agent decisions into sub-millisecond local code with guaranteed safety under policy drift—giving agents the speed of a cache without the hallucinations."**
 
 ---
 

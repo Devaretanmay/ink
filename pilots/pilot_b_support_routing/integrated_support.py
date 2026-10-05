@@ -1,13 +1,13 @@
-"""Pilot B: Enterprise Support Triage & Workflow Router (Integrated with Microloop)."""
+"""Pilot B: Enterprise Support Triage & Workflow Router (Integrated with Ink)."""
 
 import time
 from typing import Any
 
-from microloop import DecisionSite, Microloop
+from ink import DecisionSite, Ink
 
 
 class IntegratedSupportRouter:
-    def __init__(self, client: Microloop, fallback_revision: str = "1"):
+    def __init__(self, client: Ink, fallback_revision: str = "1"):
         self.ml = client
         self.site = DecisionSite(
             name="support.triage_route",

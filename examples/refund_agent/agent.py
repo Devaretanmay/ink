@@ -14,8 +14,8 @@ import urllib.request
 from dataclasses import asdict, replace
 from pathlib import Path
 
-from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
-from microloop.internal.engines import DecisionModelEngine
+from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
+from ink.internal.engines import DecisionModelEngine
 
 SITE = DecisionSite(
     "refund.next_action",
@@ -158,10 +158,10 @@ def model_fallback(state, model, limit=100):
     (honouring Retry-After); persistent failures raise and abort the run
     visibly. Nothing is fabricated.
     """
-    key = os.environ.get("MICROLOOP_API_KEY")
+    key = os.environ.get("INK_API_KEY")
     if not key:
-        raise RuntimeError("Set MICROLOOP_API_KEY for the real-model experiment")
-    base = os.environ.get("MICROLOOP_API_BASE", "https://api.openai.com/v1").rstrip("/")
+        raise RuntimeError("Set INK_API_KEY for the real-model experiment")
+    base = os.environ.get("INK_API_BASE", "https://api.openai.com/v1").rstrip("/")
     prompt = (
         f"Choose one action: refund, request_information, specialist. Refund only settled "
         f"payments up to {limit} with no chargeback and consistent merchant settings. "
@@ -186,7 +186,7 @@ def model_fallback(state, model, limit=100):
                 "Authorization": f"Bearer {key}",
                 "Content-Type": "application/json",
                 # Some providers WAF-block the default urllib user agent.
-                "User-Agent": "microloop-refund-agent/0.4.0",
+                "User-Agent": "ink-refund-agent/0.4.0",
             },
             data=payload,
         )
@@ -242,8 +242,8 @@ def main():
     db = args.output / "decisions.db"
     if db.exists():
         parser.error("Choose a fresh output directory; experiments never overwrite history")
-    if args.model and not os.environ.get("MICROLOOP_API_KEY"):
-        parser.error("Real-model runs require MICROLOOP_API_KEY; no calls were made")
+    if args.model and not os.environ.get("INK_API_KEY"):
+        parser.error("Real-model runs require INK_API_KEY; no calls were made")
     local_model = None
     if args.local_model:
         from .local_model import LocalModel
@@ -273,7 +273,7 @@ def main():
         "production_evidence": False,
     }
     start = time.perf_counter()
-    with Microloop(
+    with Ink(
         db,
         engines=[
             DecisionModelEngine(

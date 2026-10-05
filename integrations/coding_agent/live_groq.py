@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
-from microloop import Microloop
+from ink import Ink
 
 from .adapter import CodingAgentRecoveryAdapter
 from .events import AgentEvent
@@ -68,7 +68,7 @@ def http_request(
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
-        "User-Agent": "microloop-alpha/0.6.0",
+        "User-Agent": "ink-alpha/0.6.0",
     }
     for attempt in range(max_retries):
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
@@ -546,7 +546,7 @@ class LiveTaskExecutionResult:
     repeated_actions: int
     failed_commands: int
     tests_run: int
-    microloop_decisions: int = 0
+    ink_decisions: int = 0
     local_fast_path_serves: int = 0
     learned_model_candidates: int = 0
     fallbacks: int = 0
@@ -555,7 +555,7 @@ class LiveTaskExecutionResult:
     false_interventions: int = 0
     provider_latency_sec: float = 0.0
     tool_latency_sec: float = 0.0
-    microloop_latency_sec: float = 0.0
+    ink_latency_sec: float = 0.0
     opportunities: int = 0
     opportunity_reasons: dict[str, int] = field(default_factory=dict)
     teacher_action_counts: dict[str, int] = field(default_factory=dict)
@@ -614,14 +614,14 @@ class LiveGroqCodingAgent:
         task_id: str,
         issue_description: str,
         condition: str = "A_agent_alone",
-        microloop_client: Microloop | None = None,
+        ink_client: Ink | None = None,
         observe_only: bool = True,
     ) -> LiveTaskExecutionResult:
         started = time.time()
         adapter: CodingAgentRecoveryAdapter | None = None
         detector: OpportunityDetector | None = None
-        if condition in ("B_groq_microloop", "B_observe") and microloop_client is not None:
-            adapter = CodingAgentRecoveryAdapter(microloop_client, repo_path=self.worktree_dir)
+        if condition in ("B_groq_ink", "B_observe") and ink_client is not None:
+            adapter = CodingAgentRecoveryAdapter(ink_client, repo_path=self.worktree_dir)
             detector = OpportunityDetector()
 
         system_prompt = (
@@ -815,7 +815,7 @@ class LiveGroqCodingAgent:
                         })
                         teacher_counts[rec_dec.choice] = teacher_counts.get(rec_dec.choice, 0) + 1
                         trajectory_log.append(
-                            f"[Microloop] opportunity={opp.reason} choice={rec_dec.choice} "
+                            f"[Ink] opportunity={opp.reason} choice={rec_dec.choice} "
                             f"source={rec_dec.source}"
                         )
                         if rec_dec.source == "fast_path":
@@ -828,12 +828,12 @@ class LiveGroqCodingAgent:
                             if observe_only:
                                 ml_retrievals += 1
                                 trajectory_log.append(
-                                    "[Microloop] observe: patch proposed, not injected"
+                                    "[Ink] observe: patch proposed, not injected"
                                 )
                             else:
                                 ml_retrievals += 1
                                 patch_msg = (
-                                    f"[Microloop Recovery Context]\n"
+                                    f"[Ink Recovery Context]\n"
                                     f"Question: {rec_dec.context_patch.question}\n"
                                     f"Evidence:\n"
                                 )
@@ -846,16 +846,16 @@ class LiveGroqCodingAgent:
                                 messages.append({"role": "system", "content": patch_msg})
                                 toks = rec_dec.context_patch.token_count
                                 trajectory_log.append(
-                                    f"[Microloop] ContextPatch injected: {toks} tokens"
+                                    f"[Ink] ContextPatch injected: {toks} tokens"
                                 )
                         elif rec_dec.choice == "replan" and not observe_only:
                             replan_msg = (
-                                "[Microloop Recovery Action: replan] The current modification "
+                                "[Ink Recovery Action: replan] The current modification "
                                 "path has failed multiple times. Please re-read the original "
                                 "error, step back, and reconsider the architectural root cause."
                             )
                             messages.append({"role": "system", "content": replan_msg})
-                            trajectory_log.append("[Microloop] Replan intervention injected")
+                            trajectory_log.append("[Ink] Replan intervention injected")
 
             # Loop-breaker: a bounded action budget is only useful if the agent does not
             # spend it repeating the same tool call. After four identical actions, or once
@@ -934,14 +934,14 @@ class LiveGroqCodingAgent:
             repeated_actions=repeated_actions,
             failed_commands=failed_commands,
             tests_run=tests_run,
-            microloop_decisions=ml_decisions,
+            ink_decisions=ml_decisions,
             local_fast_path_serves=ml_serves,
             fallbacks=ml_fallbacks,
             context_retrievals=ml_retrievals,
             context_patch_tokens=ml_patch_tokens,
             provider_latency_sec=round(provider_latency, 2),
             tool_latency_sec=round(tool_latency, 2),
-            microloop_latency_sec=round(ml_latency, 3),
+            ink_latency_sec=round(ml_latency, 3),
             opportunities=len(opportunities),
             opportunity_reasons={
                 r: sum(1 for o in opportunities if o["reason"] == r)

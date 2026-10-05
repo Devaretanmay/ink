@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Something in Microloop behaves incorrectly
+about: Something in Ink behaves incorrectly
 title: '[BUG] '
 labels: 'bug'
 assignees: ''
@@ -15,14 +15,14 @@ What you observed, and what you expected instead.
 The smallest case that shows it. A decision-site reproduction is often enough:
 
 ```python
-from microloop import DecisionSite, Microloop
+from ink import DecisionSite, Ink
 ```
 
 or, for the CLI, the command and its full output.
 
 **Environment**
 
-- Microloop version: `python -c "import microloop; print(microloop.__version__)"`
+- Ink version: `python -c "import ink; print(ink.__version__)"`
 - Python version
 - OS:
 

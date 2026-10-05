@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from microloop import Microloop
+from ink import Ink
 
 from .adapter import CodingAgentRecoveryAdapter
 from .events import AgentEvent
@@ -225,10 +225,10 @@ def run_baseline_comparison(
     results: dict[str, list[TaskResult]] = {
         "A_agent_alone": [],
         "B_static_retrieval": [],
-        "C_microloop_reactive": [],
+        "C_ink_reactive": [],
     }
 
-    with Microloop(db_path) as ml:
+    with Ink(db_path) as ml:
         adapter = CodingAgentRecoveryAdapter(ml, repo_path=repo_path)
 
         for task in tasks:
@@ -304,10 +304,10 @@ def run_baseline_comparison(
                 for e in task["stagnation_events"]
                 if e.event_type in ("command_failed", "test_failed")
             )
-            results["C_microloop_reactive"].append(
+            results["C_ink_reactive"].append(
                 TaskResult(
                     task_id=task["task_id"],
-                    condition="C_microloop_reactive",
+                    condition="C_ink_reactive",
                     completed=True,
                     wall_clock_ms=(time.perf_counter() - start_c) * 1000 + 310.0,
                     total_tokens=3450,
@@ -340,7 +340,7 @@ def run_observe_and_shadow_pilot(
     total_decisions = 0
     successful_recoveries = 0
 
-    with Microloop(db_path) as ml:
+    with Ink(db_path) as ml:
         adapter = CodingAgentRecoveryAdapter(ml, repo_path=repo_path)
 
         for _ in range(episodes_per_task):

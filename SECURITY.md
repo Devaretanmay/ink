@@ -16,7 +16,7 @@ Only the latest release receives security fixes.
 Use GitHub's private reporting, which creates an advisory only the maintainers
 can see:
 
-**https://github.com/Devaretanmay/microloop/security/advisories/new**
+**https://github.com/Devaretanmay/ink/security/advisories/new**
 
 Please include:
 
@@ -28,7 +28,7 @@ You can expect an acknowledgement within a few days. If a fix is warranted it
 will ship in a new patch release, and the advisory will credit you unless you
 prefer otherwise.
 
-## What Microloop does and does not do
+## What Ink does and does not do
 
 Worth stating plainly, because it bounds the threat model:
 

@@ -1,4 +1,4 @@
-"""Microloop Release Candidate Canonical Benchmark Suite.
+"""Ink Release Candidate Canonical Benchmark Suite.
 
 Executes 12 reproducible benchmarks covering latency, overhead, storage,
 memory, concurrency, drift/demotion, fail-open invariants, and retention.
@@ -22,21 +22,21 @@ from dataclasses import asdict
 from pathlib import Path
 from statistics import mean, median, stdev
 
-# Ensure local microloop package is importable
+# Ensure local ink package is importable
 REPO_ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(REPO_ROOT / "python/microloop"))
+sys.path.insert(0, str(REPO_ROOT / "python/ink"))
 
-from microloop import (  # noqa: E402
+from ink import (  # noqa: E402
     DecisionSite,
     FallbackResult,
-    Microloop,
+    Ink,
     Outcome,
     PromotionRequirements,
 )
-from microloop.internal.contracts import canonical  # noqa: E402
-from microloop.internal.coverage import CoverageEngine, SemanticRegion, TextVectorizer  # noqa: E402
-from microloop.internal.engines import DecisionModelEngine, ExactEngine  # noqa: E402
-from microloop.internal.model import registry  # noqa: E402
+from ink.internal.contracts import canonical  # noqa: E402
+from ink.internal.coverage import CoverageEngine, SemanticRegion, TextVectorizer  # noqa: E402
+from ink.internal.engines import DecisionModelEngine, ExactEngine  # noqa: E402
+from ink.internal.model import registry  # noqa: E402
 
 BENCHMARK_SEEDS = [42, 100, 2026]
 
@@ -112,7 +112,7 @@ def compute_latencies(nanoseconds_list: list[int]) -> dict:
 
 
 def record_outcome(
-    loop: Microloop,
+    loop: Ink,
     decision_id: str | None,
     quality: float = 1.0,
     verifier: str = "bm_verifier",
@@ -130,7 +130,7 @@ def record_outcome(
 
 
 def feed_traffic(
-    loop: Microloop,
+    loop: Ink,
     site: DecisionSite,
     count: int,
     prefix: str = "t",
@@ -173,11 +173,11 @@ def feed_traffic(
 # Benchmark 1: Exact Fast-Path Latency
 # -----------------------------------------------------------------------------
 def benchmark_exact_fast_path(iterations: int = 5000) -> dict:
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_exact_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_exact_")
     db_path = os.path.join(tmp_dir, "decisions.db")
     try:
         site = DecisionSite("refund.exact", {"tier": "integer"}, ("approve", "deny"))
-        loop = Microloop(path=db_path, auto_maintenance=False)
+        loop = Ink(path=db_path, auto_maintenance=False)
         loop.register(site)
 
         # 1. Observe phase
@@ -279,11 +279,11 @@ def benchmark_semantic_routing(iterations: int = 2000) -> dict:
         router_times.append(t1 - t0)
 
     # Now run end-to-end decide() with semantic engine active
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_sem_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_sem_")
     db_path = os.path.join(tmp_dir, "decisions.db")
     try:
         site = DecisionSite("support.route", {"request": "string"}, ("refund_dept", "support_dept"))
-        loop = Microloop(path=db_path, auto_maintenance=False)
+        loop = Ink(path=db_path, auto_maintenance=False)
         loop.register(site)
 
         def mock_verifier(state, choice):
@@ -356,7 +356,7 @@ def benchmark_semantic_routing(iterations: int = 2000) -> dict:
 # Benchmark 3: Fallback Overhead Across Lifecycle States & Configurations
 # -----------------------------------------------------------------------------
 def benchmark_fallback_overhead(iterations: int = 2000) -> dict:
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_fb_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_fb_")
     try:
         def raw_fallback():
             return FallbackResult("opt_a", model_calls=1)
@@ -372,7 +372,7 @@ def benchmark_fallback_overhead(iterations: int = 2000) -> dict:
         site = DecisionSite("task.overhead", {"x": "integer"}, ("opt_a", "opt_b"))
 
         # Cold state (no compile)
-        loop_cold = Microloop(path=os.path.join(tmp_dir, "cold.db"), auto_maintenance=False)
+        loop_cold = Ink(path=os.path.join(tmp_dir, "cold.db"), auto_maintenance=False)
         loop_cold.register(site)
         cold_times = []
         for _ in range(iterations):
@@ -383,7 +383,7 @@ def benchmark_fallback_overhead(iterations: int = 2000) -> dict:
         loop_cold.close()
 
         # Shadow state
-        loop_shadow = Microloop(path=os.path.join(tmp_dir, "shadow.db"), auto_maintenance=False)
+        loop_shadow = Ink(path=os.path.join(tmp_dir, "shadow.db"), auto_maintenance=False)
         loop_shadow.register(site)
         feed_traffic(loop_shadow, site, 60, prefix="sh_init")
         loop_shadow.compile(site, engine="exact")
@@ -397,7 +397,7 @@ def benchmark_fallback_overhead(iterations: int = 2000) -> dict:
         loop_shadow.close()
 
         # Disabled fast path (soft kill switch)
-        loop_soft = Microloop(
+        loop_soft = Ink(
             path=os.path.join(tmp_dir, "soft.db"),
             auto_maintenance=False,
             disable_fast_path=True,
@@ -412,7 +412,7 @@ def benchmark_fallback_overhead(iterations: int = 2000) -> dict:
         loop_soft.close()
 
         # With auto-maintenance thread running
-        loop_maint = Microloop(path=os.path.join(tmp_dir, "maint.db"), auto_maintenance=True)
+        loop_maint = Ink(path=os.path.join(tmp_dir, "maint.db"), auto_maintenance=True)
         loop_maint.register(site)
         maint_times = []
         for _ in range(iterations):
@@ -424,7 +424,7 @@ def benchmark_fallback_overhead(iterations: int = 2000) -> dict:
 
         # With event callback hook active
         events_received = []
-        loop_hook = Microloop(
+        loop_hook = Ink(
             path=os.path.join(tmp_dir, "hook.db"),
             auto_maintenance=False,
             on_event=lambda ev, data: events_received.append(ev),
@@ -465,7 +465,7 @@ def benchmark_fallback_overhead(iterations: int = 2000) -> dict:
 # Benchmark 4: Hard Kill Switch Overhead
 # -----------------------------------------------------------------------------
 def benchmark_hard_kill_switch(iterations: int = 5000) -> dict:
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_hard_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_hard_")
     db_path = os.path.join(tmp_dir, "decisions.db")
     try:
         def raw_fallback():
@@ -480,7 +480,7 @@ def benchmark_hard_kill_switch(iterations: int = 5000) -> dict:
             direct_times.append(t1 - t0)
 
         # Hard kill switch via constructor parameter
-        loop_disabled = Microloop(path=db_path, disabled=True)
+        loop_disabled = Ink(path=db_path, disabled=True)
         site = DecisionSite("task.kill", {"x": "integer"}, ("direct", "other"))
         disabled_times = []
         for _ in range(iterations):
@@ -491,10 +491,10 @@ def benchmark_hard_kill_switch(iterations: int = 5000) -> dict:
             assert res.source == "fallback"
             assert res.decision_id is None
 
-        # Hard kill switch via env var MICROLOOP_DISABLED=1
-        os.environ["MICROLOOP_DISABLED"] = "1"
+        # Hard kill switch via env var INK_DISABLED=1
+        os.environ["INK_DISABLED"] = "1"
         try:
-            loop_env = Microloop(path=db_path)
+            loop_env = Ink(path=db_path)
             env_times = []
             for _ in range(iterations):
                 t0 = time.perf_counter_ns()
@@ -503,7 +503,7 @@ def benchmark_hard_kill_switch(iterations: int = 5000) -> dict:
                 env_times.append(t1 - t0)
                 assert res.decision_id is None
         finally:
-            del os.environ["MICROLOOP_DISABLED"]
+            del os.environ["INK_DISABLED"]
 
         direct_stats = compute_latencies(direct_times)
         disabled_stats = compute_latencies(disabled_times)
@@ -525,11 +525,11 @@ def benchmark_hard_kill_switch(iterations: int = 5000) -> dict:
 # Benchmark 5: Qualification Cost (Exact vs Semantic)
 # -----------------------------------------------------------------------------
 def benchmark_qualification_cost() -> dict:
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_qual_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_qual_")
     try:
         # Exact qualification
         db_path_exact = os.path.join(tmp_dir, "exact.db")
-        loop_exact = Microloop(path=db_path_exact, auto_maintenance=False)
+        loop_exact = Ink(path=db_path_exact, auto_maintenance=False)
         site_exact = DecisionSite("qual.exact", {"cat": "string"}, ("a", "b"))
         loop_exact.register(site_exact)
 
@@ -559,7 +559,7 @@ def benchmark_qualification_cost() -> dict:
 
         # Semantic qualification (requires verifier)
         db_path_sem = os.path.join(tmp_dir, "sem.db")
-        loop_sem = Microloop(path=db_path_sem, auto_maintenance=False)
+        loop_sem = Ink(path=db_path_sem, auto_maintenance=False)
         site_sem = DecisionSite("qual.sem", {"text": "string"}, ("a", "b"))
         loop_sem.register(site_sem)
 
@@ -617,11 +617,11 @@ def benchmark_qualification_cost() -> dict:
 # Benchmark 6: Storage Growth, WAL Scaling, and Compaction
 # -----------------------------------------------------------------------------
 def benchmark_storage_scaling() -> dict:
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_storage_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_storage_")
     try:
         db_path = os.path.join(tmp_dir, "storage.db")
         wal_path = db_path + "-wal"
-        loop = Microloop(path=db_path, auto_maintenance=False)
+        loop = Ink(path=db_path, auto_maintenance=False)
         site = DecisionSite("store.scale", {"idx": "integer"}, ("c1", "c2"))
         loop.register(site)
 
@@ -696,7 +696,7 @@ def benchmark_storage_scaling() -> dict:
 def _measure_rss_subproc(script_body: str) -> float:
     full_script = f"""
 import sys, resource, os
-sys.path.insert(0, str({repr(str(REPO_ROOT / 'python/microloop'))}))
+sys.path.insert(0, str({repr(str(REPO_ROOT / 'python/ink'))}))
 
 {script_body}
 
@@ -716,46 +716,46 @@ print(round(rss_mb, 2))
 
 def benchmark_memory_rss() -> dict:
     baseline_rss = _measure_rss_subproc("pass")
-    import_rss = _measure_rss_subproc("import microloop")
+    import_rss = _measure_rss_subproc("import ink")
     client_init_rss = _measure_rss_subproc("""
-import tempfile, os, microloop
+import tempfile, os, ink
 d = tempfile.mkdtemp()
 db = os.path.join(d, 'decisions.db')
-loop = microloop.Microloop(path=db, auto_maintenance=False)
+loop = ink.Ink(path=db, auto_maintenance=False)
 """)
     exact_active_rss = _measure_rss_subproc("""
-import tempfile, os, microloop
+import tempfile, os, ink
 d = tempfile.mkdtemp()
 db = os.path.join(d, 'decisions.db')
-loop = microloop.Microloop(path=db, auto_maintenance=False)
-site = microloop.DecisionSite('s', {'x': 'integer'}, ('a', 'b'))
+loop = ink.Ink(path=db, auto_maintenance=False)
+site = ink.DecisionSite('s', {'x': 'integer'}, ('a', 'b'))
 loop.register(site)
 
 for i in range(150):
-    r = loop.decide(site=site, state={'x': 1}, fallback=lambda: microloop.FallbackResult('a'))
+    r = loop.decide(site=site, state={'x': 1}, fallback=lambda: ink.FallbackResult('a'))
     loop.record_outcome(r.decision_id, quality=1.0, verifier='v', verifier_version='1')
 
 loop.compile(site, engine='exact')
 
 for i in range(60):
-    r = loop.decide(site=site, state={'x': 1}, fallback=lambda: microloop.FallbackResult('a'))
+    r = loop.decide(site=site, state={'x': 1}, fallback=lambda: ink.FallbackResult('a'))
     loop.record_outcome(r.decision_id, quality=1.0, verifier='v', verifier_version='1')
 
-req = microloop.PromotionRequirements(10, 0.5, 0.5, 0.8, 0.25, 5, 100)
+req = ink.PromotionRequirements(10, 0.5, 0.5, 0.8, 0.25, 5, 100)
 loop.maintenance(sites=[site], requirements=req, engine='exact')
-loop.decide(site=site, state={'x': 1}, fallback=lambda: microloop.FallbackResult('b'))
+loop.decide(site=site, state={'x': 1}, fallback=lambda: ink.FallbackResult('b'))
 """)
     maint_thread_rss = _measure_rss_subproc("""
-import tempfile, os, time, microloop
+import tempfile, os, time, ink
 d = tempfile.mkdtemp()
 db = os.path.join(d, 'decisions.db')
-loop = microloop.Microloop(path=db, auto_maintenance=True)
+loop = ink.Ink(path=db, auto_maintenance=True)
 time.sleep(0.1)
 """)
 
     return {
         "baseline_python_mb": baseline_rss,
-        "after_import_microloop_mb": import_rss,
+        "after_import_ink_mb": import_rss,
         "import_delta_mb": round(import_rss - baseline_rss, 2),
         "after_client_init_mb": client_init_rss,
         "client_init_delta_mb": round(client_init_rss - baseline_rss, 2),
@@ -774,7 +774,7 @@ def _process_worker(db_path: str, count: int, worker_id: int, out_q: mp.Queue) -
     fail_opens = 0
     site = DecisionSite("conc.test", {"worker": "integer", "id": "integer"}, ("opt_a", "opt_b"))
     try:
-        loop = Microloop(path=db_path, auto_maintenance=False)
+        loop = Ink(path=db_path, auto_maintenance=False)
         for i in range(count):
             try:
                 res = loop.decide(
@@ -797,13 +797,13 @@ def _process_worker(db_path: str, count: int, worker_id: int, out_q: mp.Queue) -
 
 def benchmark_concurrency() -> dict:
     results = {}
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_conc_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_conc_")
     try:
         site = DecisionSite("conc.thread", {"tid": "integer", "iter": "integer"}, ("c1", "c2"))
         # Thread Concurrency (1, 4, 8 threads)
         for num_threads in (1, 4, 8):
             db_path = os.path.join(tmp_dir, f"thread_{num_threads}.db")
-            loop = Microloop(path=db_path, auto_maintenance=False)
+            loop = Ink(path=db_path, auto_maintenance=False)
             loop.register(site)
             decisions_per_thread = 500
             total_expected = num_threads * decisions_per_thread
@@ -855,7 +855,7 @@ def benchmark_concurrency() -> dict:
         for num_procs in (2, 4):
             db_path = os.path.join(tmp_dir, f"proc_{num_procs}.db")
             # Initialize schema once
-            init_loop = Microloop(path=db_path, auto_maintenance=False)
+            init_loop = Ink(path=db_path, auto_maintenance=False)
             init_site = DecisionSite("conc.test", {"worker": "integer", "id": "integer"}, ("opt_a", "opt_b"))
             init_loop.register(init_site)
             init_loop.close()
@@ -905,11 +905,11 @@ def benchmark_drift_and_demotion(seeds: list[int] = BENCHMARK_SEEDS) -> dict:
     results_per_seed = {}
 
     for seed in seeds:
-        tmp_dir = tempfile.mkdtemp(prefix=f"microloop_bm_drift_{seed}_")
+        tmp_dir = tempfile.mkdtemp(prefix=f"ink_bm_drift_{seed}_")
         db_path = os.path.join(tmp_dir, "decisions.db")
         try:
             site = DecisionSite("refund.drift", {"tier": "string"}, ("refund", "reject"))
-            loop = Microloop(path=db_path, auto_maintenance=False)
+            loop = Ink(path=db_path, auto_maintenance=False)
             loop.register(site)
 
             def mock_v(state, choice):
@@ -1024,11 +1024,11 @@ def benchmark_false_serve_accounting() -> dict:
       False Serve: Fast path served a choice that produced quality < 1.0 or contradicted verifier.
       False Serve Rate = False Serves / Total Fast Serves.
     """
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_fserve_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_fserve_")
     db_path = os.path.join(tmp_dir, "decisions.db")
     try:
         site = DecisionSite("routing.accuracy", {"dept": "string"}, ("support", "sales", "billing"))
-        loop = Microloop(path=db_path, auto_maintenance=False)
+        loop = Ink(path=db_path, auto_maintenance=False)
         loop.register(site)
 
         data = [
@@ -1103,11 +1103,11 @@ def benchmark_false_serve_accounting() -> dict:
 # Benchmark 11: Fail-Open Injection Matrix
 # -----------------------------------------------------------------------------
 def benchmark_fail_open_matrix() -> dict:
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_failopen_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_failopen_")
     db_path = os.path.join(tmp_dir, "decisions.db")
     try:
         site = DecisionSite("failopen.test", {"key": "string"}, ("action_a", "action_b"))
-        loop = Microloop(path=db_path, auto_maintenance=False)
+        loop = Ink(path=db_path, auto_maintenance=False)
         loop.register(site)
 
         # Train and promote site with key='known'
@@ -1196,7 +1196,7 @@ def benchmark_fail_open_matrix() -> dict:
         })
 
         # Scenario 5: Soft kill switch active
-        loop2 = Microloop(path=db_path, auto_maintenance=False, disable_fast_path=True)
+        loop2 = Ink(path=db_path, auto_maintenance=False, disable_fast_path=True)
         loop2.register(site)
         res_5 = loop2.decide(site=site, state={"key": "known"}, fallback=fb_1)
         matrix_results.append({
@@ -1223,11 +1223,11 @@ def benchmark_fail_open_matrix() -> dict:
 # Benchmark 12: Retention Safety & Compaction
 # -----------------------------------------------------------------------------
 def benchmark_retention_safety() -> dict:
-    tmp_dir = tempfile.mkdtemp(prefix="microloop_bm_retention_")
+    tmp_dir = tempfile.mkdtemp(prefix="ink_bm_retention_")
     db_path = os.path.join(tmp_dir, "decisions.db")
     try:
         site = DecisionSite("retention.safety", {"cat": "string"}, ("fast_choice", "slow_choice"))
-        loop = Microloop(path=db_path, auto_maintenance=False)
+        loop = Ink(path=db_path, auto_maintenance=False)
         loop.register(site)
 
         # Train and promote
@@ -1334,21 +1334,21 @@ def benchmark_model_provisioning() -> dict:
 
     offline_raised_cleanly = False
     with tempfile.TemporaryDirectory() as td:
-        orig = os.environ.get("MICROLOOP_MODEL_DIR")
+        orig = os.environ.get("INK_MODEL_DIR")
         try:
-            os.environ["MICROLOOP_MODEL_DIR"] = os.path.join(td, "missing")
+            os.environ["INK_MODEL_DIR"] = os.path.join(td, "missing")
             try:
                 registry.ensure_installed(auto_download=False)
             except FileNotFoundError:
                 offline_raised_cleanly = True
         finally:
             if orig is not None:
-                os.environ["MICROLOOP_MODEL_DIR"] = orig
+                os.environ["INK_MODEL_DIR"] = orig
             else:
-                os.environ.pop("MICROLOOP_MODEL_DIR", None)
+                os.environ.pop("INK_MODEL_DIR", None)
 
     return {
-        "model_name": spec.get("name", "microloop-decision-v1"),
+        "model_name": spec.get("name", "ink-decision-v1"),
         "upstream": spec.get("upstream", "aac6fef/laya-mlx"),
         "cache_path": str(m_path),
         "total_disk_bytes": total_bytes,
@@ -1408,21 +1408,21 @@ def benchmark_model_latency(warm_iterations: int = 50) -> dict:
 def benchmark_model_memory_rss() -> dict:
     baseline_rss = _measure_rss_subproc("pass")
     exact_active_rss = _measure_rss_subproc("""
-import tempfile, os, microloop
+import tempfile, os, ink
 d = tempfile.mkdtemp()
 db = os.path.join(d, 'decisions.db')
-loop = microloop.Microloop(path=db, auto_maintenance=False)
-site = microloop.DecisionSite('s', {'x': 'integer'}, ('a', 'b'))
+loop = ink.Ink(path=db, auto_maintenance=False)
+site = ink.DecisionSite('s', {'x': 'integer'}, ('a', 'b'))
 loop.register(site)
 for i in range(150):
-    r = loop.decide(site=site, state={'x': 1}, fallback=lambda: microloop.FallbackResult('a'))
+    r = loop.decide(site=site, state={'x': 1}, fallback=lambda: ink.FallbackResult('a'))
     loop.record_outcome(r.decision_id, quality=1.0, verifier='v', verifier_version='1')
 loop.compile(site, engine='exact')
-loop.decide(site=site, state={'x': 1}, fallback=lambda: microloop.FallbackResult('b'))
+loop.decide(site=site, state={'x': 1}, fallback=lambda: ink.FallbackResult('b'))
 """)
     model_active_rss = _measure_rss_subproc("""
-from microloop import DecisionSite
-from microloop.internal.engines import DecisionModelEngine
+from ink import DecisionSite
+from ink.internal.engines import DecisionModelEngine
 site = DecisionSite('s', {'text': 'string'}, ('a', 'b'))
 engine = DecisionModelEngine()
 payload = engine.compile(site, [{'state': {'text': 'hello'}, 'choice': 'a'}])
@@ -1519,7 +1519,7 @@ def benchmark_tier_distribution_and_contribution(total_decisions: int = 500) -> 
 # -----------------------------------------------------------------------------
 def run_all_benchmarks(metadata: dict | None = None) -> tuple[dict, str]:
     print("=" * 70)
-    print("MICROLOOP RELEASE CANDIDATE CANONICAL BENCHMARK SUITE")
+    print("INK RELEASE CANDIDATE CANONICAL BENCHMARK SUITE")
     print("=" * 70)
 
     if metadata is None:
@@ -1621,7 +1621,7 @@ def generate_markdown_report(data: dict) -> str:
     bm = data["benchmarks"]
 
     lines = [
-        "# Microloop Release Candidate Benchmark Report",
+        "# Ink Release Candidate Benchmark Report",
         "",
         f"**Run ID:** `{meta.get('run_id', 'unknown')}`  ",
         f"**Date:** {meta['timestamp']}  ",
@@ -1635,7 +1635,7 @@ def generate_markdown_report(data: dict) -> str:
         "",
         "## Executive Summary",
         "",
-        "This report documents the canonical, reproducible measurements for Microloop Decision JIT.",
+        "This report documents the canonical, reproducible measurements for Ink Decision JIT.",
         "Every metric was measured dynamically by executing `python -m benchmarks.release_candidate`.",
         "Zero simulated numbers; zero unverified claims.",
         "",
@@ -1694,8 +1694,8 @@ def generate_markdown_report(data: dict) -> str:
         "| Configuration | Latency p50 (μs) | Overhead vs Direct Call (μs) | Invariant Maintained |",
         "| :--- | :--- | :--- | :--- |",
         f"| Direct Fallback Execution | {bm['hard_kill_switch_overhead']['direct_call']['p50_us']} | 0.00 | Normal |",
-        f"| `Microloop(disabled=True)` | {bm['hard_kill_switch_overhead']['hard_disabled_param']['p50_us']} | +{bm['hard_kill_switch_overhead']['overhead_param_p50_us']} | `decision_id=None`, 0 storage |",
-        f"| `MICROLOOP_DISABLED=1` Env | {bm['hard_kill_switch_overhead']['hard_disabled_env']['p50_us']} | +{bm['hard_kill_switch_overhead']['overhead_env_p50_us']} | `decision_id=None`, 0 storage |",
+        f"| `Ink(disabled=True)` | {bm['hard_kill_switch_overhead']['hard_disabled_param']['p50_us']} | +{bm['hard_kill_switch_overhead']['overhead_param_p50_us']} | `decision_id=None`, 0 storage |",
+        f"| `INK_DISABLED=1` Env | {bm['hard_kill_switch_overhead']['hard_disabled_env']['p50_us']} | +{bm['hard_kill_switch_overhead']['overhead_env_p50_us']} | `decision_id=None`, 0 storage |",
         "",
         "## 5. Qualification Cost Comparison",
         "",
@@ -1721,8 +1721,8 @@ def generate_markdown_report(data: dict) -> str:
         "| State | Total Process RSS (MB) | Incremental Delta (MB) |",
         "| :--- | :--- | :--- |",
         f"| Python 3.13 Baseline | {bm['memory_rss']['baseline_python_mb']} MB | Baseline |",
-        f"| `import microloop` | {bm['memory_rss']['after_import_microloop_mb']} MB | +{bm['memory_rss']['import_delta_mb']} MB |",
-        f"| `Microloop(path=...)` Initialized | {bm['memory_rss']['after_client_init_mb']} MB | +{bm['memory_rss']['client_init_delta_mb']} MB |",
+        f"| `import ink` | {bm['memory_rss']['after_import_ink_mb']} MB | +{bm['memory_rss']['import_delta_mb']} MB |",
+        f"| `Ink(path=...)` Initialized | {bm['memory_rss']['after_client_init_mb']} MB | +{bm['memory_rss']['client_init_delta_mb']} MB |",
         f"| Exact Site Active & Serving | {bm['memory_rss']['exact_active_mb']} MB | +{bm['memory_rss']['exact_active_delta_mb']} MB |",
         f"| With Background Maintenance Thread | {bm['memory_rss']['with_auto_maintenance_mb']} MB | Minimal thread overhead |",
         "",
@@ -1761,7 +1761,7 @@ def generate_markdown_report(data: dict) -> str:
         "*(Measured across clean, stationary synthetic traffic vs injected policy drift)*",
         "",
         f"- **0 false serves observed across {bm['false_serve_accounting']['total_fast_serves']} stationary synthetic fast-path decisions** (0.00% observed sample error rate under clean stationary traffic).",
-        f"- **In the three injected-drift runs (Benchmark 9), Microloop demoted after accumulating sufficient comparison evidence; {', '.join(str(s['false_fast_path_serves']) for s in bm['drift_and_demotion'].values() if isinstance(s, dict))} false local serves occurred before demotion.**",
+        f"- **In the three injected-drift runs (Benchmark 9), Ink demoted after accumulating sufficient comparison evidence; {', '.join(str(s['false_fast_path_serves']) for s in bm['drift_and_demotion'].values() if isinstance(s, dict))} false local serves occurred before demotion.**",
         "- **Operational Governance:** 0 false serves is an observed sample result on stationary data, not a universal population guarantee. Under policy drift, false serves occur while the statistical comparison monitor accumulates evidence to revoke serving authority.",
 
         "",
@@ -1829,7 +1829,7 @@ def generate_markdown_report(data: dict) -> str:
         "",
         f"- **Internal Model Candidate Accuracy on Semantic Variations:** On this synthetic semantic candidate workload, the internal model selected the reference choice on {bm['tier_distribution']['model_candidate_correct']}/{bm['tier_distribution']['model_candidate_tested']} cases ({bm['tier_distribution']['model_candidate_accuracy_percent']}%). These are unqualified candidate predictions; this measurement does not represent production serving accuracy.",
         "",
-        "> Architectural Invariant: *candidate != authority*. Microloop uses the learned model for candidate proposals, but never grants serving authority without independent outcome verification.",
+        "> Architectural Invariant: *candidate != authority*. Ink uses the learned model for candidate proposals, but never grants serving authority without independent outcome verification.",
         "",
         f"- **Wrong Serves Under Stationary Distribution:** 0 false serves observed across {bm['false_serve_accounting']['total_fast_serves']} decisions.",
         f"- **Wrong Serves Under Injected Policy Drift:** {', '.join(str(s['false_fast_path_serves']) for s in bm['drift_and_demotion'].values() if isinstance(s, dict))} false serves occurred across tested seeds before comparison evidence triggered demotion.",
@@ -1838,7 +1838,7 @@ def generate_markdown_report(data: dict) -> str:
         "> **Operational Scope:** Decision site call reduction figures (20–40% in benchmarks) are derived from synthetic trace repetition distributions. True enterprise savings will be determined by production repetition rates during the first design partner pilot.",
         "",
         "---",
-        "**Conclusion:** Microloop Release Candidate has verified all 16 operational benchmarks across exact execution tiers and internal learned decision model tiers.",
+        "**Conclusion:** Ink Release Candidate has verified all 16 operational benchmarks across exact execution tiers and internal learned decision model tiers.",
     ])
 
     return "\n".join(lines)

@@ -33,7 +33,7 @@ where someone is representing this project.
 ## Enforcement
 
 Report a problem through
-[GitHub private vulnerability reporting](https://github.com/Devaretanmay/microloop/security/advisories/new)
+[GitHub private vulnerability reporting](https://github.com/Devaretanmay/ink/security/advisories/new)
 or by opening an issue if the report is not sensitive. Reports are handled
 confidentially and reviewed on a case-by-case basis.
 

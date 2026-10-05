@@ -9,8 +9,8 @@ import math
 import urllib.request
 from pathlib import Path
 
-from microloop import DecisionSite
-from microloop.internal.engines import DecisionModelEngine
+from ink import DecisionSite
+from ink.internal.engines import DecisionModelEngine
 
 REVISION = "57ec275d8078af65b7731c2a98be812d844a6d6b"
 BASE = f"https://raw.githubusercontent.com/PolyAI-LDN/task-specific-datasets/{REVISION}/"

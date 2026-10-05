@@ -14,9 +14,10 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install ruff pytest build
+      - run: python scripts/check-brand-hygiene.py
       - run: ruff check .
-      - run: pytest python/microloop/tests/
-      - run: python -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
+      - run: pytest python/ink/tests/
+      - run: python -m examples.refund_agent.agent --engine exact --output .ink/ci-smoke --require-lifecycle
 
   build-artifacts:
     name: build release artifacts
@@ -34,8 +35,8 @@ jobs:
           python -m venv .wheeltest
           source .wheeltest/bin/activate
           pip install dist/*.whl
-          microloop --version
-          python -c "import microloop; print(microloop.__version__)"
+          ink --version
+          python -c "import ink; print(ink.__version__)"
       - uses: actions/upload-artifact@v4
         with:
           name: dist

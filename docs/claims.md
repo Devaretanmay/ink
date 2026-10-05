@@ -1,6 +1,6 @@
-# Microloop Claims Registry
+# Ink Claims Registry
 
-Every external claim about Microloop is classified into one of four tiers.
+Every external claim about Ink is classified into one of four tiers.
 
 | Category | Definition |
 | :--- | :--- |
@@ -23,7 +23,7 @@ Every external claim about Microloop is classified into one of four tiers.
 
 ### Drift Detection and Demotion
 - **Category:** `MEASURED`
-- **Statement:** On tested policy-drift workloads, Microloop demoted stale behavior after 7–8 incorrect local serves, while static cache baselines continued producing 12.0–18.0% stale wrong-serve rates under the same conditions.
+- **Statement:** On tested policy-drift workloads, Ink demoted stale behavior after 7–8 incorrect local serves, while static cache baselines continued producing 12.0–18.0% stale wrong-serve rates under the same conditions.
 - **Evidence:** `benchmarks/results/competitive_frontier/REPORT.md` — passive drift injection with no explicit signal.
 - **Scope:** Requires active comparison traffic (default 5–35% during active serving). Drift detection speed depends on comparison rate and traffic volume.
 
@@ -77,7 +77,7 @@ Every external claim about Microloop is classified into one of four tiers.
 
 ### DecisionSite-Level Call Reduction
 - **Category:** `CONDITIONAL`
-- **Statement:** Within bounded decision sites, Microloop avoided 19.9–40.4% of site calls in tested workloads during steady-state active serving.
+- **Statement:** Within bounded decision sites, Ink avoided 19.9–40.4% of site calls in tested workloads during steady-state active serving.
 - **Evidence:** `benchmarks/results/competitive_frontier/summary.json`.
 - **Conditions:** Depends on repetition rate, comparison traffic overhead, and qualification cost amortization. Higher repetition yields higher reduction.
 
@@ -85,8 +85,8 @@ Every external claim about Microloop is classified into one of four tiers.
 
 ### Internal Learned Decision Model
 - **Category:** `MEASURED`
-- **Statement:** Microloop includes its own learned decision model capability as part of the Decision Engine. Internal model weights are fine-tuned specifically for bounded categorical decision tasks (`microloop-finetune-v1`).
-- **Evidence:** `python/microloop/microloop/internal/model/training.py`, `tests/test_model_training.py`, `tests/test_architecture_invariants.py`.
+- **Statement:** Ink includes its own learned decision model capability as part of the Decision Engine. Internal model weights are fine-tuned specifically for bounded categorical decision tasks (`ink-finetune-v1`).
+- **Evidence:** `python/ink/ink/internal/model/training.py`, `tests/test_model_training.py`, `tests/test_architecture_invariants.py`.
 - **Scope:** Owned architecture consists of ModernBERT-large backbone with custom DecisionHead and Scorer.
 
 ---
@@ -94,7 +94,7 @@ Every external claim about Microloop is classified into one of four tiers.
 ### Candidate Proposes, Qualification Authorizes (Candidate != Authority)
 - **Category:** `MEASURED`
 - **Statement:** An internal learned model prediction carries zero serving authority on its own. Serving authority is granted exclusively by independent outcome qualification, coverage boundaries, and active status.
-- **Evidence:** `python/microloop/microloop/decision_api.py::_route()`, `tests/test_architecture_invariants.py`.
+- **Evidence:** `python/ink/ink/decision_api.py::_route()`, `tests/test_architecture_invariants.py`.
 - **Scope:** Unconditional across all candidate engines.
 
 ---
@@ -109,7 +109,7 @@ Every external claim about Microloop is classified into one of four tiers.
 
 ### Host Model Fallback for Novelty
 - **Category:** `MEASURED`
-- **Statement:** Novel, unsupported, or uncertain states strictly route to the host application's original model fallback callable. Microloop never serves outside qualified coverage.
+- **Statement:** Novel, unsupported, or uncertain states strictly route to the host application's original model fallback callable. Ink never serves outside qualified coverage.
 - **Evidence:** `tests/test_architecture_invariants.py::test_novel_state_outside_coverage_routes_to_host`.
 - **Scope:** Always enforced; fail-open guarantee routes to host fallback under any runtime exception.
 
@@ -117,7 +117,7 @@ Every external claim about Microloop is classified into one of four tiers.
 
 ### Long Paths
 - **Category:** `VISION`
-- **Statement:** Long-term, Microloop may compile longer verified sequences of agent behavior (multi-step trajectories) into local procedures with checkpoints and deoptimization.
+- **Statement:** Long-term, Ink may compile longer verified sequences of agent behavior (multi-step trajectories) into local procedures with checkpoints and deoptimization.
 - **Scope:** Not implemented. Will only be built if 3+ independent partners demonstrate that individual DecisionSites are useful but most remaining cost lies in repeated multi-step trajectories.
 
 ---
@@ -126,16 +126,16 @@ Every external claim about Microloop is classified into one of four tiers.
 
 | Claim | Status | Why |
 | :--- | :--- | :--- |
-| "Microloop eliminates 80% of enterprise AI spend" | `NOT SUPPORTED` | Bounded sites are 15–25% of tested traffic. Whole-app savings were 3.5–8.9%. |
-| "Zero errors" | `NOT SUPPORTED` | Microloop incurred 7–8 wrong serves before detecting drift. |
+| "Ink eliminates 80% of enterprise AI spend" | `NOT SUPPORTED` | Bounded sites are 15–25% of tested traffic. Whole-app savings were 3.5–8.9%. |
+| "Zero errors" | `NOT SUPPORTED` | Ink incurred 7–8 wrong serves before detecting drift. |
 | "100% accuracy" | `NOT SUPPORTED` | 0 false serves is an empirical sample count on stationary synthetic benchmark traffic, not an absolute population guarantee. |
 | "Bounded false serves" | `NOT SUPPORTED` | False serves accumulate under drift until comparison evidence triggers deoptimization. |
 | "800x faster applications" | `NOT SUPPORTED` | 0.18ms applies to local fast-path serves only, not entire application workflows. |
 | "Guaranteed safe" | `NOT SUPPORTED` | Safety depends on comparison traffic, verifier quality, and traffic volume. |
 | "Missing outcomes are safe or negative" | `NOT SUPPORTED` | Unknown evidence remains unknown; missing evidence halts qualification rather than being assumed safe or failing. |
 | "Replaces all model calls" | `NOT SUPPORTED` | Only bounded, repeating, verifiable decisions qualify. |
-| "AI cache" or "semantic cache" | `NOT SUPPORTED` | Microloop uses outcome-verified qualification, not similarity-based caching. |
-| "Zero network activity under all conditions" | `NOT SUPPORTED` | When the default learned model is enabled, weights (~807 MB) are downloaded from HuggingFace on first learned use if not cached. Microloop sends zero decision telemetry off the machine. |
+| "AI cache" or "semantic cache" | `NOT SUPPORTED` | Ink uses outcome-verified qualification, not similarity-based caching. |
+| "Zero network activity under all conditions" | `NOT SUPPORTED` | When the default learned model is enabled, weights (~807 MB) are downloaded from HuggingFace on first learned use if not cached. Ink sends zero decision telemetry off the machine. |
 
 
 ---
@@ -147,4 +147,4 @@ Every external claim about Microloop is classified into one of four tiers.
 3. **Always report qualification overhead.** Net savings must account for observation and shadow costs.
 4. **Separate local fast-path latency from total workflow latency.**
 5. **Use "approximately" for measured ranges.** The exact number depends on workload characteristics.
-6. **Be explicit about network boundaries.** Microloop sends zero decision or outcome telemetry off the machine; initial model provisioning downloads public weights from HuggingFace unless pre-installed or disabled.
+6. **Be explicit about network boundaries.** Ink sends zero decision or outcome telemetry off the machine; initial model provisioning downloads public weights from HuggingFace unless pre-installed or disabled.

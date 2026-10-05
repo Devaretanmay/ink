@@ -1,5 +1,5 @@
 /**
- * Microloop Sales Demonstration App
+ * Ink Sales Demonstration App
  * Renders technical live decision streams, counters, drift deopt, and frontier charts.
  */
 
@@ -16,11 +16,11 @@ let modelCallsWithoutMl = 0;
 let modelCallsWithMl = 0;
 let fastPathServes = 0;
 let semanticCacheErrors = 0;
-let microloopErrors = 0;
+let inkErrors = 0;
 
 async function init() {
-  if (window.MICROLOOP_DEMO_DATA) {
-    demoData = window.MICROLOOP_DEMO_DATA;
+  if (window.INK_DEMO_DATA) {
+    demoData = window.INK_DEMO_DATA;
   } else {
     try {
       const res = await fetch('data.json');
@@ -71,7 +71,7 @@ function resetSimulation() {
   modelCallsWithMl = 0;
   fastPathServes = 0;
   semanticCacheErrors = 0;
-  microloopErrors = 0;
+  inkErrors = 0;
 
   const streamEl = document.getElementById('stream-rows');
   if (streamEl) streamEl.innerHTML = '';
@@ -137,21 +137,21 @@ function stepForward() {
     semanticCacheErrors++;
   }
   if (item.is_error) {
-    microloopErrors++;
+    inkErrors++;
   }
 
   // Check state and drift trigger
-  if (item.phase === 'DRIFT' && item.microloop_state.includes('DEOPT')) {
+  if (item.phase === 'DRIFT' && item.ink_state.includes('DEOPT')) {
     const banner = document.getElementById('policy-banner');
     if (banner && !banner.classList.contains('active')) {
       banner.classList.add('active');
     }
     updateStatusBadge('SHADOW (DEOPT RECOVERY)', 'drift');
   } else if (item.phase === 'DRIFT') {
-    updateStatusBadge(item.microloop_state, 'drift');
-  } else if (item.microloop_state === 'ACTIVE') {
+    updateStatusBadge(item.ink_state, 'drift');
+  } else if (item.ink_state === 'ACTIVE') {
     updateStatusBadge('ACTIVE (LOCAL FAST PATH)', 'active');
-  } else if (item.microloop_state === 'SHADOW') {
+  } else if (item.ink_state === 'SHADOW') {
     updateStatusBadge('SHADOW (QUALIFYING)', 'shadow');
   } else {
     updateStatusBadge('OBSERVE (LEARNING)', 'observe');
@@ -239,7 +239,7 @@ function updateCounters() {
   const scErrEl = document.getElementById('sc-drift-errors');
   const mlErrEl = document.getElementById('ml-drift-errors');
   if (scErrEl) scErrEl.innerText = `${semanticCacheErrors}`;
-  if (mlErrEl) mlErrEl.innerText = `${microloopErrors}`;
+  if (mlErrEl) mlErrEl.innerText = `${inkErrors}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +270,7 @@ function renderFrontierChart() {
     semantic_cache: '#f43f5e',
     cheap_model: '#f59e0b',
     supervised_classifier: '#3b82f6',
-    microloop: '#10b981',
+    ink: '#10b981',
   };
   const labelMap = {
     original_model: 'Original Model',
@@ -278,7 +278,7 @@ function renderFrontierChart() {
     semantic_cache: 'Semantic Cache (stale errors)',
     cheap_model: 'Cheap Model Tier',
     supervised_classifier: 'Supervised Classifier',
-    microloop: 'Microloop Decision JIT',
+    ink: 'Ink Decision JIT',
   };
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="100%" style="font-family: inherit;">`;
@@ -323,7 +323,7 @@ function renderFrontierChart() {
       for (let i = 1; i < validPoints.length; i++) {
         d += ` L ${toX(validPoints[i].x)} ${toY(validPoints[i].y)}`;
       }
-      svg += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${armKey === 'microloop' ? '2.5' : '1.5'}" opacity="0.85" />`;
+      svg += `<path d="${d}" fill="none" stroke="${color}" stroke-width="${armKey === 'ink' ? '2.5' : '1.5'}" opacity="0.85" />`;
     }
 
     // Points
@@ -331,9 +331,9 @@ function renderFrontierChart() {
       const cx = toX(p.x);
       const cy = toY(p.y);
       if (p.is_default) {
-        // Highlighting Microloop default operating point
+        // Highlighting Ink default operating point
         svg += `<circle cx="${cx}" cy="${cy}" r="7" fill="${color}" stroke="#ffffff" stroke-width="2" />`;
-        svg += `<text x="${cx + 10}" y="${cy - 8}" fill="#34d399" font-size="11" font-weight="700">Microloop (Demotes in 8 calls)</text>`;
+        svg += `<text x="${cx + 10}" y="${cy - 8}" fill="#34d399" font-size="11" font-weight="700">Ink (Demotes in 8 calls)</text>`;
       } else {
         svg += `<circle cx="${cx}" cy="${cy}" r="4" fill="${color}" opacity="0.9" />`;
       }

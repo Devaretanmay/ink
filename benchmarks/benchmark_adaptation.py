@@ -7,10 +7,10 @@ import tempfile
 from dataclasses import asdict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "python" / "microloop"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "python" / "ink"))
 
-from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
-from microloop.internal.contracts import canonical
+from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
+from ink.internal.contracts import canonical
 
 
 def run_adaptation_benchmark():
@@ -92,7 +92,7 @@ def run_adaptation_benchmark():
 
         with tempfile.TemporaryDirectory() as td:
             db_path = Path(td) / f"{arm_name}.db"
-            with Microloop(db_path) as client:
+            with Ink(db_path) as client:
                 def verify_p1(state, choice):
                     exp = ground_truth(state["text"], 1)
                     return Outcome(float(choice == exp), "bench_v1", "1", {"expected": exp})

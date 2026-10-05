@@ -19,13 +19,13 @@ import sys
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
-from microloop.internal.engines import DecisionModelEngine
-from microloop.internal.model import RUNTIME_VERSION
-from microloop.internal.model.agent import Agent, collate_items
-from microloop.internal.model.registry import model_path
+from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
+from ink.internal.engines import DecisionModelEngine
+from ink.internal.model import RUNTIME_VERSION
+from ink.internal.model.agent import Agent, collate_items
+from ink.internal.model.registry import model_path
 
 SITE = DecisionSite("linux.neural.site", {"request": "string"}, ("refund", "request_information", "specialist"))
 REQ = PromotionRequirements(5, 0.5, 0.5, 0.9, 0.25, 3, 100)
@@ -38,8 +38,8 @@ def main():
     print(f"Runtime Version: {RUNTIME_VERSION}")
     print("=" * 60)
     
-    trained_p = Path(".microloop/models/microloop-decision-v1").resolve()
-    mp = trained_p if (trained_p / "model.safetensors").is_file() else Path(os.environ.get("MICROLOOP_MODEL_DIR", str(model_path())))
+    trained_p = Path(".ink/models/ink-decision-v1").resolve()
+    mp = trained_p if (trained_p / "model.safetensors").is_file() else Path(os.environ.get("INK_MODEL_DIR", str(model_path())))
     print(f"\n1. CHECKPOINT VERIFICATION at {mp}...")
     assert (mp / "model.safetensors").is_file(), f"Missing model.safetensors at {mp}"
     assert (mp / "encoder/config.json").is_file(), "Missing encoder/config.json"
@@ -86,7 +86,7 @@ def main():
     
     print("\n6-9. DECISION JIT COMPILE, CALIBRATE, EVALUATE & ACTIVE SERVING...")
     engine = DecisionModelEngine(checkpoint=str(mp))
-    with Microloop(":memory:", engines=(engine,)) as client:
+    with Ink(":memory:", engines=(engine,)) as client:
         client.register(SITE)
         # Populate history
         for i in range(120):

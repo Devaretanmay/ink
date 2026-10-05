@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Microloop — Behavior JIT for Production AI (Sales Demo)</title>
+  <title>Ink — Behavior JIT for Production AI (Sales Demo)</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -27,7 +27,7 @@
         <div>
           <h1>Micro<span>loop</span></h1>
           <div class="tagline">Behavior JIT for production AI systems.</div>
-          <div class="sub-copy">Models handle novelty. Microloop handles verified repetition.</div>
+          <div class="sub-copy">Models handle novelty. Ink handles verified repetition.</div>
         </div>
 
         <!-- Controls -->
@@ -115,7 +115,7 @@
 
           <div style="margin-bottom: 12px;">
             <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-              <span style="color: var(--text-secondary);">Without Microloop</span>
+              <span style="color: var(--text-secondary);">Without Ink</span>
               <span id="count-no-ml" style="font-family: var(--font-mono); font-weight: 700; color: #cbd5e1;">0 calls</span>
             </div>
             <div class="progress-track">
@@ -125,7 +125,7 @@
 
           <div>
             <div style="display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px;">
-              <span style="color: #34d399; font-weight: 600;">With Microloop JIT</span>
+              <span style="color: #34d399; font-weight: 600;">With Ink JIT</span>
               <span style="font-family: var(--font-mono); font-weight: 700;">
                 <span id="count-with-ml" style="color: #94a3b8;">0</span> model / 
                 <span id="count-fp" style="color: #34d399;">0</span> fast path
@@ -170,7 +170,7 @@
 
           <div class="lat-comp-item">
             <div class="lat-comp-label">
-              <span style="color: #34d399; font-weight: 700;">Microloop Fast Path</span>
+              <span style="color: #34d399; font-weight: 700;">Ink Fast Path</span>
               <span style="color: #34d399; font-weight: 700;">0.18 ms (~820x)</span>
             </div>
             <div class="lat-bar-bg">
@@ -193,7 +193,7 @@
             <span id="sc-drift-errors" style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: #f43f5e;">0</span>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
-            <span style="font-size: 12px; color: #94a3b8;">Microloop JIT:</span>
+            <span style="font-size: 12px; color: #94a3b8;">Ink JIT:</span>
             <span id="ml-drift-errors" style="font-family: var(--font-mono); font-size: 15px; font-weight: 700; color: #34d399;">0</span>
           </div>
         </div>
@@ -206,7 +206,7 @@
       <div style="margin-bottom: 12px;">
         <h2 style="font-size: 18px; font-weight: 700;">The Core Difference: Behavior Under Policy Drift</h2>
         <p style="font-size: 13px; color: var(--text-secondary);">
-          A cache stores similarity. Microloop verifies authority against independent outcomes.
+          A cache stores similarity. Ink verifies authority against independent outcomes.
         </p>
       </div>
 
@@ -236,7 +236,7 @@
 
         <div class="drift-card" style="border-left: 3px solid #10b981;">
           <div class="drift-card-header">
-            <span>Microloop Decision JIT</span>
+            <span>Ink Decision JIT</span>
             <span style="font-size: 11px; color: #34d399; font-family: var(--font-mono);">Active Verification</span>
           </div>
           <div class="drift-stat-row">
@@ -265,7 +265,7 @@
         <div>
           <h2 style="font-size: 18px; font-weight: 700;">Empirical Safety × Savings Frontier</h2>
           <p style="font-size: 13px; color: var(--text-secondary); margin-top: 2px;">
-            Sweeping aggressiveness across all arms. Microloop maintains low error while avoiding model calls.
+            Sweeping aggressiveness across all arms. Ink maintains low error while avoiding model calls.
           </p>
         </div>
 
@@ -289,9 +289,9 @@
       <div class="abstention-card">
         <div>
           <span class="refusal-badge">Negative Control — Autonomous Refusal</span>
-          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Microloop Knows When to Say NO</h3>
+          <h3 style="font-size: 18px; font-weight: 700; margin-bottom: 6px;">Ink Knows When to Say NO</h3>
           <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
-            Evaluated on an open-web autonomous research agent with high-entropy trajectories and zero state repetition. Microloop's profiler rejected the workload outright.
+            Evaluated on an open-web autonomous research agent with high-entropy trajectories and zero state repetition. Ink's profiler rejected the workload outright.
           </p>
           <div style="font-family: var(--font-mono); font-size: 12px; background: #0f172a; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border-subtle); color: #fda4af;">
             RECOMMENDATION: DO NOT COMPILE<br>
@@ -304,7 +304,7 @@
             Research Agent Benchmark
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0;">
-            <span style="color: var(--text-secondary);">Microloop local serves:</span>
+            <span style="color: var(--text-secondary);">Ink local serves:</span>
             <span style="font-family: var(--font-mono); font-weight: 700; color: #34d399;">0 (0% error)</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 12px; padding: 4px 0;">
@@ -326,7 +326,7 @@
       </div>
       <div>
         <div class="cta-instruction">
-          microloop discover traces.jsonl
+          ink discover traces.jsonl
         </div>
       </div>
       <div style="font-size: 13px; color: var(--text-muted); margin-top: 8px;">

@@ -11,9 +11,9 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/microloop"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "python/ink"))
 
-from microloop.internal.model.agent import Agent
+from ink.internal.model.agent import Agent
 
 # Contrastive pairs specifically designed to test semantic boundary robustness:
 CONTRASTIVE_PAIRS = [
@@ -108,7 +108,7 @@ def main():
         sparse_model.transform(t)
     sparse_latency_ms = (time.time() - t0) / 100 * 1000
     
-    checkpoint_dir = Path(".microloop/models/microloop-decision-v1").resolve()
+    checkpoint_dir = Path(".ink/models/ink-decision-v1").resolve()
     t0 = time.time()
     neural_encode, agent = get_neural_encoder(checkpoint_dir)
     neural_load_time = (time.time() - t0) * 1000

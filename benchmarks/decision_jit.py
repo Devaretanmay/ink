@@ -1,4 +1,4 @@
-"""Repeatable Microloop Decision v1 load/inference measurements; never asserts latency claims."""
+"""Repeatable Ink Decision v1 load/inference measurements; never asserts latency claims."""
 
 import argparse
 import json
@@ -8,9 +8,9 @@ import statistics
 import time
 from pathlib import Path
 
-from microloop import DecisionSite, Microloop
-from microloop.internal.contracts import canonical
-from microloop.internal.engines import DecisionModelEngine
+from ink import DecisionSite, Ink
+from ink.internal.contracts import canonical
+from ink.internal.engines import DecisionModelEngine
 
 
 def main():
@@ -29,7 +29,7 @@ def main():
         start = time.perf_counter()
         choice, probability = engine.predict(artifact, state)
         timings.append(time.perf_counter() - start)
-    with Microloop(":memory:") as client:
+    with Ink(":memory:") as client:
         dispatch = []
         for _ in range(100):
             start = time.perf_counter()

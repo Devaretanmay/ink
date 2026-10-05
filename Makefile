@@ -1,7 +1,7 @@
 PYTHON ?= python3
 PLATFORM ?= darwin
 ARCH ?= arm64
-ISSUWAY_BRIDGE ?= ../multica/server/internal/microloop/bridge.py
+INKWAY_BRIDGE ?= ../inkway/server/internal/ink/bridge.py
 
 .PHONY: check fmt-check fmt-fix lint test test-examples wheel clean runtime-release
 
@@ -18,21 +18,21 @@ lint:
 	ruff check .
 
 test:
-	$(PYTHON) -m pytest python/microloop/tests/
+	$(PYTHON) -m pytest python/ink/tests/
 
 test-examples:
-	rm -rf .microloop/ci-smoke
-	$(PYTHON) -m examples.refund_agent.agent --engine exact --output .microloop/ci-smoke --require-lifecycle
+	rm -rf .ink/ci-smoke
+	$(PYTHON) -m examples.refund_agent.agent --engine exact --output .ink/ci-smoke --require-lifecycle
 
 wheel:
 	$(PYTHON) -m build --wheel --sdist --outdir dist/
 
 clean:
-	rm -rf dist build *.egg-info python/microloop/*.egg-info .pytest_cache .microloop/ci-smoke
+	rm -rf dist build *.egg-info python/ink/*.egg-info .pytest_cache .ink/ci-smoke
 
-runtime-release: ## Package the verified Issuway runtime tree as a versioned Microloop release asset
+runtime-release: ## Package the verified Inkway runtime tree as a versioned Ink release asset
 	@test "$(PLATFORM)" = darwin -a "$(ARCH)" = arm64 || (echo "runtime-release supports PLATFORM=darwin ARCH=arm64 only" >&2; exit 1)
 	@test -n "$(VERSION)" || (echo "set VERSION=<immutable artifact version>" >&2; exit 1)
-	@test -f "$(ISSUWAY_BRIDGE)" || (echo "Issuway bridge source is required" >&2; exit 1)
-	node scripts/build-runtime-bundle.mjs
-	node scripts/package-runtime-release.mjs --runtime-dir .microloop/runtime-bundle --bridge "$(ISSUWAY_BRIDGE)" --version "$(VERSION)"
+	@test -f "$(INKWAY_BRIDGE)" || (echo "Inkway bridge source is required" >&2; exit 1)
+	INKWAY_BRIDGE_SOURCE="$(INKWAY_BRIDGE)" node scripts/build-runtime-bundle.mjs
+	node scripts/package-runtime-release.mjs --runtime-dir .ink/runtime-bundle --bridge "$(INKWAY_BRIDGE)" --version "$(VERSION)"

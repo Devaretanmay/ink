@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from microloop import DecisionSite, FallbackResult, Microloop
+from ink import DecisionSite, FallbackResult, Ink
 
 from .events import AgentEvent, TrajectoryWindow
 from .features import extract_trajectory_features
@@ -46,7 +46,7 @@ class RecoveryDecision:
 class CodingAgentRecoveryAdapter:
     def __init__(
         self,
-        client: Microloop,
+        client: Ink,
         repo_path: Path | str = ".",
         site_name: str = "coding_agent.recovery_action",
         window_size: int = 30,

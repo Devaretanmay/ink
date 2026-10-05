@@ -37,7 +37,7 @@ def build_frontier_points(summary_data: list[dict[str, Any]]) -> dict[str, list[
         "semantic_cache": {"label": "Semantic Cache", "color": "#dc2626"},
         "cheap_model": {"label": "Cheap Model Tier", "color": "#d97706"},
         "supervised_classifier": {"label": "Supervised Classifier", "color": "#2563eb"},
-        "microloop": {"label": "Microloop Decision JIT", "color": "#059669"},
+        "ink": {"label": "Ink Decision JIT", "color": "#059669"},
     }
 
     frontier_by_arm: dict[str, list[dict[str, Any]]] = {k: [] for k in arms_map}
@@ -68,8 +68,8 @@ def build_frontier_points(summary_data: list[dict[str, Any]]) -> dict[str, list[
             "is_default": False,
         }
 
-        # Mark default Microloop operating point
-        if arm == "microloop" and entry.get("configuration", {}).get("comparison_rate") == 0.05:
+        # Mark default Ink operating point
+        if arm == "ink" and entry.get("configuration", {}).get("comparison_rate") == 0.05:
             point["is_default"] = True
 
         frontier_by_arm[arm].append(point)
@@ -104,7 +104,7 @@ def build_decision_stream() -> list[dict[str, Any]]:
             "id": f"#{ticket_id}",
             "text": text,
             "phase": "OBSERVE",
-            "microloop_state": "OBSERVE",
+            "ink_state": "OBSERVE",
             "choice": choice,
             "source": "MODEL",
             "latency_ms": lat,
@@ -131,7 +131,7 @@ def build_decision_stream() -> list[dict[str, Any]]:
             "id": f"#{ticket_id}",
             "text": text,
             "phase": "SHADOW",
-            "microloop_state": "SHADOW",
+            "ink_state": "SHADOW",
             "choice": choice,
             "source": "MODEL",
             "latency_ms": lat,
@@ -160,7 +160,7 @@ def build_decision_stream() -> list[dict[str, Any]]:
             "id": f"#{ticket_id}",
             "text": text,
             "phase": "ACTIVE",
-            "microloop_state": "ACTIVE",
+            "ink_state": "ACTIVE",
             "choice": choice,
             "source": src,
             "latency_ms": lat,
@@ -225,7 +225,7 @@ def build_decision_stream() -> list[dict[str, Any]]:
             "ml_source": "MODEL (fallback)",
             "ml_latency": 146.2,
             "ml_state": "SHADOW",
-            "event": "Safety preserved: Semantic cache keeps serving stale refund ❌. Microloop serves model specialist ✓.",
+            "event": "Safety preserved: Semantic cache keeps serving stale refund ❌. Ink serves model specialist ✓.",
         },
         {
             "text": "Screen is cracked on delivery, need money back.",
@@ -236,7 +236,7 @@ def build_decision_stream() -> list[dict[str, Any]]:
             "ml_source": "MODEL (fallback)",
             "ml_latency": 149.0,
             "ml_state": "SHADOW",
-            "event": "Semantic cache error rate escalates to 18%. Microloop error rate bounded at 2.68%.",
+            "event": "Semantic cache error rate escalates to 18%. Ink error rate bounded at 2.68%.",
         },
     ]
 
@@ -246,7 +246,7 @@ def build_decision_stream() -> list[dict[str, Any]]:
             "id": f"#{ticket_id}",
             "text": item["text"],
             "phase": "DRIFT",
-            "microloop_state": item["ml_state"],
+            "ink_state": item["ml_state"],
             "choice": item["ml_choice"],
             "source": item["ml_source"],
             "latency_ms": item["ml_latency"],
@@ -272,7 +272,7 @@ def main():
 
     demo_payload = {
         "metadata": {
-            "title": "Microloop Behavior JIT — Sales Demonstration",
+            "title": "Ink Behavior JIT — Sales Demonstration",
             "data_label": "Competitive benchmark replay — 18,000 decisions",
             "workload": "support",
             "workload_description": "Support Ticket Action Routing (refund, request_info, specialist)",
@@ -285,7 +285,7 @@ def main():
             "fast_path_latency_p50_ms": 0.18,
             "speedup_vs_teacher": 822.0,
             "speedup_vs_cheap": 229.0,
-            "microloop": {
+            "ink": {
                 "wrong_serves_before_demotion": "7–8",
                 "wrong_serve_rate_pct": 2.68,
                 "wrong_serves": 8,
@@ -311,9 +311,9 @@ def main():
             "repetition_rate_pct": 0.0,
             "recommendation": "DO NOT COMPILE",
             "reason": "High state entropy & novel execution trajectories. Zero reusable state distribution.",
-            "microloop_served": 0,
-            "microloop_wrong": 0,
-            "microloop_wrong_rate_pct": 0.0,
+            "ink_served": 0,
+            "ink_wrong": 0,
+            "ink_wrong_rate_pct": 0.0,
             "semantic_cache_served": 900,
             "semantic_cache_wrong": 23,
             "semantic_cache_wrong_rate_pct": 2.56,
@@ -328,7 +328,7 @@ def main():
 
     js_file = os.path.join(demo_dir, "data.js")
     with open(js_file, "w") as f:
-        f.write("window.MICROLOOP_DEMO_DATA = ")
+        f.write("window.INK_DEMO_DATA = ")
         json.dump(demo_payload, f, indent=2)
         f.write(";\n")
 

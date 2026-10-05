@@ -1,4 +1,4 @@
-"""30-Second Terminal Demonstration of Microloop Decision JIT.
+"""30-Second Terminal Demonstration of Ink Decision JIT.
 
 Clear 3-Act Narrative:
   Act 1: Observe repeated agent decisions (fallback) & profile site economics.
@@ -13,9 +13,9 @@ import sys
 import tempfile
 import time
 
-sys.path.insert(0, os.path.abspath("python/microloop"))
+sys.path.insert(0, os.path.abspath("python/ink"))
 
-from microloop import DecisionSite, FallbackResult, Microloop, Outcome, PromotionRequirements
+from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirements
 
 
 def mock_remote_llm(state: dict, drifted: bool = False) -> str:
@@ -30,12 +30,12 @@ def mock_remote_llm(state: dict, drifted: bool = False) -> str:
 
 def main():
     print("=" * 76)
-    print("   MICROLOOP DECISION JIT: 30-SECOND LOCAL LIFECYCLE DEMONSTRATION")
+    print("   INK DECISION JIT: 30-SECOND LOCAL LIFECYCLE DEMONSTRATION")
     print("=" * 76)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = os.path.join(tmpdir, "demo.db")
-        client = Microloop(db_path)
+        client = Ink(db_path)
 
         site = DecisionSite(
             name="support.routing",

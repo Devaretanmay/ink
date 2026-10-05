@@ -1,4 +1,4 @@
-"""Pilot A: Autonomous Agent Tool Orchestrator (Before Microloop)."""
+"""Pilot A: Autonomous Agent Tool Orchestrator (Before Ink)."""
 
 import time
 from typing import Any

@@ -1,4 +1,4 @@
-"""Pilot C: Autonomous Coding & CI Agent (Before Microloop)."""
+"""Pilot C: Autonomous Coding & CI Agent (Before Ink)."""
 
 import time
 from typing import Any

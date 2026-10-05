@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Assemble a versioned Microloop runtime release from the integration-tested
-// runtime directory. The directory is built by Issuway's pinned runtime
+// Assemble a versioned Ink runtime release from the integration-tested
+// runtime directory. The directory is built by Inkway's pinned runtime
 // builder; this script adds release identity, bridge protocol evidence, and
 // archive checksums without reimplementing dependency/model assembly.
 import { createHash } from "node:crypto";
@@ -25,10 +25,10 @@ if (!value("--runtime-dir") || !value("--bridge") || !artifactVersion) {
 const sourceManifest = JSON.parse(readFileSync(join(runtimeDir, "compatibility.json"), "utf8"));
 const sourceRevision = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repositoryRoot, encoding: "utf8" }).trim();
 if (sourceManifest.source_revision !== sourceRevision) {
-  throw new Error("runtime bundle source revision differs from the clean Microloop checkout");
+  throw new Error("runtime bundle source revision differs from the clean Ink checkout");
 }
-const modelManifest = JSON.parse(readFileSync(join(runtimeDir, "model/microloop-model.json"), "utf8"));
-if (sourceManifest.microloop_version !== "0.6.0rc1" || sourceManifest.model_name !== "microloop-decision-v1" || sourceManifest.model_version !== "1.0.0" || sourceManifest.bridge_protocol_version !== 1 || sourceManifest.platform !== "darwin-arm64") {
+const modelManifest = JSON.parse(readFileSync(join(runtimeDir, "model/ink-model.json"), "utf8"));
+if (sourceManifest.ink_version !== "0.6.0rc2" || sourceManifest.model_name !== "ink-decision-v1" || sourceManifest.model_version !== "1.0.0" || sourceManifest.bridge_protocol_version !== 1 || sourceManifest.platform !== "darwin-arm64") {
   throw new Error("runtime compatibility metadata does not match the release contract");
 }
 if (modelManifest.name !== sourceManifest.model_name || modelManifest.version !== sourceManifest.model_version || modelManifest.sha256?.["model.safetensors"] !== sourceManifest.model_weights_sha256) {
@@ -49,7 +49,7 @@ if (!existsSync(join(runtimeDir, "python")) || !existsSync(join(runtimeDir, "sit
 
 rmSync(outDir, { recursive: true, force: true });
 mkdirSync(outDir, { recursive: true });
-const stage = join(outDir, `microloop-runtime-${artifactVersion}-darwin-arm64`);
+const stage = join(outDir, `ink-runtime-${artifactVersion}-darwin-arm64`);
 const copy = spawnSync("ditto", [runtimeDir, join(stage, "runtime")], { stdio: "inherit" });
 if (copy.status !== 0) throw new Error("failed copying runtime directory");
 mkdirSync(join(stage, "bridge"), { recursive: true });
@@ -57,9 +57,14 @@ const bridgeTarget = join(stage, "bridge/bridge.py");
 const bridgeCopy = spawnSync("ditto", [bridgeFile, bridgeTarget], { stdio: "inherit" });
 if (bridgeCopy.status !== 0) throw new Error("failed copying bridge source");
 const bridgeHash = await sha256(bridgeTarget);
+const migrationSource = resolve(dirname(bridgeFile), "db_migration.py");
+const migrationTarget = join(stage, "bridge/db_migration.py");
+const migrationCopy = spawnSync("ditto", [migrationSource, migrationTarget], { stdio: "inherit" });
+if (migrationCopy.status !== 0) throw new Error("failed copying state migration source");
+const migrationHash = await sha256(migrationTarget);
 const releaseManifest = {
   artifact_version: artifactVersion,
-  microloop_engine_version: sourceManifest.microloop_version,
+  ink_engine_version: sourceManifest.ink_version,
   model_version: sourceManifest.model_version,
   model_identifier: sourceManifest.model_name,
   bridge_protocol_version: sourceManifest.bridge_protocol_version,
@@ -68,8 +73,9 @@ const releaseManifest = {
   model_sha256: sourceManifest.model_weights_sha256,
   runtime_manifest_sha256: await sha256(join(stage, "runtime/compatibility.json")),
   bridge_sha256: bridgeHash,
-  source_microloop_revision: sourceRevision,
-  issuway_bridge_sha256: bridgeHash,
+  state_migration_sha256: migrationHash,
+  source_ink_revision: sourceRevision,
+  inkway_bridge_sha256: bridgeHash,
 };
 writeFileSync(join(stage, "manifest.json"), `${JSON.stringify(releaseManifest, null, 2)}\n`);
 const zipName = `${basename(stage)}.zip`;
@@ -79,4 +85,4 @@ if (zipped.status !== 0) throw new Error("failed creating runtime release ZIP");
 const archiveHash = await sha256(zipPath);
 writeFileSync(`${zipPath}.sha256`, `${archiveHash}  ${zipName}\n`);
 writeFileSync(join(outDir, "release.json"), `${JSON.stringify({ ...releaseManifest, archive: zipName, artifact_sha256: archiveHash }, null, 2)}\n`);
-console.log(`[microloop-release] ${zipPath}\nsha256=${archiveHash}`);
+console.log(`[ink-release] ${zipPath}\nsha256=${archiveHash}`);

@@ -1,4 +1,4 @@
-"""Microloop Decision JIT Storage Retention Study."""
+"""Ink Decision JIT Storage Retention Study."""
 
 import json
 import os
@@ -7,10 +7,10 @@ import tempfile
 import time
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "python" / "microloop"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "python" / "ink"))
 
-from microloop import DecisionSite, Microloop, Outcome, PromotionRequirements
-from microloop.internal.contracts import canonical
+from ink import DecisionSite, Ink, Outcome, PromotionRequirements
+from ink.internal.contracts import canonical
 
 
 def run_retention_study():
@@ -35,7 +35,7 @@ def run_retention_study():
 
     with tempfile.TemporaryDirectory() as td:
         db_path = Path(td) / "retention.db"
-        with Microloop(db_path) as client:
+        with Ink(db_path) as client:
             # Seed initial site and calibrate/qualify
             for i in range(200):
                 exp = "approve" if i % 2 == 0 else "reject"

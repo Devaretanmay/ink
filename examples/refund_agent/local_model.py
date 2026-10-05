@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from microloop import FallbackResult
+from ink import FallbackResult
 
 
 class LocalModel:
