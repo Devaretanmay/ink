@@ -59,7 +59,7 @@ async function main() {
   const python = join(output, `python/cpython-${pythonVersion}-macos-aarch64-none/bin/python3.13`);
   const sitePackages = join(output, "site-packages");
   mkdirSync(sitePackages, { recursive: true });
-  run(uv, ["pip", "install", "--python", python, "--target", sitePackages, "--link-mode", "copy", "--constraint", lock, join(root, "python/microloop")]);
+  run(uv, ["pip", "install", "--python", python, "--target", sitePackages, "--link-mode", "copy", "--constraint", lock, root]);
   rmSync(join(sitePackages, "microloop-0.6.0rc1.dist-info/direct_url.json"), { force: true });
   const model = join(output, "model");
   cpSync(modelSource, model, { recursive: true, dereference: true, filter: (path) => !path.endsWith(".DS_Store") });
