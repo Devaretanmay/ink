@@ -13,11 +13,11 @@ Every external claim about Ink is classified into one of four tiers.
 
 ## Claims
 
-### Local Fast-Path Latency
+### Exact Fast-Path Latency
 - **Category:** `MEASURED`
-- **Statement:** Qualified local decisions executed in 0.18–0.19 ms (p50) in the competitive benchmark.
+- **Statement:** Qualified exact-match local decisions executed in 0.18–0.19 ms (p50) in the competitive benchmark.
 - **Evidence:** `benchmarks/results/competitive_frontier/summary.json` — 18,000 decisions across 4 workloads, strict 70/30 temporal evaluation.
-- **Scope:** Applies only to decisions served from a promoted, verified fast path. Fallback decisions still incur standard remote model latency (120–250 ms typical).
+- **Scope:** Applies only to exact-match decisions served from a promoted, verified fast path. Learned local decisions use the local model at 47.71 ms (p50). Fallback decisions still incur standard remote model latency (120–250 ms typical).
 
 ---
 
@@ -130,7 +130,7 @@ Every external claim about Ink is classified into one of four tiers.
 | "Zero errors" | `NOT SUPPORTED` | Ink incurred 7–8 wrong serves before detecting drift. |
 | "100% accuracy" | `NOT SUPPORTED` | 0 false serves is an empirical sample count on stationary synthetic benchmark traffic, not an absolute population guarantee. |
 | "Bounded false serves" | `NOT SUPPORTED` | False serves accumulate under drift until comparison evidence triggers deoptimization. |
-| "800x faster applications" | `NOT SUPPORTED` | 0.18ms applies to local fast-path serves only, not entire application workflows. |
+| "800x faster applications" | `NOT SUPPORTED` | 0.18ms applies to exact fast-path serves only; learned local decisions take ~48ms. Neither represents entire application workflows. |
 | "Guaranteed safe" | `NOT SUPPORTED` | Safety depends on comparison traffic, verifier quality, and traffic volume. |
 | "Missing outcomes are safe or negative" | `NOT SUPPORTED` | Unknown evidence remains unknown; missing evidence halts qualification rather than being assumed safe or failing. |
 | "Replaces all model calls" | `NOT SUPPORTED` | Only bounded, repeating, verifiable decisions qualify. |
@@ -145,6 +145,6 @@ Every external claim about Ink is classified into one of four tiers.
 1. **Always state the denominator.** "19.9% of DecisionSite calls" is not "19.9% of all calls."
 2. **Always report verified errors alongside call reduction.** Never quote savings without stating the error rate.
 3. **Always report qualification overhead.** Net savings must account for observation and shadow costs.
-4. **Separate local fast-path latency from total workflow latency.**
+4. **Separate exact fast-path latency (0.18ms) from learned local latency (~48ms) from total workflow latency.**
 5. **Use "approximately" for measured ranges.** The exact number depends on workload characteristics.
 6. **Be explicit about network boundaries.** Ink sends zero decision or outcome telemetry off the machine; initial model provisioning downloads public weights from HuggingFace unless pre-installed or disabled.

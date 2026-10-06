@@ -237,7 +237,7 @@ It calls your model. Ink never serves a decision it hasn't qualified through ind
 ## Deployment and data handling
 
 - **Storage:** Local SQLite at `.ink/decisions.db`. No cloud dependencies.
-- **Network:** Zero network calls during `decide()` and `record_outcome()`. Model weights are downloaded once from HuggingFace on first use.
+- **Network:** Zero network calls during `decide()` and `record_outcome()`. Model weights (~807 MB) are downloaded once from HuggingFace. Run `ink model-install` during build/deploy to pre-provision — avoids surprise runtime downloads.
 - **Retention:** `ink retain --days N` to compact old data. Delete the SQLite file to remove all state.
 - **Multi-replica:** Each replica maintains its own state DB and qualification lifecycle. No fleet-wide coordination.
 
