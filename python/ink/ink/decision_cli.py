@@ -135,8 +135,6 @@ def main(argv):
                 vr = c.verifier_readiness.upper()
                 print(f"   verifier readiness: {vr} ({c.verifier_coverage:.1%} coverage)")
                 print(f"   model latency: {c.p50_latency_ms:.1f}ms")
-                print(f"   estimated break-even: {c.break_even_decisions} decisions")
-                print(f"   estimated annual savings: ${c.estimated_annual_savings:,.2f}")
                 print(f"   recommendation: {rec_label}")
                 print(f"   reason: {c.reason}")
                 if c.volatile_fields:

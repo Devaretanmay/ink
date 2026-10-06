@@ -16,7 +16,7 @@ observe → candidate → shadow → qualify → active → compare → deopt (o
 
 Production AI agents make the same bounded decisions repeatedly. Each call costs money and adds latency, even when the answer hasn't changed. But blindly caching AI responses is dangerous — stale decisions cause real harm, and there's no built-in mechanism to detect when they go wrong.
 
-Ink bridges this gap: it identifies repeated decisions, proves they're correct against real outcomes, and serves them locally in under 0.2 ms. When reality changes, it detects drift and falls back to the model automatically.
+Ink bridges this gap: it identifies repeated decisions, proves they're correct against real outcomes, and serves exact matches locally in under 0.2 ms (learned local decisions in ~48 ms). When reality changes, it detects drift and falls back to the model automatically.
 
 ## What Ink optimizes
 
@@ -159,7 +159,7 @@ SHADOW     The candidate runs alongside the model. Outcomes are compared.
     ↓
 QUALIFY    Statistical tests confirm match quality (candidate ≠ authority).
     ↓
-ACTIVE     Qualified decisions serve locally in <0.2 ms.
+ACTIVE     Qualified decisions serve locally (exact: <0.2 ms, learned: ~48 ms).
     ↓
 COMPARE    Ongoing comparison traffic (5–35%) monitors for drift.
     ↓
@@ -195,7 +195,9 @@ From the [competitive benchmark](benchmarks/results/competitive_frontier/REPORT.
 
 | Metric | Measured | Scope |
 | :--- | :--- | :--- |
-| Local fast-path latency | 0.18–0.19 ms (p50) | Qualified local serves only |
+| Exact fast-path latency | 0.18–0.19 ms (p50) | Qualified exact-match local serves only |
+| Learned local decision latency | 47.71 ms (p50) | Local model inference (no remote call) |
+| Remote fallback latency | Provider-dependent | Unqualified decisions → original model |
 | DecisionSite call reduction | 19.9–40.4% | Within bounded decision sites |
 | Whole-app call reduction | 3.99–10.10% | Entire application (sites = 15–25% of traffic) |
 | Whole-app spend reduction | 3.51–8.87% | Entire application |
@@ -203,6 +205,8 @@ From the [competitive benchmark](benchmarks/results/competitive_frontier/REPORT.
 | Static cache wrong-serve rate | 12.0–18.0% | Same drift conditions |
 | High-entropy workload | Correctly rejected | Refused compilation (0% wasted resources) |
 
+> **Latency tiers:** Exact fast paths serve in <0.2 ms for previously-seen state+choice combinations. Learned local decisions use the local model (~48 ms) to handle unseen-but-similar states without a remote call. Decisions that don't qualify for either tier fall back to the original remote model.
+>
 > **Important denominators:** Bounded verifiable decisions typically represent 15–25% of total application LLM calls. Whole-application savings reflect this. 20–40% fewer model calls _inside qualified bounded decision sites_ is the correct framing.
 
 ### What Ink does NOT claim
@@ -210,7 +214,7 @@ From the [competitive benchmark](benchmarks/results/competitive_frontier/REPORT.
 - **Zero errors** — 7–8 wrong serves occurred before drift detection
 - **80% company-wide cost reduction** — whole-app savings depend on bounded traffic share
 - **Replacement of all model calls** — only bounded, repeating, verifiable decisions qualify
-- **Faster entire applications** — 0.18 ms applies to qualified local serves, not total workflow
+- **Faster entire applications** — 0.18 ms (exact) and ~48 ms (learned) apply to qualified local serves, not total workflow
 
 ---
 
