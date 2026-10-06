@@ -63,6 +63,24 @@ def main(argv):
     parser.add_argument("--steps", type=int, default=50)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument(
+        "--avg-call-cost",
+        type=float,
+        default=None,
+        help="Estimated average remote LLM call cost in USD for ROI simulation",
+    )
+    parser.add_argument(
+        "--avg-call-latency-ms",
+        type=float,
+        default=None,
+        help="Estimated average remote LLM call latency in ms for ROI simulation",
+    )
+    parser.add_argument(
+        "--monthly-volume",
+        type=int,
+        default=None,
+        help="Estimated monthly decision volume for ROI simulation",
+    )
     args = parser.parse_args(argv)
     try:
         if args.command == "model-install":
@@ -135,6 +153,25 @@ def main(argv):
                         f"   [PROFILE] qual cost: ${c.qualification_cost_usd:.4f} | "
                         f"avg cost: ${c.avg_cost:.6f}"
                     )
+                if args.monthly_volume is not None or args.avg_call_cost is not None or args.avg_call_latency_ms is not None:
+                    sim_vol = args.monthly_volume or int(c.call_frequency * 30)
+                    sim_cost = args.avg_call_cost if args.avg_call_cost is not None else c.avg_cost
+                    sim_lat = args.avg_call_latency_ms if args.avg_call_latency_ms is not None else c.p50_latency_ms
+                    low_cov = round(c.repetition_rate * 0.70, 4)
+                    high_cov = round(c.repetition_rate * 0.95, 4)
+                    low_avoided = int(sim_vol * low_cov)
+                    high_avoided = int(sim_vol * high_cov)
+                    low_spend = low_avoided * sim_cost
+                    high_spend = high_avoided * sim_cost
+                    saved_lat_sec = round((high_avoided * (sim_lat - 0.2)) / 1000.0, 1)
+                    print("   [ROI SIMULATION (ESTIMATE)]")
+                    print(f"     monthly volume: {sim_vol:,} decisions")
+                    print(f"     estimated qualified coverage: {low_cov:.1%}–{high_cov:.1%}")
+                    print(f"     estimated monthly calls avoided: {low_avoided:,}–{high_avoided:,}")
+                    print(f"     estimated monthly model spend avoided: ${low_spend:,.2f}–${high_spend:,.2f}")
+                    if sim_lat > 1.0:
+                        print(f"     estimated latency saved: ~{saved_lat_sec:,.1f}s total/month (p50: {sim_lat:.1f}ms → <0.2ms)")
+                    print("     Note: Projections are estimates based on trace repetition; qualification is not guaranteed.")
                 if args.snippet and c.snippet:
                     print("   [INTEGRATION SNIPPET]:")
                     for sline in c.snippet.splitlines():

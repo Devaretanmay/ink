@@ -3,6 +3,12 @@
 All notable changes to Ink are documented here. This project follows
 [Semantic Versioning](https://semver.org/).
 
+> Note: As of 0.6.0rc2, the PyPI distribution is `ink-jit` (install with
+> `pip install ink-jit`). The Python import remains `import ink`.
+> Earlier entries reference the retired `ink` PyPI distribution and the
+> pre-0.4.0 trajectory monitoring product. Historical entries are preserved
+> verbatim.
+
 > Note (2026-09-28 audit): two 0.4.0 blocks overlap below. "[0.4.0]
 > (unreleased)" is the decision-JIT release narrative; "Unreleased (targeting
 > 0.4.0)" preserves the Pass 1–4 trajectory development history. Kept verbatim;

@@ -17,7 +17,7 @@ All data is stored locally in an embedded SQLite WAL database.
 - **Air-Gapped & Offline Isolation:** For environments where all outbound network access is prohibited:
   - Model weights can be pre-installed into the image via `ink model-install` before deployment.
   - Or pointed to an existing local directory via `export INK_MODEL_DIR=/path/to/weights`.
-  - Or the learned model can be disabled entirely (`loop = Ink(model_enabled=False)` or `export INK_MODEL_DISABLED=1`), restricting Ink to exact-tier operations with zero outbound network calls and zero model weight downloads.
+  - For debugging or testing without model weights, the internal switch `INK_MODEL_DISABLED=1` restricts operation to the exact tier only.
 
 ## Data Retention and Compaction
 Data retention policies are controlled locally. You can prune old decision records while preserving active qualification evidence using either the Python API or CLI:

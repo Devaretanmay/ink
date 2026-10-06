@@ -59,8 +59,8 @@ A candidate emitted by an internal learned model or exact engine has **zero serv
 4. Passing non-comparison traffic checks.
 If any condition is not met, the host application's original fallback model executes.
 
-### Invariant 3 — The 421M model is the default implementation, not the architecture
-The current ~421M neural model (ModernBERT-large with custom DecisionHead and Scorer) is Ink-owned work and ships as a default part of every standard installation. It can be disabled on resource-constrained deployments (`model_enabled=False`). The architecture permits future learned backends (distilled, quantized, linear, hybrid) without altering core contracts.
+### Invariant 3 — The 421M model is part of Ink core
+The ~421M learned model (ModernBERT-large with custom DecisionHead and Scorer) ships as an integral part of the Ink Decision Engine. Standard installations include and initialize this model automatically. Internal flags (`model_enabled=False` or `INK_MODEL_DISABLED=1`) exist solely for unit testing, offline profiling diagnostics, and emergency fail-open recovery, not as standard deployment configurations. The architecture permits future learned backends (distilled, quantized, linear, hybrid) without altering core contracts.
 
 ### Invariant 4 — Exact fast paths are an execution tier, not a separate product
 `ExactEngine` is an ultra-fast qualified execution tier within the Decision Engine. It operates analogously to a compiler branch optimization: when repeated exact states accumulate conclusive statistical evidence, Ink serves them directly in under 0.2ms, bypassing full model inference.

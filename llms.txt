@@ -1,15 +1,23 @@
 # Ink
 
-Ink turns repeated agent decisions into verified fast paths.
+Behavior JIT for production AI. Ink turns repeated, verified model decisions
+into local Fast Paths with automatic fallback and deoptimization.
 
 The Python SDK exposes Ink, DecisionSite, DecisionResult, FallbackResult,
-Outcome, PromotionRequirements, decision, and record_outcome. Existing v0.3 imports
-remain for compatibility. New integrations should use the decision API.
+Outcome, PromotionRequirements, decision, record_outcome, CandidateSite,
+discover_from_file, and discover_from_traces. The CLI exposes ink discover,
+ink sites, ink status, ink inspect, ink compile, ink evaluate, ink maintenance,
+ink value, ink export, ink retain, ink model-install, and ink model-train.
+
+Install: pip install ink-jit
+Import: from ink import DecisionSite, Ink, FallbackResult
 
 Read README.md, docs/integration.md, docs/architecture.md, docs/cli.md,
-docs/concepts.md, docs/compatibility.md, docs/validation-v0.4.md,
-docs/implementation-status-v0.4.md, docs/laya-path.md, and examples/refund_agent/README.md.
+docs/concepts.md, docs/compatibility.md, docs/discovery.md, docs/claims.md,
+docs/production-safety.md, docs/security-data-handling.md, docs/deployment.md,
+docs/threat-model.md, docs/value-model.md, docs/alternatives.md,
+docs/pii-guidance.md, and examples/refund_agent/README.md.
 
 Local-first, explicit sites, conservative exact-state coverage, independent outcome
 verification, randomized fallback comparison, and explicit maintenance. No cloud,
-dashboard, workflow mining, or automatic framework attachment in v0.4.
+dashboard, workflow mining, or automatic framework attachment.

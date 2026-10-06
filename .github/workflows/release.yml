@@ -15,6 +15,7 @@ jobs:
           python-version: "3.13"
       - run: pip install ruff pytest build
       - run: python scripts/check-brand-hygiene.py
+      - run: python scripts/check-product-hygiene.py
       - run: ruff check .
       - run: pytest python/ink/tests/
       - run: python -m examples.refund_agent.agent --engine exact --output .ink/ci-smoke --require-lifecycle
@@ -34,8 +35,10 @@ jobs:
         run: |
           python -m venv .wheeltest
           source .wheeltest/bin/activate
-          pip install dist/*.whl
+          pip install dist/ink_jit-*.whl
           ink --version
+          ink --help
+          ink discover --help
           python -c "import ink; print(ink.__version__)"
       - uses: actions/upload-artifact@v4
         with:
@@ -43,10 +46,11 @@ jobs:
           path: dist/*
 
   publish-pypi:
-    name: publish (pypi)
+    name: publish ink-jit to PyPI
     needs: [verify, build-artifacts]
     if: vars.PUBLISH_PYPI == 'true'
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       id-token: write
     steps:
@@ -69,3 +73,7 @@ jobs:
           echo "verify:          ${{ needs.verify.result }}"
           echo "build-artifacts: ${{ needs.build-artifacts.result }}"
           echo "publish-pypi:    ${{ needs.publish-pypi.result }}"
+          echo ""
+          echo "Distribution:    ink-jit"
+          echo "Import:          ink"
+          echo "CLI:             ink"

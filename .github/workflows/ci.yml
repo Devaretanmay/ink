@@ -26,6 +26,7 @@ jobs:
           python-version: "3.13"
       - run: pip install ruff
       - run: python scripts/check-brand-hygiene.py
+      - run: python scripts/check-product-hygiene.py
       - run: ruff check .
 
   test:
@@ -47,13 +48,18 @@ jobs:
         run: |
           python -m venv .wheeltest
           source .wheeltest/bin/activate
-          pip install dist/*.whl
+          pip install dist/ink_jit-*.whl
           ink --version
-          ink sites
+          ink --help
+          ink discover --help
           python -c "import ink; print(ink.__version__)"
           pip install pytest
           pytest python/ink/tests/
           python -m examples.refund_agent.agent --engine exact --output .ink/ci-smoke --require-lifecycle
+      - name: Verify README install command matches distribution
+        run: |
+          grep -q 'pip install ink-jit' README.md || (echo "README install command mismatch" && exit 1)
+          ! grep -q 'pip install ink$' README.md || (echo "README contains bare 'pip install ink'" && exit 1)
 
   python-314-rejection:
     name: verify python 3.14 rejection

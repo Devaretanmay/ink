@@ -20,9 +20,12 @@ from .internal.contracts import (
 logging.getLogger("ink").addHandler(logging.NullHandler())
 
 try:
-    __version__: str = _version("ink")
+    __version__: str = _version("ink-jit")
 except Exception:
-    __version__ = "0.6.0rc2"
+    try:
+        __version__ = _version("ink")
+    except Exception:
+        __version__ = "0.6.0rc2"
 
 __all__ = [
     "Ink",

@@ -38,7 +38,7 @@ def _feed(loop, site, count, prefix="t"):
         loop.record_outcome(res.decision_id, **asdict(outcome))
 
 
-# --- Test 1: pip install ink includes model engine by default ---
+# --- Test 1: pip install ink-jit includes model engine by default ---
 def test_default_install_includes_model_engine():
     with Ink(":memory:") as loop:
         assert "decision" in loop.engines

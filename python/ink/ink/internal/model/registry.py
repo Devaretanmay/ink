@@ -108,7 +108,7 @@ def install(source=None):
         except ImportError as exc:
             msg = (
                 "huggingface-hub is not installed; reinstall ink: "
-                "pip install --force-reinstall ink"
+                "pip install --force-reinstall ink-jit"
             )
             raise RuntimeError(msg) from exc
 

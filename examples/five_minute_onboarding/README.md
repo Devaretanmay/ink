@@ -7,7 +7,7 @@ Get from raw agent execution traces to local verified fast paths in 5 minutes.
 ### Step 1: Install Ink
 
 ```bash
-pip install ink
+pip install ink-jit
 ```
 
 *(Zero neural model download required for discovery, profiling, exact, or sparse semantic paths).*

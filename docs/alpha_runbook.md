@@ -26,7 +26,7 @@ Ink is designed for **bounded, repetitive, verifiable AI decision points**. Not 
 Ink separates the lightweight Python runtime from the 421M internal learned decision model weights:
 
 1. **Lightweight Package Install:**
-   `pip install ink` installs the core Decision Engine, SQLite storage layer, and execution runtime (only ~few megabytes). Model weights are **not** bundled into the distribution wheel.
+   `pip install ink-jit` installs the core Decision Engine, SQLite storage layer, and execution runtime (only ~few megabytes). Model weights are **not** bundled into the distribution wheel.
 
 2. **On-Demand Secure Provisioning:**
    On the first invocation of an internal learned model path (or when compiling a site with `engine="decision"`), Ink automatically provisions the official pinned weights (`ink-decision-v1`) into the local cache directory:
@@ -63,15 +63,17 @@ Ink separates the lightweight Python runtime from the 421M internal learned deci
      ```
    - If model files are absent in an offline environment, Ink raises an explicit `FileNotFoundError` with clear setup instructions, rather than silently degrading.
 
-6. **Resource-Constrained Opt-Out:**
-   On constrained instances (e.g. Lambda, tiny containers) where 807 MB disk or ~916 MB RAM is prohibitive, disable the learned model explicitly to run in exact-tier only mode:
+6. **Emergency / Diagnostics Model Bypass:**
+   In diagnostic environments or emergency fail-open operations where model initialization must be bypassed, Ink provides an internal switch:
    ```python
-   loop = Ink(model_enabled=False)  # Memory footprint: ~42.5 MB total process RSS
+   # Diagnostic / emergency only — not standard production configuration
+   engine = Ink(model_enabled=False)
    ```
    Or set the environment variable:
    ```bash
    export INK_MODEL_DISABLED=1
    ```
+   Standard production deployments should always include the learned model as part of Ink core.
 
 ---
 

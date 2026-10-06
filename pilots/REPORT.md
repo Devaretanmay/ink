@@ -80,7 +80,7 @@ Phase 9 automatically flagged volatile fields (`request_id`, `session_id`, `crea
 | **Pilot C (Coding)** | 1 (`integrated_coding_agent.py`) | 18 LOC | ~3 minutes | 0 (pure stdlib + ink) | Mapping test failure strings into clean state |
 
 ### Installation Profile
-- `pip install ink` installs clean local wheels without compilation.
+- `pip install ink-jit` installs clean local wheels without compilation.
 - Zero neural model weights downloaded when operating in exact and sparse TF-IDF modes.
 - No network requests, API keys, or background services required.
 

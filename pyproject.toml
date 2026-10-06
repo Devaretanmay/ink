@@ -3,9 +3,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "ink"
+name = "ink-jit"
 version = "0.6.0rc2"
-description = "Behavior JIT for production AI — learns which repeated decisions no longer need inference"
+description = "Behavior JIT for production AI — learns which repeated, verified decisions no longer need inference"
 authors = [{ name = "Ink Team" }]
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]

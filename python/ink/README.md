@@ -15,6 +15,8 @@ observe → profile → candidate → shadow → verified → active
 ## 1. Quick Installation
 
 ```bash
+pip install ink-jit
+# Or for local development:
 pip install -e python/ink
 ```
 
