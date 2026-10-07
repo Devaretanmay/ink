@@ -3,7 +3,7 @@
 Clear 3-Act Narrative:
   Act 1: Observe repeated agent decisions (fallback) & profile site economics.
   Act 2: Compile candidate fast paths & qualify in shadow against verified outcomes.
-  Act 3: Serve verified decisions locally in <0.5ms with zero false serves on drift.
+  Act 3: Serve verified decisions locally with no model call, and deoptimize on drift.
 """
 
 from __future__ import annotations

@@ -1835,7 +1835,7 @@ def generate_markdown_report(data: dict) -> str:
         f"- **Wrong Serves Under Injected Policy Drift:** {', '.join(str(s['false_fast_path_serves']) for s in bm['drift_and_demotion'].values() if isinstance(s, dict))} false serves occurred across tested seeds before comparison evidence triggered demotion.",
 
         "",
-        "> **Operational Scope:** Decision site call reduction figures (20–40% in benchmarks) are derived from synthetic trace repetition distributions. True enterprise savings will be determined by production repetition rates during the first design partner pilot.",
+        "> **Operational Scope:** Decision-site call-reduction figures (20–40% in benchmarks) are derived from synthetic trace repetition distributions. Production savings depend on your own repetition rates; measure them with `ink discover` before integrating.",
         "",
         "---",
         "**Conclusion:** Ink Release Candidate has verified all 16 operational benchmarks across exact execution tiers and internal learned decision model tiers.",

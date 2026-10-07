@@ -1,30 +1,47 @@
 # Ink Python SDK
 
-**Turn repeated agent decisions into verified fast paths.**
+**Models handle novelty. Ink turns proven behavior into software.**
 
-Ink is a verified local Decision JIT for AI agents. An agent starts with its original model. Ink records bounded decisions, profiles site economics, builds local candidate paths, runs them in shadow, and promotes them only after independent outcome verification. Unfamiliar or unverified states continue to use the original model.
+Ink is a local runtime for production AI teams whose agents make repeated, bounded,
+verifiable decisions. It records those decisions and their independent outcomes, shadows
+candidate behavior, qualifies only what proves itself, serves it locally as a **Fast
+Path**, and deoptimizes automatically when reality changes. Unfamiliar or unverified
+states keep using your original model.
 
 ```text
-observe → profile → candidate → shadow → verified → active
-                                  ↑                  │
-                                  └── outcome drift ─┘
+observe → candidate → shadow → qualify → active → compare → deopt (on drift)
 ```
 
 ---
 
-## 1. Quick Installation
+## Install
 
 ```bash
 pip install ink-jit
-# Or for local development:
+# Local development:
 pip install -e python/ink
 ```
 
-Requirements: Python 3.11–3.13 on Apple Silicon macOS 14+ or Linux x86_64.
+The import is `ink`; the CLI is `ink`. Requirements: Python 3.11–3.13 on Apple Silicon
+macOS or Linux.
 
 ---
 
-## 2. In-Loop Agent Usage
+## Evaluate first
+
+Before writing integration code, point discovery at traces you already have:
+
+```bash
+ink discover traces.jsonl
+```
+
+It reports where repeated, bounded, verifiable behavior exists — and says so plainly when
+it does not. See the project [README](../../README.md) and
+[docs/discovery.md](../../docs/discovery.md).
+
+---
+
+## Minimal integration
 
 ```python
 from ink import DecisionSite, FallbackResult, Ink
@@ -39,17 +56,16 @@ site = DecisionSite(
 with Ink() as client:
     client.register(site)
 
-    # 1. Decide: local fast path (<0.5ms) or fallback LLM
+    # Serves locally once qualified; calls your model otherwise.
     result = client.decide(
-        site=site.name,
+        site=site,
         state={"text": "Item damaged in shipping", "amount": 25},
         fallback=lambda: FallbackResult(my_agent_llm(), model_calls=1, cost=0.002),
     )
 
-    # 2. Host executes action
     receipt = execute_action(result.choice)
 
-    # 3. Record outcome for statistical qualification and drift monitoring
+    # The independent outcome is what authorizes the Fast Path.
     client.record_outcome(
         result.decision_id,
         quality=1.0 if receipt.success else 0.0,
@@ -61,43 +77,29 @@ with Ink() as client:
 
 ---
 
-## 3. Site Profiling & Discovery
+## Inspection
 
-Evaluate decision site viability before spending time qualifying:
+```bash
+ink sites  --db .ink/decisions.db
+ink status support.route --db .ink/decisions.db
+ink value  --db .ink/decisions.db
+```
+
+From Python:
 
 ```python
-# Profile an active site
 profile = client.profile(site)
-print(profile.recommendation)        # 'strong_candidate', 'poor_repetition', etc.
-print(profile.break_even_decisions)  # Decisions until qualification amortizes
-
-# Discover candidates from raw JSONL agent traces
-from ink.discovery import discover_from_file
-
-candidates = discover_from_file("agent_traces.jsonl")
-for c in candidates:
-    print(f"{c.site_name:25} | {c.repetition_rate:.1%} repeat | {c.recommendation.upper()}")
+print(profile.recommendation)        # 'strong_candidate', 'poor_repetition', ...
+print(profile.break_even_decisions)  # decisions until qualification amortizes
 ```
 
 ---
 
-## 4. Local Fast Paths & Semantic Coverage
-
-Ink supports both exact-state matching and sparse TF-IDF semantic coverage:
-- **Exact Hash Engine:** Microsecond exact canonical JSON state matching.
-- **Sparse TF-IDF Semantic Engine:** Character n-gram representation (0.012ms latency, 0.5MB memory) with negative-margin safety bounds and counterexample contraction.
-- **Ink Decision Model v1:** Fine-tuned ModernBERT decision model with temperature-scaled calibration heads.
-
----
-
-## 5. Development & Testing
+## Development
 
 ```bash
-# Run the test suite
 pytest python/ink/tests/
-
-# Run interactive 3-act terminal demo
 python examples/thirty_second_demo.py
 ```
 
-License: Apache-2.0
+License: Apache-2.0.

@@ -306,7 +306,7 @@ This benchmark rigorously evaluates the fundamental empirical question:
 **Yes, under temporal policy stability and distribution shifts.** On repetitive, verifiable decision sites, Ink occupies a **strictly superior safety frontier** compared to exact and semantic caches. Specifically:
 1. **Under Passive Policy Drift:** Semantic caches suffered a disastrous **12.0% to 18.0% verified wrong-serve rate** because they blindly matched semantic prototypes calibrated on stale historical policies. Ink, by maintaining active comparison traffic and factual outcome verification, detected drift within **3 consecutive disagreements**, demoted the stale artifact back to shadow, and incurred **only 7 to 8 wrong serves before revocation** in customer support and tool selection (a **2.26% to 2.68%** verified error rate; Wilson 95% CI: `[1.10%, 5.19%]`).
 2. **Whole-Application Savings Realism:** When accounting for whole-application denominators (where bounded decision sites constitute 15–25% of total LLM calls), Ink avoids **3.99% to 10.10% of whole-application model calls** and achieves **3.51% to 8.87% net LLM spend reduction**.
-3. **Cheap Model vs. Ink Tradeoff:** Cheaper models achieve high call reduction cheaply but suffer from a persistent baseline error rate (11–14% error), whereas Ink provides deterministic near-zero errors on qualified fast paths with sub-millisecond latency (<0.2ms vs. 35–48ms for cheap models).
+3. **Cheap Model vs. Ink Tradeoff:** Cheaper models achieve high call reduction cheaply but carry a persistent baseline error rate (11–14%), whereas Ink kept verified wrong-serve rates in the low single digits (2.26%–2.68%) on qualified Fast Paths, with local serve latency of 0.17–0.21 ms.
 4. **Negative Control Rejection:** On the high-entropy research agent negative control, Ink refused compilation and safely abstained (0% false serves), while naive semantic caching served with a 2.56% wrong-serve rate and exact caching had 0% hit rate.
 
 ---
@@ -425,7 +425,7 @@ Strict temporal splitting was enforced across all 18,000 decisions:
 | **Small Classifier** | 0.18 | 0.22 | 148.7 | 148.6 | 648.6 |
 | **Ink (JIT)** | **0.17** | **0.21** | 148.7 | **148.6** | **500.2 (on hit)** |
 
-*Local Fast Path Latency:* Ink routes local semantic decisions in **0.17ms**, which is **~800x faster than the original model (125ms)** and **~180x faster than a cheap cloud model (32ms)**.
+*Local Fast Path Latency:* Ink exact Fast Path serves completed in **0.17 ms p50**. This figure applies to local Fast Path serves only — not whole-workflow latency, and not learned local decisions, which run through the local model at roughly 48 ms.
 
 ---
 
@@ -450,10 +450,10 @@ Under passive policy drift (eval decisions 600–900):
 - **Semantic Cache:** Served **212 wrong decisions** (blindly matched old prototypes).
 - **Small Classifier:** Served **165 wrong decisions** (obsolete historical weights).
 - **Cheap Model:** Unchanged prompt -> degraded accuracy; made 54 errors during drift.
-- **Ink:** Incurred **3 wrong serves before autonomous demotion**!
-  - Disagreement detected via comparison traffic and downstream verifier within 4 decisions.
-  - Active artifact demoted to SHADOW; further traffic automatically redirected to fallback.
-  - Requalified under new policy during recovery phase.
+- **Ink:** Incurred **7–8 wrong serves before autonomous demotion** (see the outcome-correctness tables above).
+  - Disagreement was detected through comparison traffic and downstream verifier signals.
+  - Active artifact demoted to shadow; further traffic redirected to fallback.
+  - Requalified under the new policy during recovery.
 
 ---
 
@@ -468,7 +468,7 @@ Under passive policy drift (eval decisions 600–900):
 ## 15. Primary Frontier (Calls Avoided vs. Verified Error)
 See standalone vector SVG: [frontier_primary_calls_vs_wrong_serves.svg](frontier_primary_calls_vs_wrong_serves.svg)
 
-**Key Takeaway:** At call reductions between 30% and 50%, Ink maintains a verified wrong-serve rate of **0.42%**, whereas semantic caches at the same call reduction incur a **15.2% to 22.1% error rate**.
+**Key Takeaway:** Across the swept operating points, Ink kept verified wrong-serve rates in the low single digits while exact and semantic caches at comparable call reduction exceeded 15%. See the chart and `summary.json` for per-point values.
 
 ---
 
@@ -495,56 +495,17 @@ See standalone vector SVG: [frontier_latency_vs_error.svg](frontier_latency_vs_e
 
 ---
 
-## 19. ICP Findings (Ideal Customer Profile)
+## 19. Scope and caveats
 
-Ink delivers decisive ROI when:
-1. **Repeat Rate ≥ 25%:** Workloads with repeated states (e.g. ticket triage, tool calls, workflow dispatch).
-2. **Deterministic Verifier Available:** Downstream execution checks (HTTP 200, unit tests, schema validation, customer satisfaction signals).
-3. **Latency-Critical Service Loops:** Agent loops requiring sub-millisecond execution where 120ms model calls cause user-perceptible lag.
-4. **Policy Volatility Present:** Applications subject to periodic business logic changes where static caching creates hidden liabilities.
-
----
-
-## 20. Competitive Verdict
-
-| Competitor | Where it Beats Ink | Where Ink Beats it |
-| :--- | :--- | :--- |
-| **Original Model** | Handles arbitrary zero-shot novelty; zero cold start | 800x lower latency on repetitive decisions; 45% lower site spend |
-| **Exact Cache** | Simpler; zero cold-start delay (hit on 2nd repeat) | Handles semantic paraphrases; autonomously demotes under drift |
-| **Semantic Cache** | Slightly higher raw call reduction if errors are ignored | **50x fewer wrong serves under drift**; provable safety invariants |
-| **Cheap Model** | Does not require repetitive state; applies to whole app | Sub-millisecond latency (<0.2ms vs 35ms); 99%+ accuracy on hits |
-| **Small Classifier** | Easy to train; does not require complex DB storage | Drift demotion without manual retraining; formal margin bounds |
+- This benchmark is **controlled and synthetic**. Workloads and drift injections are generated for reproducibility; they are not sampled from a customer deployment.
+- Whole-application figures depend on the bounded-traffic share (15%–25% here).
+- Exact Fast Path latency (<0.2 ms) is a local serve figure. Learned local decisions run at roughly 48 ms; unqualified decisions pay full fallback latency.
+- Ink incurred **7–8 wrong serves** before detecting drift. It is not a zero-error system.
+- Open-ended generation and unstructured reasoning are not compiled into local regions.
 
 ---
 
-## 21. Claims We Can Now Make (MEASURED)
-- `MEASURED`: Under passive policy drift, Ink limits wrong serves before revocation to ≤ 3, maintaining a verified wrong-serve rate under 0.5% (Wilson 95% CI upper bound: 1.23%).
-- `MEASURED`: Ink local fast-path dispatch executes in <0.20ms, delivering >600x latency reduction relative to teacher models.
-- `MEASURED`: Ink autonomously refuses compilation on high-entropy non-repetitive workloads, preventing false serves.
-
----
-
-## 22. Claims We Must Stop Making (NOT SUPPORTED)
-- `NOT SUPPORTED`: "Ink reduces whole-company AI spend by 80%." (Actual whole-app reduction is bounded by decision site share, typically 10–20%).
-- `NOT SUPPORTED`: "Ink replaces all LLM calls." (Open-ended synthesis and unstructured reasoning cannot be compiled into local decision regions).
-- `NOT SUPPORTED`: "Ink has zero error." (Ink achieved 0.42% error during drift detection; Wilson CI upper bound is ~1.2%).
-
----
-
-## 23. Product Implication
-
-**Ink is fundamentally a LATENCY & SAFETY product for agentic loops, with cost savings as an economic bonus.**
-Positioning Ink purely as a "cheaper LLM cache" invites unfavorable comparisons to cheap models ($0.15/M). Positioning Ink as a **Verified Local Decision JIT** that delivers sub-millisecond speed and guaranteed drift demotion addresses what LLMs cannot do: deterministic sub-millisecond local execution without hallucination risk.
-
----
-
-## 24. YC Implication (One-Sentence Punchline)
-
-> **"Ink compiles repeated AI agent decisions into sub-millisecond local code with guaranteed safety under policy drift—giving agents the speed of a cache without the hallucinations."**
-
----
-
-## 25. Raw Artifact Index
+## 20. Raw Artifact Index
 
 - **Decisions Log (JSONL):** `benchmarks/results/competitive_frontier/decisions.jsonl`
 - **Summary Metrics (JSON):** `benchmarks/results/competitive_frontier/summary.json`

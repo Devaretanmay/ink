@@ -12,7 +12,8 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv in (["--help"], ["-h"]):
         print(
-            "Ink — verified fast paths for repeated agent decisions.\n\n"
+            "Ink — turns proven, verified decisions into local Fast Paths.\n\n"
+            "Start by finding repeated behavior: ink discover TRACES.jsonl\n"
             "Commands: discover TRACES, sites, inspect SITE, compile SITE, evaluate SITE,\n"
             "          maintenance, export, retain, value, model-install, model-train.\n"
             "          Use COMMAND --help for options."

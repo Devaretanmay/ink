@@ -1401,7 +1401,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.05,
@@ -1448,7 +1448,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -1495,7 +1495,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.2,
@@ -1542,7 +1542,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -1589,7 +1589,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -2991,7 +2991,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.05,
@@ -3038,7 +3038,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -3085,7 +3085,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.2,
@@ -3132,7 +3132,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -3179,7 +3179,7 @@
   },
   {
     "workload": "support",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -4626,7 +4626,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.05,
@@ -4673,7 +4673,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -4720,7 +4720,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.2,
@@ -4767,7 +4767,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -4814,7 +4814,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -6216,7 +6216,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.05,
@@ -6263,7 +6263,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -6310,7 +6310,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.2,
@@ -6357,7 +6357,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -6404,7 +6404,7 @@
   },
   {
     "workload": "tool_select",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -7851,7 +7851,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.05,
@@ -7898,7 +7898,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -7945,7 +7945,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.2,
@@ -7992,7 +7992,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -8039,7 +8039,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -9441,7 +9441,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.05,
@@ -9488,7 +9488,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -9535,7 +9535,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.2,
@@ -9582,7 +9582,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -9629,7 +9629,7 @@
   },
   {
     "workload": "incident_triage",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -11076,7 +11076,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.05,
@@ -11123,7 +11123,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -11170,7 +11170,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.2,
@@ -11217,7 +11217,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -11264,7 +11264,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "passive_drift",
     "configuration": {
       "comparison_rate": 0.1,
@@ -12666,7 +12666,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.05,
@@ -12713,7 +12713,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -12760,7 +12760,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.2,
@@ -12807,7 +12807,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,
@@ -12854,7 +12854,7 @@
   },
   {
     "workload": "research_novelty",
-    "arm": "microloop",
+    "arm": "ink",
     "mode": "explicit_change",
     "configuration": {
       "comparison_rate": 0.1,

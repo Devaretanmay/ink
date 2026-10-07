@@ -1,4 +1,4 @@
-"""Pilot A: Autonomous Agent Tool Orchestrator (Integrated with Ink)."""
+"""Tool-selection decision site for an autonomous agent, wrapped with Ink."""
 
 import time
 from typing import Any

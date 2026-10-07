@@ -1,23 +1,25 @@
 # Ink
 
-Behavior JIT for production AI. Ink turns repeated, verified model decisions
-into local Fast Paths with automatic fallback and deoptimization.
+Behavior JIT for production AI. Models handle novelty; Ink turns proven behavior into
+software. Ink observes repeated, bounded, verifiable decisions and their independent
+outcomes, qualifies behavior that has proven itself, serves it locally as Fast Paths, and
+deoptimizes when reality changes. Serving authority comes from verified outcomes, not
+similarity or confidence alone.
 
-The Python SDK exposes Ink, DecisionSite, DecisionResult, FallbackResult,
-Outcome, PromotionRequirements, decision, record_outcome, CandidateSite,
-discover_from_file, and discover_from_traces. The CLI exposes ink discover,
-ink sites, ink status, ink inspect, ink compile, ink evaluate, ink maintenance,
-ink value, ink export, ink retain, ink model-install, and ink model-train.
+The Python SDK exposes Ink, DecisionSite, DecisionResult, FallbackResult, Outcome,
+PromotionRequirements, decision, record_outcome, CandidateSite, discover_from_file, and
+discover_from_traces. The CLI exposes ink discover, ink sites, ink status, ink inspect,
+ink compile, ink evaluate, ink maintenance, ink value, ink export, ink retain,
+ink model-install, and ink model-train.
 
 Install: pip install ink-jit
 Import: from ink import DecisionSite, Ink, FallbackResult
+Evaluate without integrating: ink discover traces.jsonl
 
-Read README.md, docs/integration.md, docs/architecture.md, docs/cli.md,
-docs/concepts.md, docs/compatibility.md, docs/discovery.md, docs/claims.md,
-docs/production-safety.md, docs/security-data-handling.md, docs/deployment.md,
-docs/threat-model.md, docs/value-model.md, docs/alternatives.md,
-docs/pii-guidance.md, and examples/refund_agent/README.md.
+Read README.md and docs/: concepts.md, discovery.md, architecture.md, cli.md,
+integration.md, production-safety.md, security-data-handling.md, deployment.md,
+value-model.md, alternatives.md, claims.md, compatibility.md.
 
 Local-first, explicit sites, conservative exact-state coverage, independent outcome
-verification, randomized fallback comparison, and explicit maintenance. No cloud,
-dashboard, workflow mining, or automatic framework attachment.
+verification, randomized comparison traffic, and explicit deoptimization. No cloud
+control plane, dashboard, workflow mining, or automatic framework attachment.

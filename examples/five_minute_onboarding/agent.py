@@ -116,7 +116,11 @@ def main():
         print(f"   Decision Served     : choice='{result.choice}'")
         print(f"   Serving Source      : {result.source.upper()} (fast path active)")
         print(f"   Local Serving Time  : {elapsed_ms:.2f} ms")
-        print("   Speedup vs Model    : ~300x faster (0.12s -> <0.5ms)")
+        print("   Model Call (sim)    : ~120 ms")
+        print(
+            "   Speedup vs Model    : "
+            f"~{120.0 / max(elapsed_ms, 0.001):.0f}x on this call (local vs simulated 120 ms model)"
+        )
         print("   Avoided Model Calls : 1")
         print("   Avoided Cost        : $0.0004")
 

@@ -13,7 +13,7 @@ A complete evaluation should account for:
 | Value Driver | Mechanism | Typical Impact |
 | :--- | :--- | :--- |
 | **Avoided remote model calls** | Decisions served locally bypass network round-trips to the LLM provider | 20–40% fewer calls inside qualified bounded decision sites |
-| **Latency reduction** | Local serving executes in 0.18–0.19 ms (p50) vs. 120–250 ms for remote API calls | Up to 1000x faster for qualified decisions |
+| **Latency reduction** | Exact Fast Path serves execute in 0.18–0.19 ms (p50) vs. 120–250 ms for remote API calls; learned local decisions run at ~48 ms | Exact Fast Path serves are approximately 700x faster than a 130 ms remote call; learned decisions are roughly 3x faster |
 | **Rate-limit headroom** | Avoided calls reduce pressure on provider TPM/RPM quotas | Fewer 429 errors during traffic spikes |
 | **Provider resilience** | Qualified decisions serve locally even if the remote provider is degraded | Partial outage tolerance for critical paths |
 | **Privacy / locality** | Decision state for qualified paths never leaves the process boundary | Zero network transmission during local serving |

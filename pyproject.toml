@@ -5,13 +5,13 @@ build-backend = "hatchling.build"
 [project]
 name = "ink-jit"
 version = "0.6.0rc2"
-description = "Behavior JIT for production AI — learns which repeated, verified decisions no longer need inference"
+description = "Behavior JIT for production AI — turns repeated, verified decisions into local Fast Paths. Models handle novelty; Ink turns proven behavior into software."
 authors = [{ name = "Ink Team" }]
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 readme = "README.md"
 requires-python = ">=3.11, <3.14"
-keywords = ["agent", "llm", "decision", "fast-path", "local-inference"]
+keywords = ["agent", "llm", "decision", "fast-path", "local-inference", "verified-outcomes"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",

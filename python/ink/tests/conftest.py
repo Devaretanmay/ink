@@ -1,6 +1,6 @@
 """Test configuration.
 
-The `integrations/` tree lives at the repository root, outside the installed
+The `examples/` tree lives at the repository root, outside the installed
 package, so tests that exercise it need the root on `sys.path`.
 """
 

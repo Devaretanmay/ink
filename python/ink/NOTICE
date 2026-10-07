@@ -3,10 +3,6 @@ Copyright 2026 Tanmay Devare
 
 This product includes software developed as part of the Ink project.
 
-The bundled Python extension is a minimal native module (package version
-only) built from `python/ink/src` in this repository and is distributed
-under the same license.
-
 Ink Decision v1 includes a modified Laya-derived neural runtime.
 See ink/internal/model/NOTICE, LICENSE, and upstream.json for attribution
 and original source hashes. Pretrained weights are provisioned separately from

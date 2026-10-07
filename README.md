@@ -2,9 +2,17 @@
 
 **Behavior JIT for production AI.**
 
-AI systems repeatedly make bounded decisions — routing, tool selection, escalation, classification. Ink learns which of those decisions have become predictable **and** independently verifiable. Qualified behavior becomes a local Fast Path. Novel or uncertain states continue to the original model. If behavior drifts, Ink revokes the Fast Path automatically.
+> Models handle novelty. Ink turns proven behavior into software.
 
-> Models handle novelty. Ink turns proven decisions into software.
+Your AI shouldn't think twice about what it already knows. Ink is a local runtime for
+production AI teams whose agents make the same **bounded, verifiable decisions** over and
+over — routing, triage, escalation, tool selection, classification. Ink observes those
+decisions and their real outcomes, proves which behavior has become predictable **and**
+correct, and serves that proven behavior locally as a **Fast Path**. Novel or uncertain
+states keep going to your model. When reality changes, Ink revokes the Fast Path.
+
+A model explores in pencil. Repeated evidence darkens the path. When behavior proves
+itself, **commit the line in Ink.**
 
 ```text
 observe → candidate → shadow → qualify → active → compare → deopt (on drift)
@@ -12,90 +20,92 @@ observe → candidate → shadow → qualify → active → compare → deopt (o
 
 ---
 
-## Why Ink exists
+## The problem
 
-Production AI agents make the same bounded decisions repeatedly. Each call costs money and adds latency, even when the answer hasn't changed. But blindly caching AI responses is dangerous — stale decisions cause real harm, and there's no built-in mechanism to detect when they go wrong.
+Your AI system keeps paying a remote model to reconsider behavior it has effectively
+already learned. The same support ticket gets routed the same way ten thousand times, at
+full latency and full price, even though the answer stopped being a decision long ago.
 
-Ink bridges this gap: it identifies repeated decisions, proves they're correct against real outcomes, and serves exact matches locally in under 0.2 ms (learned local decisions in ~48 ms). When reality changes, it detects drift and falls back to the model automatically.
+The default choice — do nothing and call the model forever — is the most expensive one.
+But naively caching responses is dangerous: a cache stores *similarity*, and when policy
+or reality drifts it silently keeps serving stale decisions with no way to notice.
 
-## What Ink optimizes
+Ink exists to remove **unnecessary inference** without removing correctness.
 
-- **Repeated bounded decisions** — routing, triage, tool selection, classification with repeat rate ≥ 20%
-- **Decisions with measurable outcomes** — a downstream system can verify whether the decision was correct
-- **High-latency or high-cost model calls** — remote LLM calls ≥ 100 ms or meaningful per-call cost
-- **Workloads where policy drift matters** — you need stale decisions detected and revoked automatically
+## What Ink does
 
-## What Ink does NOT optimize
+- **Observes** decisions and their independent outcomes as your agent runs normally.
+- **Shadows** candidate behavior alongside your model, comparing outcomes before anything is served.
+- **Qualifies** a Fast Path only when statistical evidence shows it matches model quality.
+- **Serves** proven behavior locally, with zero network calls during inference.
+- **Deoptimizes** automatically — ongoing comparison traffic detects drift and revokes the Fast Path.
 
-- Free-form text generation
-- Creative or exploratory tasks
-- Decisions that can't be independently verified
-- Workloads with very low repetition
-- High-entropy research or planning
+## Why Ink is different
 
-If your workload doesn't have bounded, repeating, verifiable decisions, `ink discover` will tell you. That's a feature.
-
----
-
-## Ink is not
+Serving authority in Ink comes from **verified outcomes**, not similarity or confidence alone.
 
 | Often confused with | What it does | How Ink differs |
 | :--- | :--- | :--- |
-| **Semantic cache** | Reuses responses to similar prior inputs | Ink does not use similarity. It requires independent outcome evidence before serving. |
-| **Model router** | Chooses which model handles a request | All router paths still call a model. Ink may eliminate the call entirely. |
-| **Agent framework** | Orchestrates agent steps and tools | Ink is a library inside your existing agent, not a replacement for it. |
-| **General small-model replacement** | Replaces a large model with a smaller one | Ink's local model is part of the qualification engine, not a standalone replacement. |
-| **Workflow engine** | Automates multi-step business processes | Ink optimizes individual decision points, not workflows. |
-| **LLM gateway** | Proxies and manages LLM API calls | Ink runs locally with zero network calls during inference. |
+| **Semantic cache** | Reuses responses to *similar* prior inputs | Ink never serves on similarity. It requires independent outcome evidence first. |
+| **Model router** | Chooses which model handles a request | Every router path still calls a model. Ink can eliminate the call entirely. |
+| **Cheaper model** | Swaps in a smaller model | A smaller model still reasons every time. Ink serves proven behavior. |
+| **Hard-coded rules** | Hand-authored if/else logic | Ink learns candidate behavior from observed model decisions; no rule authoring. |
+| **Fine-tuned classifier** | Trains a specialty model offline | Ink qualifies continuously in production and deoptimizes when reality drifts. |
+| **LLM gateway** | Proxies and manages API calls | Ink runs locally with zero network calls during inference. |
 
-**Semantic cache** reuses similar prior responses. **Router** chooses which model to call. **Ink** may eliminate the model call entirely — but only after repeated behavior is independently qualified and continuously monitored.
+**Caching** asks "have I seen something similar?" **Routing** asks "which model should
+answer?" **Ink** asks "has this exact behavior been proven correct by real outcomes, and is
+it still true today?" — and only then serves it locally.
 
 ---
 
-## Evaluate Ink in 10 minutes
-
-### 1. Install
+## Install
 
 ```bash
 pip install ink-jit
 ```
 
-This installs the Ink runtime including the integrated local decision model (421M MLX backend on Apple Silicon, MLX CPU on Linux). No separate extras required.
+The import is `import ink`; the CLI is `ink`. The distribution bundles the Ink runtime,
+including the local decision model used during qualification. Supported: Python 3.11–3.13
+on macOS (Apple Silicon) and Linux.
 
-### 2. Discover candidate DecisionSites
+## Evaluate in minutes with `ink discover`
 
-Analyze your existing traces without changing production code:
+Point discovery at traces you already have. It changes no production code and tells you
+where repeated behavior exists — before you integrate anything.
 
 ```bash
 ink discover traces.jsonl
 ```
 
 ```text
-Found 8 candidate call sites.
+Found 3 candidate call sites.
 
 1. support.route
-   traffic: 840/day (2,520 observed)
-   repetition: 72.0%
+   traffic: 1,500/day (25 observed)
+   repetition: 24.0%
    choices: 3 ['refund', 'request_info', 'specialist']
-   verifier readiness: VERIFIER_READY (85.0% coverage)
+   verifier readiness: VERIFIER_READY (100.0% coverage)
+   model latency: 178.0ms
    recommendation: STRONG CANDIDATE
-   reason: Strong candidate: 72.0% repetition, bounded choices (3), break-even in ~158 decisions.
+   reason: Strong candidate: 24.0% repetition, bounded choices (3), break-even in ~658 decisions.
 
 2. agent.tool_select
-   traffic: 420/day (1,260 observed)
-   repetition: 58.0%
-   choices: 4 ['search', 'calculate', 'lookup', 'respond']
-   verifier readiness: VERIFIER_READY (90.0% coverage)
-   recommendation: STRONG CANDIDATE
+   ...recommendation: INVESTIGATE
 
 3. response.generate
-   recommendation: IGNORE
-   reason: High output entropy (6.20 bits, 128 choices, avg length 245 chars); free-form generation is not bounded.
+   ...recommendation: INVESTIGATE
 ```
 
-Add `--profile` for economic detail. Add `--snippet` for integration code. See [docs/discovery.md](docs/discovery.md) for trace format.
+`ink discover` is the front door. If your workload is mostly open-ended generation, it will
+say so — that is the point. Add `--snippet` for ready-to-paste integration code and
+`--profile` for economic detail. Trace format: [docs/discovery.md](docs/discovery.md).
+Sample data: [`examples/discovery/sample_traces.jsonl`](examples/discovery/sample_traces.jsonl).
 
-### 3. Integrate one DecisionSite
+## Integrate one DecisionSite
+
+A **DecisionSite** is one bounded choice in your agent. Wrap it once, keep your model as
+the fallback, and report the real outcome so Ink can prove the decision.
 
 ```python
 from ink import DecisionSite, Ink, FallbackResult
@@ -107,17 +117,18 @@ site = DecisionSite(
 )
 
 with Ink() as engine:
-    # Decide: serves locally when qualified, else calls your model
+    engine.register(site)
+
+    # Serves locally once qualified; calls your model otherwise.
     result = engine.decide(
         site=site,
         state={"text": "Item damaged in shipping", "amount": 25},
         fallback=lambda: FallbackResult(my_llm_call(), cost=0.002, model_calls=1),
     )
 
-    # Execute the action
     receipt = execute_action(result.choice)
 
-    # Record the real outcome — this is how Ink qualifies decisions
+    # The independent outcome is what authorizes the Fast Path.
     engine.record_outcome(
         result.decision_id,
         quality=1.0 if receipt.success else 0.0,
@@ -127,28 +138,17 @@ with Ink() as engine:
     )
 ```
 
-### 4. Inspect site lifecycle
-
 ```bash
-ink sites --db .ink/decisions.db
+ink sites  --db .ink/decisions.db   # registered sites
 ink status support.route --db .ink/decisions.db
+ink value  --db .ink/decisions.db   # calls avoided, latency saved
 ```
 
-Sample trace data for discovery is available in `examples/discovery/`.
+## How qualification and Fast Paths work
 
----
-
-## Why qualification matters
-
-A local model being confident is **not** enough to serve a decision. Ink separates _candidate generation_ from _serving authority_.
-
-Fast Path authority comes from:
-
-1. **Independent outcomes** — real downstream systems report whether the decision was correct
-2. **Shadow comparison** — the candidate runs alongside the model before it can serve
-3. **Qualification thresholds** — statistical tests confirm the fast path matches model quality
-4. **Ongoing comparison traffic** — 5–35% of decisions continue to the model for monitoring
-5. **Automatic deoptimization** — if quality degrades, the fast path is revoked
+A local model being confident is **not** enough to serve a decision. Ink separates
+*candidate generation* from *serving authority*. Nothing serves live traffic until it has
+passed shadow qualification against independent outcomes.
 
 ```text
 OBSERVE    Your agent runs normally. Ink records decisions and outcomes.
@@ -157,111 +157,83 @@ CANDIDATE  Ink estimates repetition, entropy, and qualification cost.
     ↓
 SHADOW     The candidate runs alongside the model. Outcomes are compared.
     ↓
-QUALIFY    Statistical tests confirm match quality (candidate ≠ authority).
+QUALIFY    Statistical tests confirm the Fast Path matches model quality.
     ↓
-ACTIVE     Qualified decisions serve locally (exact: <0.2 ms, learned: ~48 ms).
+ACTIVE     Qualified decisions serve locally. Novel states fall back to your model.
     ↓
-COMPARE    Ongoing comparison traffic (5–35%) monitors for drift.
+COMPARE    Ongoing comparison traffic (default 5–35%) monitors for drift.
     ↓
-DEOPT      If quality degrades, Ink revokes the fast path automatically.
+DEOPT      If quality degrades, Ink revokes the Fast Path automatically.
 ```
 
-> **Ink may still serve wrong decisions before drift is detected.** In the benchmark, 7–8 wrong serves occurred before demotion. This is materially safer than static caching (12–18% ongoing error rate under the same conditions), but it is not zero.
+**Two serving tiers.** Exact repeated states replay in **< 0.2 ms** with no inference.
+Unseen-but-similar states inside a qualified region are served by the bundled local model
+in **~48 ms**, still with no remote call. Anything outside qualified coverage goes to your
+model.
 
----
-
-## How the model fits
-
-Ink includes a trained local decision model as part of its Decision Engine:
-
-```text
-Ink
-├── DecisionSite contract
-├── Exact-state decision tier
-├── Trained local decision model (421M, ink-decision-v1)
-├── Qualification lifecycle
-├── Outcome verification
-├── Fast Path serving
-└── Deoptimization
-```
-
-The model is not an optional add-on. It is part of how Ink generates candidate decisions for qualification. Exact-state matching handles repeated identical inputs; the learned model extends coverage to semantically similar states within qualified regions.
-
----
+> **Ink can still serve a wrong decision before drift is detected.** In the controlled
+> benchmark, 7–8 wrong serves occurred before demotion — materially safer than static
+> caching (12–18% ongoing error under the same conditions), but not zero.
 
 ## Measured results
 
-From the [competitive benchmark](benchmarks/results/competitive_frontier/REPORT.md) — 18,000 decisions across 4 workloads with strict 70/30 temporal evaluation:
+Controlled/synthetic benchmark: 18,000 decisions across 4 workloads with 70/30 temporal
+evaluation ([full report](benchmarks/results/competitive_frontier/REPORT.md), [claims
+registry](docs/claims.md)).
 
 | Metric | Measured | Scope |
 | :--- | :--- | :--- |
-| Exact fast-path latency | 0.18–0.19 ms (p50) | Qualified exact-match local serves only |
-| Learned local decision latency | 47.71 ms (p50) | Local model inference (no remote call) |
-| Remote fallback latency | Provider-dependent | Unqualified decisions → original model |
-| DecisionSite call reduction | 19.9–40.4% | Within bounded decision sites |
-| Whole-app call reduction | 3.99–10.10% | Entire application (sites = 15–25% of traffic) |
-| Whole-app spend reduction | 3.51–8.87% | Entire application |
+| Exact Fast Path latency | 0.18–0.19 ms (p50) | Qualified exact-match local serves only |
+| Learned local decision latency | 47.71 ms (p50) | Local model inference, no remote call |
+| Remote fallback latency | Provider-dependent | Unqualified decisions → your model |
+| DecisionSite call reduction | 19.9–40.4% | Within qualified bounded decision sites |
+| Whole-application call reduction | 3.99–10.10% | Entire app (sites ≈ 15–25% of traffic) |
 | Wrong serves before demotion | 7–8 | Under injected passive policy drift |
 | Static cache wrong-serve rate | 12.0–18.0% | Same drift conditions |
 | High-entropy workload | Correctly rejected | Refused compilation (0% wasted resources) |
 
-> **Latency tiers:** Exact fast paths serve in <0.2 ms for previously-seen state+choice combinations. Learned local decisions use the local model (~48 ms) to handle unseen-but-similar states without a remote call. Decisions that don't qualify for either tier fall back to the original remote model.
->
-> **Important denominators:** Bounded verifiable decisions typically represent 15–25% of total application LLM calls. Whole-application savings reflect this. 20–40% fewer model calls _inside qualified bounded decision sites_ is the correct framing.
+**Read the denominators.** Bounded verifiable decisions are typically 15–25% of an
+application's model calls; whole-application savings reflect that. Exact Fast Path latency
+(< 0.2 ms) and learned local latency (~48 ms) are different tiers and are not
+interchangeable. Ink does **not** claim zero errors, 80% company-wide savings, replacement
+of all model calls, or faster entire applications. See [docs/claims.md](docs/claims.md).
 
-### What Ink does NOT claim
+## Why savings come second
 
-- **Zero errors** — 7–8 wrong serves occurred before drift detection
-- **80% company-wide cost reduction** — whole-app savings depend on bounded traffic share
-- **Replacement of all model calls** — only bounded, repeating, verifiable decisions qualify
-- **Faster entire applications** — 0.18 ms (exact) and ~48 ms (learned) apply to qualified local serves, not total workflow
+Avoided spend is real but rarely the best reason to adopt Ink. The durable benefits are:
 
----
-
-## CLI
-
-```bash
-ink discover traces.jsonl          # Analyze traces for compilable sites
-ink sites --db decisions.db        # List registered decision sites
-ink status --db decisions.db       # Site lifecycle status
-ink value --db decisions.db        # Value report: calls avoided, cost saved
-ink inspect SITE --db decisions.db # Deep site inspection
-```
-
-## What happens if Ink is uncertain?
-
-It calls your model. Ink never serves a decision it hasn't qualified through independent outcome verification. The `fallback` function runs normally — your agent behaves exactly as it did before Ink.
-
----
+- **Latency** — qualified decisions return locally instead of over the network.
+- **Locality** — decision state never leaves the process during inference.
+- **Provider independence** — qualified paths keep working when a provider is slow or degraded.
+- **Rate-limit relief** — avoided calls free headroom in provider quotas.
+- **Stale-decision revocation** — drift is detected and the Fast Path is revoked, unlike a static cache.
 
 ## Deployment and data handling
 
-- **Storage:** Local SQLite at `.ink/decisions.db`. No cloud dependencies.
-- **Network:** Zero network calls during `decide()` and `record_outcome()`. Model weights (~807 MB) are downloaded once from HuggingFace. Run `ink model-install` during build/deploy to pre-provision — avoids surprise runtime downloads.
-- **Retention:** `ink retain --days N` to compact old data. Delete the SQLite file to remove all state.
-- **Multi-replica:** Each replica maintains its own state DB and qualification lifecycle. No fleet-wide coordination.
+- **Storage:** local SQLite at `.ink/decisions.db`. No cloud control plane, no dashboard.
+- **Network:** zero network calls during `decide()` and `record_outcome()`. Model weights are
+  downloaded once from HuggingFace on first learned use. Run `ink model-install` during
+  build/deploy to pre-provision.
+- **Retention:** `ink retain --days N` compacts old data; delete the SQLite file to remove all state.
+- **Multi-replica:** each replica keeps its own state DB and qualification lifecycle.
 
-See [docs/deployment.md](docs/deployment.md), [docs/security-data-handling.md](docs/security-data-handling.md), and [docs/pii-guidance.md](docs/pii-guidance.md).
-
----
+See [docs/deployment.md](docs/deployment.md) and
+[docs/security-data-handling.md](docs/security-data-handling.md).
 
 ## Documentation
 
+- [Discovery & Trace Format](docs/discovery.md) — the trace format and `ink discover`
+- [Concepts](docs/concepts.md) — DecisionSites, Fast Paths, verification, deoptimization
 - [Architecture](docs/architecture.md) — how the Decision Engine works internally
-- [Concepts](docs/concepts.md) — DecisionSites, Fast Paths, deoptimization, verification
-- [CLI Reference](docs/cli.md) — command-line interface
-- [Integration Guide](docs/integration.md) — connecting Ink to your agent
-- [Discovery & Trace Format](docs/discovery.md) — trace format, `ink discover`, ROI estimation
-- [Claims Registry](docs/claims.md) — every claim with its evidence and scope
-- [Production Safety](docs/production-safety.md) — qualification lifecycle, drift detection, failure modes
-- [Security & Data Handling](docs/security-data-handling.md) — what's stored, what leaves the machine
-- [PII Guidance](docs/pii-guidance.md) — keeping decision state minimal
-- [Threat Model](docs/threat-model.md) — security threat model and mitigations
+- [CLI Reference](docs/cli.md) — every command
+- [Integration Guide](docs/integration.md) — wiring Ink into your agent
+- [Production Safety](docs/production-safety.md) — lifecycle, drift detection, failure modes
+- [Security & Data Handling](docs/security-data-handling.md) — what is stored, what leaves the machine
 - [Deployment](docs/deployment.md) — single-process, containerized, multi-replica
 - [Value Model](docs/value-model.md) — evaluating Ink's impact on your workload
-- [Alternatives Comparison](docs/alternatives.md) — how Ink compares to caching, routing, and classifiers
+- [Alternatives](docs/alternatives.md) — Ink vs. caching, routing, and classifiers
+- [Claims Registry](docs/claims.md) — every claim with its evidence and scope
 - [Platform Compatibility](docs/compatibility.md) — supported platforms and engines
-- [Vision](docs/vision.md) — future direction
 
 ## Tests
 
@@ -271,6 +243,5 @@ pytest python/ink/tests/
 
 ## License
 
-[Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution.
-
-Ink is open source. The SDK, runtime, decision engine, local model, and Fast Path lifecycle are all included.
+[Apache-2.0](LICENSE). See [NOTICE](NOTICE) for attribution. Ink is open source: the SDK,
+runtime, decision engine, local model, and Fast Path lifecycle are all included.

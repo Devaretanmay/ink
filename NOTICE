@@ -3,8 +3,5 @@ Copyright 2026 Tanmay Devare
 
 This product includes software developed as part of the Ink project.
 
-The bundled Python extension is built from the Rust crate `ink-core` in
-this repository and is distributed under the same license.
-
 Bundled Ink Decision v1 inference derives from Laya and laya-mlx.
 See python/ink/ink/internal/model/NOTICE and LICENSE.

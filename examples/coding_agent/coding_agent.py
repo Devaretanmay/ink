@@ -1,4 +1,4 @@
-"""Pilot C: Autonomous Coding & CI Agent (Integrated with Ink)."""
+"""Coding-agent action dispatch decision site, wrapped with Ink."""
 
 import time
 from typing import Any

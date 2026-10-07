@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Reject retired product names outside explicit migration/history inputs."""
+
 from __future__ import annotations
 
 import re
@@ -8,13 +9,9 @@ import sys
 from pathlib import Path
 
 ALLOWLIST = (
-    "docs/legacy/",
-    "docs/evidence/",
-    "docs/branding/",
-    "docs/legacy/media/",
-    "benchmarks/results/",
-    "pilots/results/",
-    ".gitignore",  # keep the previous user cache ignored during migration
+    # Migration compatibility: the legacy on-disk database directory name is
+    # read once to relocate an existing install, then never written again.
+    ".gitignore",
     "python/ink/ink/decision_api.py",
     "python/ink/ink/internal/model/registry.py",
     "python/ink/tests/test_integrated_model.py",
@@ -27,16 +24,17 @@ BINARY = re.compile(r"\.(?:png|jpe?g|gif|webp|mp4|zip|dmg|pdf|woff2?|ttf|ico|icn
 
 
 def allowed(path: str) -> bool:
-    return (
-        any(path == item or path.startswith(item) for item in ALLOWLIST)
-        or (path.startswith("pilots/pilot_") and path.endswith("traces.jsonl"))
-    )
+    return any(path == item or path.startswith(item) for item in ALLOWLIST)
 
 
 def main() -> int:
-    paths = subprocess.check_output(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"]
-    ).decode().split("\0")
+    paths = (
+        subprocess.check_output(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"]
+        )
+        .decode()
+        .split("\0")
+    )
     failures: list[str] = []
     for raw in filter(None, paths):
         path = Path(raw)

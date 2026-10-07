@@ -118,7 +118,7 @@
     }
   ],
   "steady_state_claim_analysis": {
-    "claim": "Microloop achieves 75-85% model-call reduction in steady state",
+    "claim": "Ink achieves 75-85% model-call reduction in steady state",
     "validation_verdict": "CONDITIONALLY_VERIFIED",
     "steady_state_zipf_1m_pct": 91.32,
     "steady_state_high_drift_pct": 70.25,

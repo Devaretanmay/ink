@@ -1,4 +1,8 @@
-"""Ink turns repeated agent decisions into verified fast paths.
+"""Ink turns proven, verified decisions into local Fast Paths.
+
+Models handle novelty; Ink turns proven behavior into software. Candidate
+generation is separated from serving authority: a decision is served locally
+only after independent outcome evidence qualifies it.
 
 Decision API: `Ink`, `DecisionSite`, `DecisionResult`, `FallbackResult`,
 `Outcome`, `PromotionRequirements`, `decision`, `record_outcome`.

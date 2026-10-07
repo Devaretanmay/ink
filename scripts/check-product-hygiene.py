@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Reject retired product positioning outside explicit history/legacy."""
+
 from __future__ import annotations
 
 import re
@@ -9,8 +10,6 @@ from pathlib import Path
 
 # Files where old-product references are acceptable (historical/legacy)
 ALLOWLIST = (
-    "docs/legacy/",
-    "docs/evidence/",
     "CHANGELOG.md",
     "scripts/check-product-hygiene.py",
     "scripts/check-brand-hygiene.py",
@@ -30,7 +29,6 @@ RETIRED_POSITIONING = re.compile(
 BAD_INSTALL = re.compile(r"pip install ink(?!\-)", re.IGNORECASE)
 BAD_INSTALL_ALLOWLIST = (
     "CHANGELOG.md",
-    "docs/legacy/",
     "scripts/check-product-hygiene.py",
     ".github/workflows/ci.yml",
 )
@@ -44,10 +42,14 @@ BINARY = re.compile(
 INTERNAL_FILES = (
     "outbound_leads.csv",
     "outbound_messages.md",
+    "outbound_messages.txt",
     "pricing_notes.md",
     "top_20_outbound.md",
+    "top_20_outreach.md",
+    "outreach_scoreboard.md",
     "opportunity_report_template.md",
     "pilot_report_template.md",
+    "pilot_operations.md",
     "design_partners.csv",
     "design_partner_playbook.md",
     "COMPANY_READINESS.md",
@@ -96,7 +98,8 @@ def main() -> int:
             for m in BAD_INSTALL.finditer(content):
                 # Allow "pip install ink-jit" but not bare "pip install ink"
                 pos = m.end()
-                if pos < len(content) and content[pos:pos+1] not in (" ", "\n", "\r", '"', "'", "`", ")", "]", ""):
+                trailing = (" ", "\n", "\r", '"', "'", "`", ")", "]", "")
+                if pos < len(content) and content[pos : pos + 1] not in trailing:
                     continue
                 failures.append(f"BAD INSTALL CMD in {raw}: '{m.group()}'")
 

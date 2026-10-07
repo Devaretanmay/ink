@@ -14,6 +14,7 @@ jobs:
         with:
           python-version: "3.13"
       - run: pip install ruff pytest build
+      - run: python scripts/check-repo-hygiene.py
       - run: python scripts/check-brand-hygiene.py
       - run: python scripts/check-product-hygiene.py
       - run: ruff check .

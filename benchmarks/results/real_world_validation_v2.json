@@ -57,7 +57,7 @@
           "false_serves": 102,
           "false_serve_rate": 0.1457
         },
-        "arm_d_microloop_jit": {
+        "arm_d_ink_jit": {
           "model_calls": 523,
           "avoided_calls": 177,
           "reduction_pct": 25.29,
@@ -130,7 +130,7 @@
           "false_serves": 462,
           "false_serve_rate": 0.66
         },
-        "arm_d_microloop_jit": {
+        "arm_d_ink_jit": {
           "model_calls": 700,
           "avoided_calls": 0,
           "reduction_pct": 0.0,
@@ -203,7 +203,7 @@
           "false_serves": 462,
           "false_serve_rate": 0.66
         },
-        "arm_d_microloop_jit": {
+        "arm_d_ink_jit": {
           "model_calls": 645,
           "avoided_calls": 55,
           "reduction_pct": 7.86,
@@ -227,8 +227,8 @@
   ],
   "summary": {
     "total_decisions_per_arm": 2100,
-    "overall_avoided_calls_microloop": 232,
-    "overall_call_reduction_pct_microloop": 11.05,
+    "overall_avoided_calls_ink": 232,
+    "overall_call_reduction_pct_ink": 11.05,
     "teacher_disagreements": {
       "support": 164,
       "tool": 461,
@@ -238,7 +238,7 @@
     "false_serves": {
       "arm_b_exact_cache": 848,
       "arm_c_naive_semantic_cache": 1026,
-      "arm_d_microloop_jit": 4
+      "arm_d_ink_jit": 4
     }
   }
 }

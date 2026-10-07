@@ -1,77 +1,57 @@
 # Ink Benchmarks
 
-This directory contains the reproducible benchmark suite evaluating the Ink Decision JIT across live cloud LLMs, concentration bounds, long-horizon economics, and multi-step agent workloads.
+Reproducible evaluation of the Ink Decision JIT: Fast Path serving, qualification, drift
+demotion, and economics on bounded decision workloads.
+
+> **Scope.** These benchmarks are **controlled and largely synthetic**. Workloads and
+> policy-drift injections are generated for reproducibility, not sampled from a customer
+> deployment. Treat the numbers as behavior on these workloads, not as guarantees for
+> production traffic. Every external claim lives, with its evidence path and scope, in
+> [docs/claims.md](../docs/claims.md).
 
 ---
 
-## Canonical Release Candidate Benchmark Suite
+## Primary suite
 
-The authoritative, end-to-end benchmark suite for the Ink Release Candidate (`0.6.0rc1`) is executed via:
+The canonical comparison — Ink vs. exact cache, semantic cache, a cheaper model, and a
+small classifier under temporal policy drift:
 
 ```bash
-python -m benchmarks.release_candidate
+PYTHONPATH=python/ink python -m benchmarks.competitive_frontier.run
 ```
 
-This suite executes 12 reproducible benchmarks covering serving latency, sparse routing latency, fallback overhead across lifecycle states, kill switch overhead, qualification cost, storage growth, memory RSS, thread/process concurrency, drift demotion, false-serve accounting, fail-open invariants, and retention safety.
+- Published report: [`results/competitive_frontier/REPORT.md`](results/competitive_frontier/REPORT.md)
+- Summary metrics: [`results/competitive_frontier/summary.json`](results/competitive_frontier/summary.json)
 
-- **Machine-readable JSON output:** [`results/release_candidate_results.json`](results/release_candidate_results.json)
-- **Environment-captured Markdown report:** [`results/release_candidate_report.md`](results/release_candidate_report.md)
-
----
-
-## Historical & Specialized Benchmark Scripts
-
-The following scripts represent exploratory, research, or historical baselines:
-
-| Benchmark Script | Focus & Methodology | Primary Result File | Status |
-| :--- | :--- | :--- | :--- |
-| [`release_candidate.py`](release_candidate.py) | **Canonical Release Candidate Suite** (12 benchmarks: latency, overhead, storage, concurrency, drift, fail-open). | `results/release_candidate_results.json` | **CANONICAL CURRENT** |
-| [`benchmark_real_world.py`](benchmark_real_world.py) | Live cloud LLM validation (Groq `qwen/qwen3.8-27b`) with prompt parity across 2,100 decisions (support routing, tool selection, incident escalation). | `results/real_world_validation_v2.json` | Historical / API Dependent |
-| [`benchmark_qualification_efficiency.py`](benchmark_qualification_efficiency.py) | Concentration bound study comparing Hoeffding vs Empirical Bernstein vs Howard et al. sequential bounds. | `results/qualification_efficiency.json` |
-| [`benchmark_long_horizon.py`](benchmark_long_horizon.py) | Long-horizon cumulative simulation across 10k, 100k, and 1,000,000 decisions testing the 75–85% steady-state claim. | `results/long_horizon_economics.json` |
-| [`benchmark_agent_site_selection.py`](benchmark_agent_site_selection.py) | Multi-step agent site profiling (`agent.intent`, `agent.tool`, `agent.cont`) demonstrating selective compilation economics. | `results/agent_site_selection.json` |
-| [`validate_semantic_lifecycle.py`](validate_semantic_lifecycle.py) | Sparse TF-IDF semantic coverage recall, negative margin bounds, and counterexample contraction. | Test evidence |
+Headline results are summarized, with scope, in the project [README](../README.md) and
+[docs/claims.md](../docs/claims.md).
 
 ---
 
-## Running Benchmarks
+## Other suites
 
-### 1. Qualification Sample Efficiency
-Evaluates sample efficiency across clear winner, borderline, substandard, and adversarial distributions:
+| Suite | Focus | Result artifact |
+| :--- | :--- | :--- |
+| [`benchmarks/release_candidate.py`](release_candidate.py) | Serving latency, fallback overhead, kill-switch overhead, qualification cost, storage growth, concurrency, retention | Writes a JSON results file to the output directory you pass |
+| [`benchmark_qualification_efficiency.py`](benchmark_qualification_efficiency.py) | Sample efficiency of concentration bounds (Hoeffding, Empirical Bernstein, Howard et al.) | `results/qualification_efficiency.json` |
+| [`benchmark_long_horizon.py`](benchmark_long_horizon.py) | Long-horizon cumulative model-call avoidance | `results/long_horizon_economics.json` |
+| [`benchmark_agent_site_selection.py`](benchmark_agent_site_selection.py) | Selective compilation vs. compile-every-site | `results/agent_site_selection.json` |
+| [`public_support/evaluate.py`](public_support/evaluate.py) | Public BANKING77 intent calibration probe | [public_support/README.md](public_support/README.md) |
+| [`validate_semantic_lifecycle.py`](validate_semantic_lifecycle.py) | Sparse semantic coverage, margin bounds, counterexample contraction | Test evidence |
+
+Live-provider validation (`benchmark_real_world.py`) requires `GROQ_API_KEY` and makes real
+API calls. It is not part of the default suite.
+
+---
+
+## Running
 
 ```bash
 PYTHONPATH=python/ink python benchmarks/benchmark_qualification_efficiency.py
-```
-
-### 2. Long-Horizon Economics Simulation
-Simulates cumulative model-call reduction, dollar savings, and latency savings over 10k, 100k, and 1M decisions under Zipfian and uniform distributions:
-
-```bash
 PYTHONPATH=python/ink python benchmarks/benchmark_long_horizon.py
-```
-
-### 3. Agent Site Selection & Selective Compilation
-Evaluates selective compilation vs blind compile-all strategies on multi-step agent traces:
-
-```bash
 PYTHONPATH=python/ink python benchmarks/benchmark_agent_site_selection.py
+PYTHONPATH=python/ink python benchmarks/release_candidate.py --output .ink/rc-bench
 ```
 
-### 4. Real-World Live Cloud LLM Validation (Requires `GROQ_API_KEY`)
-Executes 2,100 decisions against live cloud LLM inference, measuring latency, cost, and false-serve rates during policy drift:
-
-```bash
-export GROQ_API_KEY="your-api-key"
-PYTHONPATH=python/ink python benchmarks/benchmark_real_world.py
-```
-
----
-
-## Empirical Benchmark Highlights
-
-- **Latency Reduction:** From 126.6 ms (remote LLM p50) to **0.409 ms** (Ink p50) on support ticket routing.
-- **Drift Protection:** **99.6% reduction in false serves** compared to naive semantic caching (4 false serves vs 1,026 false serves across 2,100 decisions).
-- **Steady-State Avoidance:** **80.67% avoided** at 100k decisions and **91.32% avoided** at 1M decisions under Zipfian ($s=1.1$) traffic with drift interval $\ge 20,000$.
-- **Selective Compilation ROI:** Compiling only recommended high-repetition sites produces higher net dollar ROI than compiling all sites blindly.
-
-All claims derived from these benchmarks are formally registered in [`docs/claims.md`](../docs/claims.md).
+Schemas for run bundles live in [`schemas/`](schemas/). Measured claims must be
+reproducible and are registered in [docs/claims.md](../docs/claims.md).

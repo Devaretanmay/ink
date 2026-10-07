@@ -1,68 +1,58 @@
-# Five-Minute Quickstart: Zero-Touch Discovery to Local Fast Path
+# Five-minute onboarding: discovery → qualification → local Fast Path
 
-Get from raw agent execution traces to local verified fast paths in 5 minutes.
+Go from raw agent traces to locally served, verified decisions without a model download.
 
 ---
 
-### Step 1: Install Ink
+### 1. Install
 
 ```bash
 pip install ink-jit
 ```
 
-*(Zero neural model download required for discovery, profiling, exact, or sparse semantic paths).*
+Discovery, profiling, and the exact engine require no neural model download.
 
----
-
-### Step 2: Discover Compilable Sites
-
-Run discovery on your existing agent traces:
+### 2. Discover compilable sites
 
 ```bash
 ink discover examples/five_minute_onboarding/traces.jsonl
 ```
 
-Output:
 ```text
 Found 2 candidate call sites.
 
 1. support.route
-   traffic: 100/day (100 observed)
+   traffic: 2,000/day (20 observed)
    repetition: 85.0%
    choices: 3 ['refund', 'request_info', 'specialist']
-   verifier readiness: VERIFIER READY (100.0% coverage)
-   model latency: 125.0ms
-   estimated break-even: 160 decisions
-   estimated annual savings: $12.38
+   verifier readiness: VERIFIER_READY (100.0% coverage)
+   model latency: 126.0ms
    recommendation: STRONG CANDIDATE
-   reason: Strong candidate: 85.0% repetition, bounded choices (3), break-even in ~160 decisions.
+   reason: Strong candidate: 85.0% repetition, bounded choices (3), break-even in ~186 decisions.
+
+2. agent.free_text
+   ...recommendation: INVESTIGATE
 ```
 
-Or view the ready-to-paste integration snippet:
+Add `--snippet` for ready-to-paste integration code, or `--profile` for economic detail.
 
-```bash
-ink discover examples/five_minute_onboarding/traces.jsonl --snippet
-```
-
----
-
-### Step 3: Run the Instrumented Example
+### 3. Run the instrumented example
 
 ```bash
 python examples/five_minute_onboarding/agent.py
 ```
 
 The script:
-1. Records initial decisions via your original fallback LLM.
-2. Compiles and qualifies `support.route` in shadow.
-3. Automatically serves repeated queries locally in <0.5ms.
 
----
+1. Registers the `support.route` DecisionSite.
+2. Records baseline decisions through your original model.
+3. Compiles and qualifies the site in shadow against independent outcomes.
+4. Serves repeated states locally from the active Fast Path.
 
-### Step 4: Inspect Local Value & ROI
-
-Check your local savings anytime:
+### 4. Inspect local value
 
 ```bash
-ink value
+ink value --db .ink/onboarding_demo/decisions.db
 ```
+
+See [docs/discovery.md](../../docs/discovery.md) for the trace format.

@@ -1,4 +1,4 @@
-"""Pilot B: Enterprise Support Triage & Workflow Router (Integrated with Ink)."""
+"""Support-triage routing decision site, wrapped with Ink."""
 
 import time
 from typing import Any

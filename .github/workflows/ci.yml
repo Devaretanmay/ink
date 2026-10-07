@@ -27,6 +27,7 @@ jobs:
       - run: pip install ruff
       - run: python scripts/check-brand-hygiene.py
       - run: python scripts/check-product-hygiene.py
+      - run: python scripts/check-repo-hygiene.py
       - run: ruff check .
 
   test:

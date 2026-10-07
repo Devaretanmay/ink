@@ -29,7 +29,7 @@ Unless explicitly passed as part of the `state` dict by the host application:
 - **User credentials** are never handled
 
 > [!WARNING]
-> **State Content:** Whatever dictionary you pass to `state` in `decide()` will be stored in SQLite in canonical JSON format. If your state dictionary includes raw PII, user emails, or full message bodies, those will reside in the SQLite database. Follow our [PII Guidance](pii-guidance.md) to keep state minimal.
+> **State Content:** Whatever dictionary you pass to `state` in `decide()` is stored in SQLite in canonical JSON format. If your `state` includes raw PII, user emails, or full message bodies, those will reside in the SQLite database. Keep state minimal: declare only the fields the decision actually needs, hash or tokenize identifiers before they reach `state`, and never pass credentials. Whatever you declare in `state_schema` is exactly what gets stored.
 
 ---
 
