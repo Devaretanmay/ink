@@ -1,3 +1,4 @@
+import importlib.util
 import time
 from dataclasses import asdict
 
@@ -8,6 +9,21 @@ from ink import (
     Ink,
     Outcome,
     PromotionRequirements,
+)
+
+
+def _decision_model_available() -> bool:
+    """The semantic (decision) engine needs the pretrained model on disk."""
+    if importlib.util.find_spec("mlx") is None:
+        return False
+    from ink.internal.model.registry import model_path
+
+    return (model_path() / "model.safetensors").is_file()
+
+
+needs_decision_model = pytest.mark.skipif(
+    not _decision_model_available(),
+    reason="Managed decision model unavailable; run 'ink model-install'",
 )
 
 REQ = PromotionRequirements(
@@ -283,8 +299,18 @@ def test_exact_factual_qualification_without_counterfactual_verifier(tmp_path):
         assert ev["qualified"] is True
         assert loop.status(site)["state"] == "ACTIVE"
 
-        # Semantic engine without verifier must be rejected
-        loop.compile(site, engine="decision", replace_existing=True)
+
+@needs_decision_model
+def test_semantic_engine_requires_verifier(tmp_path):
+    """A semantic engine must reject verifier=None rather than guess authority."""
+    db_path = str(tmp_path / "semantic_guard.db")
+    site = DecisionSite("semantic.guard", {"tier": "integer"}, ("approve", "deny"))
+
+    with Ink(db_path, maintenance_requirements=REQ) as loop:
+        loop.register(site)
+        _feed_traffic(loop, site, 100, "seed", quality=1.0)
+
+        loop.compile(site, engine="decision")
         with pytest.raises(ValueError, match="Semantic engines require a verifier"):
             loop.calibrate(site, verifier=None, requirements=REQ)
 
