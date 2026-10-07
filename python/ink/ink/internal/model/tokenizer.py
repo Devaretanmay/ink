@@ -1,4 +1,3 @@
-# Vendored Ink Decision v1 runtime (upstream: laya-mlx 0.2.0). See NOTICE and LICENSE.
 """Load the checkpoint's Rust tokenizer without importing Transformers or torch."""
 
 import json

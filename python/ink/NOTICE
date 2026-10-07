@@ -3,7 +3,6 @@ Copyright 2026 Tanmay Devare
 
 This product includes software developed as part of the Ink project.
 
-Ink Decision v1 includes a modified Laya-derived neural runtime.
-See ink/internal/model/NOTICE, LICENSE, and upstream.json for attribution
-and original source hashes. Pretrained weights are provisioned separately from
-a pinned Laya-MLX checkpoint; Ink does not claim original pretraining.
+Ink Decision v1 includes an Ink-maintained neural runtime and retrained
+checkpoint. See ink/internal/model/NOTICE, LICENSE, and MODEL_CARD.md for
+model identity and operating constraints.

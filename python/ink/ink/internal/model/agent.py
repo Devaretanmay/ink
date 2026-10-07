@@ -1,4 +1,3 @@
-# Vendored Ink Decision v1 runtime (upstream: laya-mlx 0.2.0). See NOTICE and LICENSE.
 """Integral Ink Decision v1 inference runtime (Linux/macOS via MLX)."""
 
 import json
@@ -201,7 +200,7 @@ class Agent:
         return {"t": kind, "ins": instructions, "crit": criteria}
 
     def prepare(self, state, questions):
-        """Construct upstream-compatible CPU inputs, useful for parity and profiling."""
+        """Construct reference-compatible CPU inputs, useful for parity and profiling."""
         if self._prefix_cache is not None:
             return self._prefix_cache.prepare(self, state, questions)
         if not isinstance(questions, dict):

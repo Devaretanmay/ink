@@ -17,12 +17,11 @@ def test_neural_engine_is_default():
     assert RUNTIME_VERSION.startswith("ink-decision-")
 
 
-def test_legacy_engine_key_resolves_to_integral_engine(tmp_path):
-    assert resolve_engine_key("laya") == "decision"
+def test_model_identity_key_resolves_to_integral_engine(tmp_path):
     assert resolve_engine_key("ink-decision-v1") == "decision"
     assert resolve_engine_key("decision") == "decision"
     with Ink(":memory:") as client:
-        assert client.engines["laya"] is client.engines["decision"]
+        assert client.engines["ink-decision-v1"] is client.engines["decision"]
         assert client.compile.__defaults__ is None or True
 
 
@@ -78,7 +77,7 @@ def test_trained_checkpoint_uses_its_own_manifest(tmp_path, monkeypatch):
 
 def test_legacy_base_manifest_without_version_uses_only_pinned_hashes(tmp_path):
     base = registry.specification()
-    fields = ("name", "upstream", "revision", "weights_modified", "sha256")
+    fields = ("name", "repository", "revision", "weights_modified", "sha256")
     legacy = {key: base[key] for key in fields}
     legacy["weights_modified"] = False
     (tmp_path / "ink-model.json").write_text(json.dumps(legacy))
@@ -139,7 +138,7 @@ def test_default_model_cache_migrates_from_legacy_name(tmp_path, monkeypatch):
             "version": "1.0.0",
             "weights_modified": True,
             "trained_by": "legacy-trainer",
-            "base_model": "upstream/model",
+            "base_model": "source/model",
             "base_revision": "revision",
             "base_checkpoint": "/old/developer/path",
             "sha256": {"model.safetensors": digest},
@@ -152,7 +151,7 @@ def test_default_model_cache_migrates_from_legacy_name(tmp_path, monkeypatch):
     assert (target / "ink-model.json").is_file()
     migrated_spec = json.loads((target / "ink-model.json").read_text())
     assert migrated_spec["name"] == "ink-decision-v1"
-    assert migrated_spec["base_checkpoint"] == "upstream/model@revision"
+    assert migrated_spec["base_checkpoint"] == "source/model@revision"
     assert (legacy / "model.safetensors").read_bytes() == weights
 
 

@@ -196,8 +196,7 @@ class Ink:
         if self._model_enabled:
             default_engines.append(DecisionModelEngine())
         integral = {e.name: e for e in (*default_engines, *engines)}
-        # Historical artifacts carry engine="laya"; resolve them to the integral engine.
-        for alias, current in (("laya", "decision"), ("ink-decision-v1", "decision")):
+        for alias, current in (("ink-decision-v1", "decision"),):
             if alias not in integral and current in integral:
                 integral[alias] = integral[current]
         self.engines = integral

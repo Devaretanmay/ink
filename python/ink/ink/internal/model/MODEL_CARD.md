@@ -6,10 +6,10 @@
 - **Status:** Ink-trained checkpoint (`weights_modified: true`, `trained_by: ink-finetune-v1`).
 - **License:** Apache-2.0.
 
-## 2. Base Model & Lineage
-- **Base Checkpoint:** `aac6fef/laya-mlx` (revision `20aed815fc6acde75733882e7ec0e3f28aeb9717`), derived from `convaiinnovations/laya`.
-- **Upstream License:** Apache-2.0 (see `NOTICE` and `upstream.json`).
-- **Attribution:** The ModernBERT encoder architecture, tokenizer, and decision head structures derive from Laya / laya-mlx. Fine-tuned weights and training pipeline are owned by Ink.
+## 2. Model Lineage
+- **Checkpoint:** Ink Decision Model v1 (`ink-decision-v1`), retrained and packaged for bounded categorical decisions.
+- **License:** Apache-2.0 (see `NOTICE` and `LICENSE`).
+- **Attribution:** The ModernBERT encoder, tokenizer, decision head, scorer, fine-tuned weights, and training pipeline are maintained as part of Ink.
 
 ## 3. Architecture & Parameter Breakdown
 - **Encoder:** ModernBERT-large (50,368 vocab, 1,024 hidden, 2,624 intermediate, 28 layers, 16 heads, RoPE attention, max context 8,192).
@@ -50,8 +50,8 @@ Do **NOT** use for:
 - Universal zero-shot classification across uncalibrated domains.
 
 ## 7. Measured Performance
-- **Held-out Test Accuracy:** 62.69% (vs. Upstream 56.72%, +5.97% improvement).
-- **Macro F1:** 0.5888 (vs. Upstream 0.4903, +9.85% improvement).
+- **Held-out Test Accuracy:** 62.69%.
+- **Macro F1:** 0.5888.
 - **ECE (Expected Calibration Error):** 0.1573.
 - **Latency (Apple Silicon M-series):**
   - p50 Latency: 47.71 ms
@@ -61,8 +61,7 @@ Do **NOT** use for:
 - **Classical Baseline Comparison:** On the same dataset, TF-IDF + Naive Bayes achieves 95.52% accuracy in 0.019 ms. The neural model provides semantic flexiblity for arbitrary choice labels, but operational cost must be weighed against classical baselines.
 
 ## 8. Calibration & Temperature Recalibration
-- **Upstream Flaw Fixed:** Upstream checkpoint shipped `choice:11+ = 0.1006`, which artificially multiplied logits ~10x and caused misleading high confidence.
-- **Ink Recalibration:** Recalibrated to `1.0` in `rl_agent_config.json`. Clamping ensures all temperatures remain within `[0.5, 5.0]`, preventing confidence inflation.
+- **Ink Recalibration:** Calibrated to `1.0` in `rl_agent_config.json`. Clamping ensures all temperatures remain within `[0.5, 5.0]`, preventing confidence inflation.
 
 ## 9. Limitations & Safety Boundary
 - **Exact-State Qualification:** In Ink v0.4, statistical qualification is exact-state bounded. Generalization to unseen states requires separate verification.

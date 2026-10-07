@@ -1,4 +1,3 @@
-# Vendored Ink Decision v1 runtime (upstream: laya-mlx 0.2.0). See NOTICE and LICENSE.
 """Bounded tokenized-prefix reuse. Encoder states and predictions are never cached."""
 
 from collections import OrderedDict

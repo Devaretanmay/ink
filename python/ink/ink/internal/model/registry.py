@@ -1,4 +1,4 @@
-"""Explicit, atomic provisioning of Ink's pinned pretrained model."""
+"""Explicit, atomic provisioning of Ink's pinned decision model."""
 
 import hashlib
 import json
@@ -22,13 +22,13 @@ def specification(root=None):
             if not isinstance(payload.get("sha256"), dict) or not payload["sha256"]:
                 raise ValueError("Ink checkpoint manifest has no file hashes")
             if payload.get("weights_modified") is False:
-                # Older installed copies of the upstream base checkpoint used
-                # ink-model.json but predate the trained-model version
-                # field. Accept only an exact identity/hash match with the
-                # current pinned base manifest.
+                # Older installed copies used ink-model.json but predate the
+                # trained-model version field. Accept only exact file-hash
+                # matches with the current pinned manifest.
                 base = json.loads(Path(__file__).with_name("checkpoint.json").read_text())
-                identity_fields = ("name", "upstream", "revision", "sha256")
-                if all(payload.get(key) == base.get(key) for key in identity_fields):
+                if payload.get("name") == base.get("name") and payload.get("sha256") == base.get(
+                    "sha256"
+                ):
                     return base
                 raise ValueError(
                     "legacy base checkpoint manifest does not match the pinned base model"
@@ -113,7 +113,7 @@ def install(source=None):
             raise RuntimeError(msg) from exc
 
         source = snapshot_download(
-            spec["upstream"],
+            spec["repository"],
             revision=spec["revision"],
             allow_patterns=list(spec["sha256"]),
         )

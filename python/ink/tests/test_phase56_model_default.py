@@ -192,18 +192,16 @@ def test_globally_disabled_with_model_enabled():
         assert res.fallback_reason == "globally_disabled"
 
 
-# --- Test 15: legacy engine alias resolution with model enabled ---
-def test_legacy_alias_resolution_model_enabled():
+# --- Test 15: model identity alias resolution with model enabled ---
+def test_model_identity_alias_resolution_model_enabled():
     with Ink(":memory:") as loop:
-        assert "laya" in loop.engines
         assert "ink-decision-v1" in loop.engines
-        assert loop.engines["laya"] is loop.engines["decision"]
+        assert loop.engines["ink-decision-v1"] is loop.engines["decision"]
 
 
-# --- Test 16: legacy alias absent when model disabled ---
-def test_legacy_alias_absent_model_disabled():
+# --- Test 16: model identity alias absent when model disabled ---
+def test_model_identity_alias_absent_model_disabled():
     with Ink(":memory:", model_enabled=False) as loop:
-        assert "laya" not in loop.engines
         assert "ink-decision-v1" not in loop.engines
         assert "decision" not in loop.engines
 

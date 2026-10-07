@@ -37,11 +37,6 @@ def _checkpoint():
     env = os.environ.get("INK_CHECKPOINT")
     if env and Path(env).expanduser().exists():
         return str(Path(env).expanduser().resolve())
-    base = Path("~/.cache/huggingface/hub/models--aac6fef--laya-mlx/snapshots").expanduser()
-    if base.is_dir():
-        for snap in sorted(base.iterdir()):
-            if (snap / "model.safetensors").is_file():
-                return str(snap.resolve())
     return None
 
 

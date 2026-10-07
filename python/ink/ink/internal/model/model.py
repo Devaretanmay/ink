@@ -1,4 +1,3 @@
-# Vendored Ink Decision v1 runtime (upstream: laya-mlx 0.2.0). See NOTICE and LICENSE.
 """Integral Ink Decision v1 ModernBERT + decision heads (inference only).
 
 Architecture follows the pinned Ink checkpoint and Hugging Face ModernBERT;
@@ -236,7 +235,7 @@ class DecisionModel(nn.Module):
 
 
 def sanitize_weights(weights):
-    """Map upstream PyTorch parameter names to MLX; Linear layouts already match."""
+    """Map PyTorch-style parameter names to MLX; Linear layouts already match."""
     result = {}
     for name, value in weights.items():
         name = name.replace(".in_proj_weight", ".in_proj.weight")

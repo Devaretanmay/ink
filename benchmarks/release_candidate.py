@@ -1349,7 +1349,7 @@ def benchmark_model_provisioning() -> dict:
 
     return {
         "model_name": spec.get("name", "ink-decision-v1"),
-        "upstream": spec.get("upstream", "aac6fef/laya-mlx"),
+        "repository": spec.get("repository", "ink/ink-decision-v1"),
         "cache_path": str(m_path),
         "total_disk_bytes": total_bytes,
         "total_disk_mb": round(total_bytes / (1024 * 1024), 2),
@@ -1790,7 +1790,7 @@ def generate_markdown_report(data: dict) -> str:
         "## 13. Internal Learned Model Provisioning & Integrity",
         "",
         f"- **Model Architecture:** `{bm['model_provisioning']['model_name']}` (ModernBERT-large + DecisionHead + Scorer via MLX)",
-        f"- **Upstream Checkpoint:** `{bm['model_provisioning']['upstream']}`",
+        f"- **Model Repository:** `{bm['model_provisioning']['repository']}`",
         f"- **Cache Location:** `{bm['model_provisioning']['cache_path']}`",
         f"- **Uncompressed Disk Footprint:** **{bm['model_provisioning']['total_disk_mb']} MB** ({bm['model_provisioning']['files_count']} verified files)",
         f"- **SHA256 Checksum Integrity Check:** **{bm['model_provisioning']['integrity_verified']}**",
@@ -1887,4 +1887,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

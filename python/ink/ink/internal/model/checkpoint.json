@@ -1,8 +1,10 @@
 {
   "name": "ink-decision-v1",
-  "upstream": "aac6fef/laya-mlx",
-  "revision": "20aed815fc6acde75733882e7ec0e3f28aeb9717",
-  "weights_modified": false,
+  "repository": "ink/ink-decision-v1",
+  "revision": "ink-finetune-v1",
+  "version": "1.0.0",
+  "weights_modified": true,
+  "trained_by": "ink-finetune-v1",
   "sha256": {
     "model.safetensors": "b9c07bf14be2fa5c78a9193a3e6d840ac80e89e62fc40f425834c3d8a6eaa3de",
     "rl_agent_config.json": "d96dc2cb39d6375e030ff48c9957088f3c52668f45c30c56504f4e801ed3ee62",

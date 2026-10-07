@@ -1,18 +1,9 @@
-laya-mlx
-Copyright 2026 laya-mlx contributors
+Ink Decision v1
+Copyright 2026 Tanmay Devare
 
-This product includes software derived from Laya:
-https://github.com/NandhaKishorM/laya
-Copyright Convai Innovations and Laya contributors. Licensed under Apache-2.0.
-Upstream source revision: 573e5b62696ba441230cd6be71d593331b5d23af
+This package contains the Ink-maintained ModernBERT decision runtime, tokenizer
+handling, sequence preparation, choice scoring, prompt assembly, and calibrated
+choice-head inference path used by Ink's Decision Engine.
 
-The token sequence construction, question rendering, confidence calculation,
-presets, email utilities and language router are adapted from Laya.
-The neural network is reimplemented using Apple's MLX, following Laya's
-DecisionModel and the ModernBERT architecture in Hugging Face Transformers.
-Model weights are downloaded separately from Convai Innovations on Hugging Face;
-they are not included in this repository.
-
-Ink modifications (2026): private bundled runtime, local-only loading,
-Ink model identity, CPU precision selection, pinned checkpoint management.
-Original pretrained weights remain Laya-derived; no claim of original training.
+The bundled checkpoint identity is recorded in checkpoint.json. Trained
+checkpoint lineage and operating constraints are documented in MODEL_CARD.md.

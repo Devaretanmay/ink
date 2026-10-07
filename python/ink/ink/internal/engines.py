@@ -75,7 +75,7 @@ class DecisionModelEngine:
 
     name = "decision"
 
-    LEGACY_KEYS = ("laya", "ink-decision-v1")
+    LEGACY_KEYS = ("ink-decision-v1",)
 
     def __init__(self, checkpoint=None, *, instructions=None):
         from .model.registry import model_path
@@ -169,10 +169,9 @@ class DecisionModelEngine:
 
 
 MlxDecisionEngine = DecisionModelEngine
-LayaEngine = DecisionModelEngine
-ENGINE_ALIASES = {"laya": "decision", "ink-decision-v1": "decision"}
+ENGINE_ALIASES = {"ink-decision-v1": "decision"}
 
 
 def resolve_engine_key(key):
-    """Map historical engine keys onto the current integral key."""
+    """Map model identity keys onto the current engine key."""
     return ENGINE_ALIASES.get(key, key)
