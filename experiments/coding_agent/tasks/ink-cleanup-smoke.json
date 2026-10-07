@@ -1,0 +1,18 @@
+{
+  "schema_version": "1",
+  "tasks": [
+    {
+      "task_id": "ink-remove-legacy-model-provenance",
+      "repository": "../../../",
+      "base_commit": "961f817",
+      "prompt": "Remove every legacy Laya model provenance mention from the repository, rename remaining model identity metadata to ink-decision-v1, preserve required third-party licenses, and run the focused tests and hygiene checks. Do not change Ink's decision architecture or qualification behavior.",
+      "test_command": [
+        "zsh",
+        "-lc",
+        "! rg -n -i '\\blaya\\b|laya-mlx|aac6fef|convai|mizorewww|original pretraining' . --glob '!*.pyc' && PYTHONPATH=python/ink python3 -m pytest python/ink/tests/test_integrated_model.py python/ink/tests/test_phase56_model_default.py python/ink/tests/test_decision_path.py -q"
+      ],
+      "success_exit_codes": [0],
+      "timeout_seconds": 1800
+    }
+  ]
+}
