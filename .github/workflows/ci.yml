@@ -56,7 +56,9 @@ jobs:
           python -c "import ink; print(ink.__version__)"
           pip install pytest
           pytest python/ink/tests/
-          python -m examples.refund_agent.agent --engine exact --output .ink/ci-smoke --require-lifecycle
+          python examples/quickstart.py
+          python examples/tool_routing.py
+          python examples/support_routing.py
       - name: Verify README install command matches distribution
         run: |
           grep -q 'pip install ink-jit' README.md || (echo "README install command mismatch" && exit 1)
