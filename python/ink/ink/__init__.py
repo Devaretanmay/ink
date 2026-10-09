@@ -43,7 +43,7 @@ except Exception:
     try:
         __version__ = _version("ink")
     except Exception:
-        __version__ = "0.6.0rc4"
+        __version__ = "0.6.0"
 
 __all__ = [
     "Ink",

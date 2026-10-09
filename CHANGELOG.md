@@ -6,12 +6,15 @@ All notable, user-facing changes to Ink. This project follows
 The PyPI distribution is **`ink-jit`** (`pip install ink-jit`); the Python import is
 **`ink`** and the CLI is **`ink`**.
 
-## [Unreleased]
+## [0.6.0] - 2026-10-10
 
 - Repositioned the project around one idea: *models handle novelty; Ink turns proven
   behavior into software.* README, docs, examples, package metadata, and benchmark framing
   now describe a single product with a single worldview.
 - `ink discover` is the primary evaluation entry point.
+- Statistical safety model with Wilson score interval confidence bounds.
+- Separation of representation compilation from serving authority.
+- Curated documentation and runnable examples for LangGraph and PydanticAI.
 
 ## [0.5.0] - 2026-10-02
 
