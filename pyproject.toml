@@ -25,19 +25,15 @@ classifiers = [
 
 dependencies = [
     "numpy>=2.0,<3",
-]
-
-[project.optional-dependencies]
-neural = [
     "mlx==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "mlx[cpu]==0.32.2; sys_platform == 'linux'",
     "tokenizers>=0.21,<0.24",
     "huggingface-hub>=0.30,<2",
 ]
-mlx = [
-    "mlx==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'",
-    "mlx[cpu]==0.32.2; sys_platform == 'linux'",
-]
+
+[project.optional-dependencies]
+neural = []
+mlx = []
 large = [
     "gliner2>=0.2.0",
     "torch>=2.2.0",

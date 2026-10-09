@@ -189,6 +189,9 @@ def test_large_backend_lazy_loading_and_contract():
     model_dir = Path("~/.cache/ink/models/ink-decision-large").expanduser()
     if not (model_dir / "model.safetensors").is_file():
         pytest.skip("ink-decision-large checkpoint unavailable")
+    import importlib.util
+    if importlib.util.find_spec("gliner2") is None:
+        pytest.skip("gliner2 unavailable (install ink-jit[large])")
 
     backend = InkDecisionLargeBackend(checkpoint=str(model_dir))
     assert backend._extractor is None  # Lazy loading: not loaded on instantiation
