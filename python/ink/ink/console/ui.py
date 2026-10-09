@@ -2,8 +2,7 @@
 
 Self-contained zero-dependency single-page application for local-first
 observability into Ink DecisionSites, Fast Paths, and system health.
-Crafted using the Impeccable design system with Midnight Espresso,
-Vanilla Custard, and Pistachio Frost palettes. Zero emojis.
+Pure high-contrast monochrome black-and-white theme. Zero emojis.
 """
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -14,43 +13,28 @@ HTML_PAGE = """<!DOCTYPE html>
   <title>Ink Console — Behavior JIT</title>
   <style>
     :root {
-      /* Brand Palette */
-      --vanilla-custard: #FFF9EB;
-      --pistachio-frost: #C5E384;
-      --midnight-espresso: #200F07;
+      /* Pure Monochrome Palette */
+      --black-true: #000000;
+      --bg-deep: #050505;
+      --bg-base: #0a0a0a;
+      --bg-surface: #111111;
+      --bg-elevated: #181818;
+      --bg-hover: #222222;
 
-      /* Surfaces & Depth */
-      --bg-deep: #160A05;
-      --bg-base: #200F07;
-      --bg-surface: #29140B;
-      --bg-elevated: #331A0F;
-      --bg-hover: #3D2013;
-
-      /* Borders & Rules */
-      --border-subtle: rgba(255, 249, 235, 0.08);
-      --border-medium: rgba(255, 249, 235, 0.14);
-      --border-accent: rgba(197, 227, 132, 0.35);
+      /* High-Contrast Borders */
+      --border-subtle: #1f1f1f;
+      --border-medium: #333333;
+      --border-strong: #ffffff;
 
       /* Typography */
-      --text-primary: #FFF9EB;
-      --text-secondary: rgba(255, 249, 235, 0.82);
-      --text-muted: rgba(255, 249, 235, 0.54);
-      --text-faint: rgba(255, 249, 235, 0.30);
+      --text-primary: #ffffff;
+      --text-secondary: #d4d4d4;
+      --text-muted: #888888;
+      --text-faint: #444444;
 
-      /* Accents & Signals */
-      --accent-pistachio: #C5E384;
-      --accent-pistachio-soft: rgba(197, 227, 132, 0.12);
-      --accent-pistachio-glow: rgba(197, 227, 132, 0.28);
-      --accent-pistachio-dark: #200F07;
-
-      --signal-amber: #F2AE5C;
-      --signal-amber-soft: rgba(242, 174, 92, 0.14);
-
-      --signal-cyan: #7DD3FC;
-      --signal-cyan-soft: rgba(125, 211, 252, 0.14);
-
-      --signal-coral: #F87171;
-      --signal-coral-soft: rgba(248, 113, 113, 0.14);
+      /* Inverted High-Contrast Accents */
+      --accent-invert-bg: #ffffff;
+      --accent-invert-text: #000000;
 
       /* Fonts */
       --font-sans: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Inter", "Segoe UI", Roboto, sans-serif;
@@ -71,8 +55,8 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     header {
-      background: var(--bg-deep);
-      border-bottom: 1px solid var(--border-subtle);
+      background: var(--black-true);
+      border-bottom: 1px solid var(--border-medium);
       padding: 0.875rem 2rem;
       display: flex;
       justify-content: space-between;
@@ -86,22 +70,21 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     .brand-emblem {
-      background: var(--pistachio-frost);
-      color: var(--midnight-espresso);
+      background: var(--accent-invert-bg);
+      color: var(--accent-invert-text);
       font-family: var(--font-mono);
       font-size: 0.8125rem;
-      font-weight: 800;
-      letter-spacing: 0.05em;
-      padding: 0.3rem 0.6rem;
-      border-radius: 5px;
-      box-shadow: 0 0 16px var(--accent-pistachio-glow);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      padding: 0.25rem 0.625rem;
+      border-radius: 3px;
     }
 
     .brand-title {
       font-size: 1.0625rem;
       font-weight: 700;
       letter-spacing: -0.02em;
-      color: var(--vanilla-custard);
+      color: #ffffff;
     }
 
     .brand-tag {
@@ -124,43 +107,43 @@ HTML_PAGE = """<!DOCTYPE html>
       gap: 0.5rem;
       font-size: 0.75rem;
       font-family: var(--font-mono);
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      background: var(--accent-pistachio-soft);
-      color: var(--accent-pistachio);
+      letter-spacing: 0.06em;
+      background: transparent;
+      color: #ffffff;
       padding: 0.25rem 0.625rem;
       border-radius: 9999px;
-      border: 1px solid var(--border-accent);
+      border: 1px solid var(--border-medium);
     }
 
     .pulse-dot {
       width: 6px;
       height: 6px;
-      background: var(--accent-pistachio);
+      background: #ffffff;
       border-radius: 50%;
-      box-shadow: 0 0 8px var(--accent-pistachio);
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
     }
 
     .demo-badge {
-      background: var(--signal-amber-soft);
-      color: var(--signal-amber);
-      border: 1px solid rgba(242, 174, 92, 0.35);
+      background: transparent;
+      color: #ffffff;
+      border: 1px solid var(--border-strong);
       padding: 0.25rem 0.625rem;
       border-radius: 9999px;
       font-size: 0.6875rem;
       font-family: var(--font-mono);
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
     }
 
     nav {
-      background: var(--bg-deep);
-      border-bottom: 1px solid var(--border-subtle);
+      background: var(--black-true);
+      border-bottom: 1px solid var(--border-medium);
       padding: 0 2rem;
       display: flex;
-      gap: 1.75rem;
+      gap: 2rem;
     }
 
     .nav-btn {
@@ -173,14 +156,14 @@ HTML_PAGE = """<!DOCTYPE html>
       padding: 0.875rem 0;
       cursor: pointer;
       position: relative;
-      transition: color 0.18s ease;
+      transition: color 0.15s ease;
     }
 
-    .nav-btn:hover { color: var(--text-primary); }
+    .nav-btn:hover { color: #ffffff; }
 
     .nav-btn.active {
-      color: var(--vanilla-custard);
-      font-weight: 600;
+      color: #ffffff;
+      font-weight: 700;
     }
 
     .nav-btn.active::after {
@@ -190,8 +173,7 @@ HTML_PAGE = """<!DOCTYPE html>
       left: 0;
       right: 0;
       height: 2px;
-      background: var(--pistachio-frost);
-      box-shadow: 0 0 10px var(--accent-pistachio-glow);
+      background: #ffffff;
     }
 
     main {
@@ -215,16 +197,15 @@ HTML_PAGE = """<!DOCTYPE html>
     .stat-card {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 8px;
+      border-radius: 4px;
       padding: 1.375rem;
       position: relative;
       overflow: hidden;
-      transition: border-color 0.2s ease, transform 0.2s ease;
+      transition: border-color 0.15s ease;
     }
 
     .stat-card:hover {
       border-color: var(--border-medium);
-      transform: translateY(-1px);
     }
 
     .stat-card.accent-card::before {
@@ -234,8 +215,7 @@ HTML_PAGE = """<!DOCTYPE html>
       left: 0;
       right: 0;
       height: 2px;
-      background: var(--pistachio-frost);
-      box-shadow: 0 0 8px var(--accent-pistachio-glow);
+      background: #ffffff;
     }
 
     .stat-label {
@@ -248,15 +228,15 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     .stat-value {
-      font-size: 2rem;
-      font-weight: 700;
+      font-size: 2.125rem;
+      font-weight: 800;
       letter-spacing: -0.03em;
-      color: var(--vanilla-custard);
+      color: #ffffff;
       font-feature-settings: "tnum" 1;
     }
 
     .stat-value.highlight {
-      color: var(--pistachio-frost);
+      color: #ffffff;
     }
 
     .stat-sub {
@@ -268,7 +248,7 @@ HTML_PAGE = """<!DOCTYPE html>
     .card {
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
-      border-radius: 8px;
+      border-radius: 4px;
       margin-bottom: 2rem;
       overflow: hidden;
     }
@@ -279,14 +259,14 @@ HTML_PAGE = """<!DOCTYPE html>
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(22, 10, 5, 0.45);
+      background: var(--bg-deep);
     }
 
     .card-title {
       font-size: 0.9375rem;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: -0.01em;
-      color: var(--vanilla-custard);
+      color: #ffffff;
     }
 
     .card-sub {
@@ -329,41 +309,41 @@ HTML_PAGE = """<!DOCTYPE html>
       align-items: center;
       font-size: 0.6875rem;
       font-family: var(--font-mono);
-      font-weight: 700;
+      font-weight: 800;
       padding: 0.2rem 0.55rem;
-      border-radius: 4px;
+      border-radius: 3px;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.06em;
     }
 
     .badge-ACTIVE {
-      background: var(--accent-pistachio-soft);
-      color: var(--accent-pistachio);
-      border: 1px solid var(--border-accent);
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #ffffff;
     }
 
     .badge-SHADOW {
-      background: var(--signal-cyan-soft);
-      color: var(--signal-cyan);
-      border: 1px solid rgba(125, 211, 252, 0.3);
+      background: transparent;
+      color: #ffffff;
+      border: 1px solid var(--border-medium);
     }
 
     .badge-CANDIDATE {
-      background: var(--signal-amber-soft);
-      color: var(--signal-amber);
-      border: 1px solid rgba(242, 174, 92, 0.3);
+      background: transparent;
+      color: #cccccc;
+      border: 1px dashed var(--border-medium);
     }
 
     .badge-OBSERVE {
-      background: rgba(255, 249, 235, 0.08);
+      background: transparent;
       color: var(--text-muted);
       border: 1px solid var(--border-subtle);
     }
 
     .badge-DEOPT {
-      background: var(--signal-coral-soft);
-      color: var(--signal-coral);
-      border: 1px solid rgba(248, 113, 113, 0.3);
+      background: #222222;
+      color: #777777;
+      border: 1px solid #333333;
     }
 
     .source-tag {
@@ -372,26 +352,26 @@ HTML_PAGE = """<!DOCTYPE html>
       gap: 0.375rem;
       font-size: 0.75rem;
       font-family: var(--font-mono);
-      font-weight: 600;
-      padding: 0.15rem 0.45rem;
-      border-radius: 4px;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 3px;
     }
 
     .source-fast {
-      background: var(--accent-pistachio-soft);
-      color: var(--accent-pistachio);
-      border: 1px solid var(--border-accent);
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #ffffff;
     }
 
     .source-fallback {
-      background: var(--signal-amber-soft);
-      color: var(--signal-amber);
-      border: 1px solid rgba(242, 174, 92, 0.28);
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-medium);
     }
 
     .svg-icon {
-      width: 13px;
-      height: 13px;
+      width: 12px;
+      height: 12px;
       display: inline-block;
       vertical-align: middle;
       flex-shrink: 0;
@@ -407,8 +387,8 @@ HTML_PAGE = """<!DOCTYPE html>
       font-size: 0.75rem;
       background: var(--bg-elevated);
       padding: 0.15rem 0.45rem;
-      border-radius: 4px;
-      color: var(--vanilla-custard);
+      border-radius: 3px;
+      color: #ffffff;
       border: 1px solid var(--border-subtle);
     }
 
@@ -420,7 +400,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     .empty-state h3 {
       font-size: 1.0625rem;
-      color: var(--vanilla-custard);
+      color: #ffffff;
       margin-bottom: 0.5rem;
       letter-spacing: -0.01em;
     }
@@ -438,39 +418,40 @@ HTML_PAGE = """<!DOCTYPE html>
     .btn {
       background: var(--bg-elevated);
       border: 1px solid var(--border-medium);
-      color: var(--vanilla-custard);
+      color: #ffffff;
       padding: 0.4rem 0.85rem;
-      border-radius: 5px;
+      border-radius: 3px;
       cursor: pointer;
       font-size: 0.8125rem;
-      font-weight: 500;
+      font-weight: 600;
       transition: background 0.15s ease, border-color 0.15s ease;
     }
 
     .btn:hover {
-      background: var(--bg-hover);
-      border-color: var(--border-accent);
+      background: #ffffff;
+      color: #000000;
+      border-color: #ffffff;
     }
 
     .btn-primary {
-      background: var(--pistachio-frost);
-      color: var(--midnight-espresso);
-      border: 1px solid var(--pistachio-frost);
-      font-weight: 600;
+      background: #ffffff;
+      color: #000000;
+      border: 1px solid #ffffff;
+      font-weight: 700;
     }
 
     .btn-primary:hover {
-      background: #b6d773;
+      background: #e5e5e5;
     }
 
     .verified-mark {
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-      color: var(--accent-pistachio);
+      color: #ffffff;
       font-family: var(--font-mono);
       font-size: 0.75rem;
-      font-weight: 600;
+      font-weight: 700;
     }
   </style>
 </head>
@@ -816,7 +797,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <td class="mono"><strong>${d.name}</strong></td>
           <td>${d.unique_patterns || 0}</td>
           <td>${d.volume || 0}</td>
-          <td><strong style="color:var(--accent-pistachio);">${(d.potential_coverage * 100).toFixed(1)}%</strong></td>
+          <td><strong style="color:#ffffff;">${(d.potential_coverage * 100).toFixed(1)}%</strong></td>
           <td><span class="code-pill">${d.suggested_engine || 'exact'}</span></td>
         </tr>`;
       }
@@ -829,17 +810,17 @@ HTML_PAGE = """<!DOCTYPE html>
       const cont = document.getElementById('systemContainer');
       if (!data) return;
       let html = `<div style="padding: 1.5rem;">
-        <h4 style="margin-bottom: 1rem; color: var(--vanilla-custard);">Database &amp; Storage Health</h4>
+        <h4 style="margin-bottom: 1rem; color: #ffffff;">Database &amp; Storage Health</h4>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
           <div><span style="color:var(--text-muted);">Database Path:</span> <code class="code-pill">${data.database_path}</code></div>
-          <div><span style="color:var(--text-muted);">Database Status:</span> <strong style="color:var(--accent-pistachio);">${data.status}</strong></div>
-          <div><span style="color:var(--text-muted);">SQLite Integrity Check:</span> <strong style="color:var(--accent-pistachio);">${data.integrity}</strong></div>
+          <div><span style="color:var(--text-muted);">Database Status:</span> <strong style="color:#ffffff;">${data.status}</strong></div>
+          <div><span style="color:var(--text-muted);">SQLite Integrity Check:</span> <strong style="color:#ffffff;">${data.integrity}</strong></div>
           <div><span style="color:var(--text-muted);">Schema PRAGMA Version:</span> ${data.schema_version}</div>
           <div><span style="color:var(--text-muted);">Registered Sites Count:</span> ${data.sites_count}</div>
           <div><span style="color:var(--text-muted);">Active Artifacts Count:</span> ${data.active_artifacts_count}</div>
         </div>
 
-        <h4 style="margin-bottom: 1rem; color: var(--vanilla-custard);">Available Execution Engines</h4>
+        <h4 style="margin-bottom: 1rem; color: #ffffff;">Available Execution Engines</h4>
         <table>
           <thead><tr><th>Engine Name</th><th>Tier</th><th>Hardware Backend</th><th>Status</th></tr></thead>
           <tbody>
