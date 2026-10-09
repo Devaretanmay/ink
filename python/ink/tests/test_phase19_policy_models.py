@@ -296,6 +296,10 @@ def test_evidence_incompatibility_across_checkpoint_revisions():
 
 def test_policy_model_engine_small_regression():
     """Verify that PolicyModelEngine with Small produces the corrected Full KD metadata and valid proposals."""
+    small_weights = registry.model_path(INK_DECISION_SMALL) / "model.safetensors"
+    if not small_weights.is_file():
+        pytest.skip("ink-decision-small checkpoint unavailable")
+
     spec = get_model_spec(INK_DECISION_SMALL)
     assert spec.checkpoint_revision == "phase18-full-kd"
 
@@ -330,6 +334,10 @@ def test_large_missing_dependency_actionable_error(monkeypatch):
 
 def test_policy_model_engine_preserves_site_instructions():
     """Verify that when a DecisionSite supplies explicit instructions, PolicyModelEngine uses them unchanged."""
+    small_weights = registry.model_path(INK_DECISION_SMALL) / "model.safetensors"
+    if not small_weights.is_file():
+        pytest.skip("ink-decision-small checkpoint unavailable")
+
     custom_ins = "Route security requests to triage team immediately."
     site = DecisionSite("sec_site", state_schema={"text": "string"}, choices=("triage", "ignore"), instructions=custom_ins)
     engine = PolicyModelEngine(model="small")
