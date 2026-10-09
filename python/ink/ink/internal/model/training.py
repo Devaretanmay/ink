@@ -96,6 +96,7 @@ def finetune(
     rows=None,
     output_dir=None,
     *,
+    model_id=None,
     eval_rows=None,
     instructions=None,
     steps=50,
@@ -175,18 +176,21 @@ def finetune(
         else:
             shutil.copyfile(src, dst)
     rl_cfg = json.loads((base / "rl_agent_config.json").read_text())
-    if "temperature_by_options" in rl_cfg:
-        rl_cfg["temperature_by_options"]["choice:11+"] = 1.0
-    rl_cfg["model_name"] = "ink-decision-v1"
+    from .constants import INK_DECISION_SMALL, MODEL_RUNTIME_VERSION, resolve_policy_model_id
+    canonical_id = resolve_policy_model_id(model_id) or INK_DECISION_SMALL
+    rl_cfg["model_name"] = canonical_id
     (out / "rl_agent_config.json").write_text(json.dumps(rl_cfg, indent=2) + "\n")
     import mlx.utils
     agent.model.update(mlx.utils.tree_map(lambda x: x.astype(mx.float16), agent.model.parameters()))
     agent.model.save_weights(str(out / "model.safetensors"))
     card = {
-        "name": "ink-decision-v1",
+        "name": canonical_id,
+        "model_id": canonical_id,
         "version": "1.0.0",
+        "model_version": "1.0.0",
+        "runtime_version": MODEL_RUNTIME_VERSION,
         "architecture": "ModernBERT-large + DecisionHead (2 layers) + Scorer (2 layers)",
-        "base_model": "ink/ink-decision-v1",
+        "base_model": f"ink/{canonical_id}",
         "base_revision": "ink-finetune-v1",
         "weights_modified": True,
         "trained_by": "ink-finetune-v1",

@@ -84,8 +84,9 @@ class Agent:
         cache_prompts=False,
     ):
         if sys.platform == "win32":
+            from .constants import INK_DECISION_SMALL
             raise OSError(
-                "ink-decision-v1 requires Linux or macOS (MLX has no Windows build); "
+                f"{INK_DECISION_SMALL} requires Linux or macOS (MLX has no Windows build); "
                 "use engine='exact' on Windows"
             )
         if model_id_or_path is None:
@@ -111,11 +112,21 @@ class Agent:
             raise ValueError("pad_to_multiple must be a positive integer or None")
         self.pad_to_multiple = pad_to_multiple
         self._prefix_cache = PrefixCache() if cache_prompts else None
-        self.model_id = str(model_id_or_path)
         self.revision = revision
         self.model_dir = resolve_model(
             model_id_or_path, token=token, subfolder=subfolder, revision=revision
         )
+        from .constants import INK_DECISION_SMALL
+        manifest_path = self.model_dir / "ink-model.json"
+        if manifest_path.is_file():
+            try:
+                m_data = json.loads(manifest_path.read_text())
+                self.model_id = m_data.get("model_id") or m_data.get("name") or INK_DECISION_SMALL
+            except Exception:
+                self.model_id = INK_DECISION_SMALL
+        else:
+            self.model_id = INK_DECISION_SMALL
+
         self.cfg = json.loads((self.model_dir / "rl_agent_config.json").read_text())
         self.encoder_cfg = json.loads((self.model_dir / "encoder/config.json").read_text())
         if "encoder" not in self.cfg or "head_layers" not in self.cfg:
@@ -150,10 +161,9 @@ class Agent:
         ]
         if rejected:
             warnings.warn(
-                "ink-decision-v1: checkpoint temperatures outside [{:g}, {:g}] "
-                "would "
-                "distort confidence; clamping {}. Treat confidence from the affected buckets "
-                "as uncalibrated.".format(TEMP_MIN, TEMP_MAX, ", ".join(rejected)),
+                f"{self.model_id}: checkpoint temperatures outside [{TEMP_MIN:g}, {TEMP_MAX:g}] "
+                f"would distort confidence; clamping {', '.join(rejected)}. Treat confidence from the affected buckets "
+                "as uncalibrated.",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -225,6 +235,33 @@ class Agent:
             mx.eval(result)
         return result
 
+    def representation(self, state, choices, instructions=None):
+        """Return genuine frozen-encoder CLS representation for control-plane use."""
+        question = {
+            "representation": {
+                "type": "choice",
+                "criteria": list(choices),
+                "instructions": instructions or "Choose the correct decision.",
+            }
+        }
+        items, _ = self.prepare(state, question)
+        batch = collate_items(
+            items,
+            self.tok.pad_token_id,
+            pad_to_multiple=self.pad_to_multiple,
+            max_length=self.cfg.get("max_len", 512),
+        )
+        with mx.stream(self.device):
+            input_ids = mx.array(batch["input_ids"])
+            attention_mask = mx.array(batch["attention_mask"])
+            hidden = self.model.encoder(input_ids, attention_mask)
+            cls = hidden[0, 0].astype(mx.float32)
+            mx.eval(cls)
+        vector = np.asarray(cls).tolist()
+        if not np.isfinite(vector).all():
+            raise FloatingPointError("Non-finite Small representation")
+        return [float(value) for value in vector]
+
     def system_one(self, state, questions):
         items, internal = self.prepare(state, questions)
         answers = {}
@@ -276,7 +313,7 @@ class Agent:
                     )
                 answers[qid] = answer
         return {
-            "model": "ink-decision-v1",
+            "model": self.model_id,
             "answers": answers,
             "usage": {"input_tokens": sum(len(item["ids"]) for item in items), "output_tokens": 0},
         }

@@ -1,0 +1,33 @@
+{
+  "name": "ink-decision-large",
+  "model_id": "ink-decision-large",
+  "model_family": "ink-decision",
+  "size_tier": "large",
+  "version": "1.0.0",
+  "model_version": "1.0.0",
+  "runtime_version": "2",
+  "checkpoint_revision": "gliner2.5-decide-486m",
+  "repository": "ink/ink-decision-large",
+  "parameter_count": 486444053,
+  "architecture": "microsoft/deberta-v3-large + GLiNER2.5 Decide multi-label head",
+  "weights_modified": false,
+  "optional": true,
+  "license": "Apache-2.0",
+  "provenance": {
+    "base_model": "microsoft/deberta-v3-large",
+    "upstream_checkpoint": "fastino/GLiNER2.5-Decide",
+    "license": "Apache-2.0",
+    "attribution": "fastino/GLiNER2.5-Decide published by Fastino under Apache-2.0",
+    "role": "optional high-capability semantic proposal and teacher model",
+    "mean_accuracy": 0.795,
+    "correctness_auroc": 0.869
+  },
+  "sha256": {
+    "model.safetensors": "40a5a23ff860dc3dff426cecd1048cacdd29c648c96db209dad818e9686dc997",
+    "config.json": "501c6579278518e72dbba5a1f248b421dd5bfb13600db45d86c94c224368670b",
+    "special_tokens_map.json": "84ea70143f533d7e99b393d87f20010887a9ac2cba955828ef313886e4e83f4f",
+    "tokenizer.json": "3ad87d9ffe669147063e70850927dd2da90249e2acc5c8527f1eb65df467bcc8",
+    "tokenizer_config.json": "323199a4e946039410899f3779f2aa3eaef1500213c512727ad0f623d4f21309",
+    "encoder_config/config.json": "bd32f1484ba5a199f7a63df44df3814b839fffcf6e64478323c4689868ef6015"
+  }
+}

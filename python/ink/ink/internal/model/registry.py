@@ -1,4 +1,6 @@
-"""Explicit, atomic provisioning of Ink's pinned decision model."""
+"""Explicit, atomic provisioning of Ink's canonical Policy Models."""
+
+from __future__ import annotations
 
 import hashlib
 import json
@@ -7,14 +9,23 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from .constants import (
+    INK_DECISION_LARGE,
+    INK_DECISION_SMALL,
+    LEGACY_INK_DECISION_V1,
+    resolve_policy_model_id,
+)
+from .policy_registry import get_model_spec
 
-def specification(root=None):
+
+def specification(root=None, model_id=INK_DECISION_SMALL):
     """Return the integrity manifest belonging to a checkpoint.
 
     The shipped base checkpoint is described by checkpoint.json. An Ink-
-    trained checkpoint carries its own ink-model.json, whose hashes must
-    be used instead of the base model hashes.
+    trained or installed checkpoint carries its own ink-model.json, whose
+    hashes must be used instead of the base model hashes.
     """
+    resolved_id = resolve_policy_model_id(model_id) or INK_DECISION_SMALL
     if root is not None:
         manifest = Path(root) / "ink-model.json"
         if manifest.is_file():
@@ -26,30 +37,58 @@ def specification(root=None):
                 # trained-model version field. Accept only exact file-hash
                 # matches with the current pinned manifest.
                 base = json.loads(Path(__file__).with_name("checkpoint.json").read_text())
-                if payload.get("name") == base.get("name") and payload.get("sha256") == base.get(
-                    "sha256"
+                if (
+                    payload.get("name") in (base.get("name"), LEGACY_INK_DECISION_V1)
+                    and payload.get("sha256") == base.get("sha256")
                 ):
                     return base
                 raise ValueError(
                     "legacy base checkpoint manifest does not match the pinned base model"
                 )
-            if not payload.get("name") or not payload.get("version"):
+            model_name = payload.get("name") or payload.get("model_id")
+            model_ver = payload.get("version") or payload.get("model_version")
+            if not model_name or not model_ver:
                 raise ValueError("Ink checkpoint manifest has no model identity")
             return payload
+    if resolved_id == INK_DECISION_LARGE:
+        return get_model_spec(INK_DECISION_LARGE).to_dict()
     return json.loads(Path(__file__).with_name("checkpoint.json").read_text())
 
 
-def model_path():
-    return (
-        Path(os.environ.get("INK_MODEL_DIR", "~/.cache/ink/models/decision-v1"))
-        .expanduser()
-        .resolve()
-    )
+def model_path(model_id=INK_DECISION_SMALL):
+    """Return the canonical filesystem path for the specified policy model."""
+    resolved_id = resolve_policy_model_id(model_id) or INK_DECISION_SMALL
+    if resolved_id == INK_DECISION_LARGE:
+        large_override = os.environ.get("INK_LARGE_MODEL_DIR")
+        if large_override:
+            return Path(large_override).expanduser().resolve()
+        return Path("~/.cache/ink/models/ink-decision-large").expanduser().resolve()
+
+    small_override = os.environ.get("INK_SMALL_MODEL_DIR") or os.environ.get("INK_MODEL_DIR")
+    if small_override:
+        return Path(small_override).expanduser().resolve()
+    return Path("~/.cache/ink/models/ink-decision-small").expanduser().resolve()
 
 
-def verify(root):
+def _safe_specification(root=None, model_id=INK_DECISION_SMALL):
+    try:
+        return specification(root, model_id=model_id)
+    except TypeError:
+        return specification(root)
+
+
+def _safe_verify(root, model_id=INK_DECISION_SMALL):
+    try:
+        return verify(root, model_id=model_id)
+    except TypeError:
+        return verify(root)
+
+
+def verify(root, model_id=INK_DECISION_SMALL):
+    """Verify integrity of files in the given checkpoint directory."""
     root = Path(root)
-    for name, expected in specification(root)["sha256"].items():
+    spec = _safe_specification(root, model_id=model_id)
+    for name, expected in spec["sha256"].items():
         path = root / name
         if not path.is_file():
             raise FileNotFoundError(f"Model file missing: {name}; run ink model-install")
@@ -62,33 +101,66 @@ def verify(root):
     return root
 
 
-def _migrate_legacy_model_cache(destination):
-    """Copy and re-identify the old default cache without deleting it."""
-    if os.environ.get("INK_MODEL_DIR"):
+def _link_or_copy(src: Path, dst: Path):
+    """Link a file to avoid duplicate disk usage; fall back to copy across filesystems."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        os.link(src, dst)
+    except (OSError, NotImplementedError):
+        shutil.copyfile(src, dst)
+
+
+def _migrate_legacy_model_cache(destination, model_id=INK_DECISION_SMALL):
+    """Safely migrate legacy caches (decision-v1 or microloop) without duplicating 800MB weights."""
+    resolved_id = resolve_policy_model_id(model_id) or INK_DECISION_SMALL
+    if resolved_id != INK_DECISION_SMALL:
         return False
-    legacy = Path("~/.cache/microloop/models/decision-v1").expanduser()
-    if destination.exists() or not (legacy / "model.safetensors").is_file():
+    if os.environ.get("INK_MODEL_DIR") or os.environ.get("INK_SMALL_MODEL_DIR"):
         return False
-    spec = specification()
-    legacy_manifest = legacy / "microloop-model.json"
+    if destination.exists() and (destination / "model.safetensors").is_file():
+        return False
+
+    legacy_candidates = [
+        Path("~/.cache/ink/models/decision-v1").expanduser(),
+        Path("~/.cache/microloop/models/decision-v1").expanduser(),
+    ]
+    legacy = None
+    for cand in legacy_candidates:
+        if (cand / "model.safetensors").is_file():
+            legacy = cand
+            break
+    if legacy is None:
+        return False
+
+    spec = _safe_specification(model_id=INK_DECISION_SMALL)
+    legacy_manifest = legacy / "ink-model.json"
+    if not legacy_manifest.is_file():
+        legacy_manifest = legacy / "microloop-model.json"
     if legacy_manifest.is_file():
-        old_spec = json.loads(legacy_manifest.read_text())
-        if old_spec.get("weights_modified") is True:
-            old_spec["name"] = "ink-decision-v1"
-            if old_spec.get("base_model") and old_spec.get("base_revision"):
-                old_spec["base_checkpoint"] = (
-                    f"{old_spec['base_model']}@{old_spec['base_revision']}"
-                )
-            spec = old_spec
+        try:
+            old_spec = json.loads(legacy_manifest.read_text())
+            if old_spec.get("weights_modified") is True:
+                old_spec["name"] = INK_DECISION_SMALL
+                old_spec["model_id"] = INK_DECISION_SMALL
+                if old_spec.get("base_model") and old_spec.get("base_revision"):
+                    old_spec["base_checkpoint"] = (
+                        f"{old_spec['base_model']}@{old_spec['base_revision']}"
+                    )
+                spec = old_spec
+        except Exception:
+            pass
+
     destination.parent.mkdir(parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(prefix=".ink-model-migration-", dir=destination.parent))
     try:
         for name in spec["sha256"]:
-            target = staging / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(legacy / name, target)
+            source_file = legacy / name
+            if not source_file.is_file():
+                continue
+            target_file = staging / name
+            _link_or_copy(source_file, target_file)
         (staging / "ink-model.json").write_text(json.dumps(spec, indent=2) + "\n")
-        verify(staging)
+        _safe_verify(staging, model_id=INK_DECISION_SMALL)
         staging.rename(destination)
     except BaseException:
         shutil.rmtree(staging, ignore_errors=True)
@@ -96,12 +168,14 @@ def _migrate_legacy_model_cache(destination):
     return True
 
 
-def install(source=None):
-    """Download only on explicit setup; validate before exposing the directory."""
-    destination = model_path()
-    if destination.exists():
-        return verify(destination)
-    spec = specification(source)
+def install(source=None, model_id=INK_DECISION_SMALL):
+    """Download or install checkpoint on explicit setup; validate before exposing."""
+    resolved_id = resolve_policy_model_id(model_id) or INK_DECISION_SMALL
+    destination = model_path(resolved_id)
+    if destination.exists() and (destination / "model.safetensors").is_file():
+        return _safe_verify(destination, model_id=resolved_id)
+
+    spec = _safe_specification(source, model_id=resolved_id)
     if source is None:
         try:
             from huggingface_hub import snapshot_download
@@ -117,35 +191,36 @@ def install(source=None):
             revision=spec["revision"],
             allow_patterns=list(spec["sha256"]),
         )
-    source = verify(source)
+    source = _safe_verify(source, model_id=resolved_id)
     destination.parent.mkdir(parents=True, exist_ok=True)
-    staging = Path(tempfile.mkdtemp(prefix=".decision-v1-", dir=destination.parent))
+    staging = Path(tempfile.mkdtemp(prefix=f".{resolved_id}-", dir=destination.parent))
     try:
         for name in spec["sha256"]:
             target = staging / name
             target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(source / name, target)
+            shutil.copyfile(Path(source) / name, target)
         (staging / "ink-model.json").write_text(json.dumps(spec, indent=2) + "\n")
-        verify(staging)
+        _safe_verify(staging, model_id=resolved_id)
         try:
             staging.rename(destination)
         except OSError:
             if not destination.exists():
                 raise
-            verify(destination)  # Another setup process may have completed first.
+            _safe_verify(destination, model_id=resolved_id)  # Another process may have completed first.
     finally:
         if staging.exists():
-            shutil.rmtree(staging)
+            shutil.rmtree(staging, ignore_errors=True)
     return destination
 
 
-def ensure_installed(auto_download=False):
+def ensure_installed(auto_download=False, model_id=INK_DECISION_SMALL):
     """Verify a provisioned model without initiating network downloads."""
-    destination = model_path()
-    _migrate_legacy_model_cache(destination)
+    resolved_id = resolve_policy_model_id(model_id) or INK_DECISION_SMALL
+    destination = model_path(resolved_id)
+    _migrate_legacy_model_cache(destination, model_id=resolved_id)
     if (destination / "model.safetensors").is_file():
-        return verify(destination)
+        return _safe_verify(destination, model_id=resolved_id)
     if auto_download:
-        return install()
+        return install(model_id=resolved_id)
     msg = f"Ink model is missing at {destination}; run 'ink model-install'"
     raise FileNotFoundError(msg)
