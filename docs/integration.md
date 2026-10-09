@@ -179,7 +179,7 @@ Once a site accumulates $\ge 50$ observations and exhibits favorable economics:
 
 ```python
 # 1. Compile candidate fast path
-client.compile(site, engine="exact")  # or engine="decision" for neural
+client.compile(site, engine="exact")  # or "linear"; Policy Models never compile as serving artifacts
 
 # 2. Calibrate coverage regions with negative margins
 def my_verifier(state, choice):

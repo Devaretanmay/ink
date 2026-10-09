@@ -27,10 +27,16 @@ ink export <output_path> [--db PATH]
 # Prune historical decisions while preserving audit evidence
 ink retain [<site_name>] --before <unix_timestamp> [--db PATH]
 
-# Install Ink Decision Model v1 weights locally
-ink model-install [--checkpoint PATH]
+# List registered policy model tiers and active status
+ink models
 
-# Fine-tune Ink Decision Model heads on labeled observations
+# Check platform health, installed models, and runtime integrity
+ink doctor
+
+# Install Ink Policy Model weights locally (small or large tier)
+ink model-install [--model small|large] [--checkpoint PATH]
+
+# Fine-tune Ink Decision Small heads on labeled observations
 ink model-train --data rows.jsonl --output <output_dir> [--steps N] [--lr LR] [--seed S]
 ```
 
@@ -116,14 +122,29 @@ Prunes historical raw decision rows older than the specified timestamp to bound 
 
 ---
 
+### `ink models`
+Lists all canonical Policy Models in the registry with their parameter counts, execution backends, installation status, and default flags.
+
+---
+
+### `ink doctor`
+Runs comprehensive system diagnostics, verifying:
+- Python environment, SQLite database connectivity, and platform hardware acceleration.
+- Policy model configuration (`INK_POLICY_MODEL`), active model IDs, revisions, and backends.
+- Cryptographic SHA-256 integrity of installed checkpoints in `~/.cache/ink/models/`.
+
+---
+
 ### `ink model-install`
-Installs the embedded weights for `ink-decision-v1` into `~/.cache/ink/models/decision-v1`:
-- Verifies SHA-256 integrity of model files.
-- Downloads once; runs completely offline thereafter.
+Installs weights for a canonical policy model tier (`small` or `large`):
+- `--model <small|large>`: Target model tier (default: `small`).
+- `--checkpoint <path>`: Local directory to install from (skips network download).
+- Target directory: `~/.cache/ink/models/ink-decision-<small|large>`.
+- Verifies SHA-256 integrity of all model assets before finalizing.
 
 ---
 
 ### `ink model-train`
-Fine-tunes the decision heads and scorer of Ink Decision Model v1 on labeled historical decision rows:
+Fine-tunes the decision heads and scorer of `ink-decision-small` on labeled historical decision rows:
 - `--data rows.jsonl`: Path to JSONL file containing state/choices/choice records.
 - `--output <dir>`: Directory where the fine-tuned checkpoint and updated model card are written.
