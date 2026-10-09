@@ -14,6 +14,7 @@ ALLOWLIST = (
     "scripts/check-product-hygiene.py",
     "scripts/check-brand-hygiene.py",
     ".gitignore",
+    "python/ink/ink/client.py",  # _migrate_legacy_default_database
     "python/ink/ink/decision_api.py",  # _migrate_legacy_default_database
 )
 

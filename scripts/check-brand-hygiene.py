@@ -12,6 +12,7 @@ ALLOWLIST = (
     # Migration compatibility: the legacy on-disk database directory name is
     # read once to relocate an existing install, then never written again.
     ".gitignore",
+    "python/ink/ink/client.py",
     "python/ink/ink/decision_api.py",
     "python/ink/ink/internal/model/registry.py",
     "python/ink/tests/test_integrated_model.py",

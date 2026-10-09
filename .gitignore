@@ -1,6 +1,7 @@
 /target/
 **/target/
 .venv/
+.venv*/
 __pycache__/
 *.pyc
 *.so
@@ -21,14 +22,45 @@ benchmarks/data/
 .freebuff/
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
 .wheeltest/
+.test_dev_ink/
+.media/
 
+# Benchmarks, experiments, and traces
 benchmarks/results/raw/
 benchmarks/results/raw/simulated/
 benchmarks/results/**/*.jsonl
+*.jsonl
+
+# Build & binary artifacts
 *.whl
 *.db
 *.db-shm
 *.db-wal
 /build/
 /dist/
+
+# Model weights
+*.safetensors
+*.pt
+*.bin
+models/**/model.safetensors
+models/**/weights*
+
+# Phase experiments, temporary bakeoffs, runs & datasets
+phase*/
+PHASE*
+phase*_*
+*phase*.json
+*phase*.md
+*phase*.csv
+engine_bakeoff*
+experiments/**/runs/
+experiments/**/reports/
+experiments/**/data/
+experiments/external_validation/
+experiments/design_partners/
+experiments/fintech_disputes/
+experiments/support_routing/
+experiments/engine_bakeoff/
