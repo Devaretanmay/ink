@@ -37,6 +37,38 @@ PYTHONPATH=python/ink:. python3 -m experiments.coding_agent.report \
 The harness never compiles, calibrates, evaluates, promotes, or changes qualification settings.
 Those lifecycle operations remain explicit and use Ink's existing APIs and mathematics.
 
+## `coding.action_dispatch` discovery capture
+
+Every completed run now also appends one post-run record per tool result to
+`action_dispatch.jsonl`. The record reconstructs the next observed OpenCode action from the raw
+event sequence and attaches the following frontier turn's token, latency, cost, and next-tool
+evidence. Capture is observational: it runs only after OpenCode exits and cannot affect its next
+action.
+
+Analyze preserved run directories without training or serving:
+
+```bash
+PYTHONPATH=python/ink:. python3 -m experiments.coding_agent.action_dispatch \
+  /tmp/ink-exp-control /tmp/ink-exp-observe \
+  --output-dir experiments/coding_agent/reports/action_dispatch
+```
+
+The flat pre-decision state is deliberately limited to reliably available evidence:
+
+| Field | Source and normalization | Pre-decision? |
+|---|---|---|
+| `last_tool_name` | OpenCode completed tool event; lowercase | yes |
+| `last_command_family` | Deterministic family from completed tool input | yes |
+| `last_result_class` | Existing deterministic result verifier | yes |
+| `last_exit_code` | Tool metadata; nullable integer | yes |
+| `stdout_summary` | Tool output; volatile paths/IDs/timestamps removed; 2,000 chars | yes |
+| `stderr_summary` | Tool error field; same normalization/truncation | yes |
+| `retry_count` | Prior identical tool + command count within run | yes |
+| `tests_status` | Deterministic pass/fail/no-tests pattern | yes |
+
+OpenCode's compact stream often combines process stdout and stderr in `output`; capture preserves
+that limitation instead of guessing a split. Frontier reasoning text is never part of state.
+
 ## Task manifest
 
 Every task pins a repository, commit, prompt, executable test command, accepted exit codes, and

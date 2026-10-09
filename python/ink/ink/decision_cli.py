@@ -12,6 +12,7 @@ from pathlib import Path
 from .decision_api import Ink
 from .discovery import discover_from_file
 from .internal.contracts import PromotionRequirements
+from .internal.decision_store import DecisionStore
 from .internal.engines import DecisionModelEngine
 
 
@@ -31,6 +32,7 @@ def main(argv):
             "sites",
             "inspect",
             "status",
+            "console",
             "compile",
             "evaluate",
             "maintenance",
@@ -40,11 +42,18 @@ def main(argv):
             "model-train",
             "discover",
             "value",
+            "doctor",
+            "models",
         ],
     )
     parser.add_argument("site", nargs="?")
     parser.add_argument("--db", default=".ink/decisions.db")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--host", default="127.0.0.1", help="Host interface to bind for console")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind for console")
+    parser.add_argument(
+        "--demo", action="store_true", help="Launch console in demonstration mode with sample data"
+    )
     parser.add_argument(
         "--profile", action="store_true", help="Include deep economic profile in discover"
     )
@@ -52,9 +61,11 @@ def main(argv):
         "--snippet", action="store_true", help="Print integration code snippet for discovered sites"
     )
     parser.add_argument("--checkpoint")
+    parser.add_argument("--model", help="Policy model name: small, large, or auto")
+    parser.add_argument("--model-id", help="Canonical policy model ID: ink-decision-small, ink-decision-large")
     parser.add_argument("--replace", action="store_true", help="Retire the current candidate")
     parser.add_argument("--verifier", help="Explicit trusted Python module:callable")
-    parser.add_argument("--engine", default="decision", help="Engine to compile: decision or exact")
+    parser.add_argument("--engine", default="auto", help="Serving engine to compile: auto, exact, or linear")
     parser.add_argument("--requirements", help="JSON file with experiment requirements")
     parser.add_argument("--before", type=float, help="Retention cutoff as Unix timestamp")
     parser.add_argument("--days", type=float, help="Retention cutoff in days")
@@ -83,27 +94,50 @@ def main(argv):
     )
     args = parser.parse_args(argv)
     try:
+        if args.command == "console":
+            from .console import run_console
+
+            run_console(
+                host=args.host,
+                port=args.port,
+                db_path=args.db,
+                demo=args.demo,
+            )
+            return 0
         if args.command == "model-install":
+            from .internal.model.constants import INK_DECISION_SMALL, resolve_policy_model_id
+            from .internal.model.policy_registry import get_model_spec
             from .internal.model.registry import install
 
+            target_model = resolve_policy_model_id(args.model_id or args.model or "small") or INK_DECISION_SMALL
+            dest = install(args.checkpoint, model_id=target_model)
+            spec = get_model_spec(target_model)
             print(
                 json.dumps(
-                    {"model": "ink-decision-v1", "path": str(install(args.checkpoint))}
+                    {"model": spec.canonical_id, "path": str(dest)}
                 )
             )
             return 0
         if args.command == "model-train":
             if not args.data or not args.output:
                 raise ValueError("model-train requires --data JSONL and --output directory")
+            from .internal.model.constants import INK_DECISION_SMALL, resolve_policy_model_id
             from .internal.model.training import finetune
 
+            target_model = resolve_policy_model_id(args.model_id or args.model or "small") or INK_DECISION_SMALL
             rows = [
                 json.loads(line)
                 for line in Path(args.data).read_text().splitlines()
                 if line.strip()
             ]
             card = finetune(
-                args.checkpoint, rows, args.output, steps=args.steps, lr=args.lr, seed=args.seed
+                args.checkpoint,
+                rows,
+                args.output,
+                model_id=target_model,
+                steps=args.steps,
+                lr=args.lr,
+                seed=args.seed,
             )
             print(json.dumps(card, indent=2))
             return 0
@@ -190,11 +224,130 @@ def main(argv):
                         "     Note: Projections are estimates based on trace repetition; "
                         "qualification is not guaranteed."
                     )
+                rep_daily = max(1.0, c.call_frequency * c.repetition_rate)
+                days_100 = round(267.0 / rep_daily, 1)
+                days_95 = round(600.0 / rep_daily, 1)
+                days_93 = round(1012.0 / rep_daily, 1)
+                print("   [AUTHORITY HORIZON ESTIMATE]")
+                print(f"     repetition traffic : {rep_daily:,.1f}/day")
+                print(f"     horizon @ 100% acc : ~{days_100:.1f} days (267 samples)")
+                print(f"     horizon @ 95% acc  : ~{days_95:.1f} days (600 samples)")
+                print(f"     horizon @ 93% acc  : ~{days_93:.1f} days (1,012 samples)")
                 if args.snippet and c.snippet:
                     print("   [INTEGRATION SNIPPET]:")
                     for sline in c.snippet.splitlines():
                         print(f"     {sline}")
                 print()
+            return 0
+        if args.command == "models":
+            from .internal.model.policy_registry import POLICY_MODEL_REGISTRY
+            from .internal.model.registry import model_path
+
+            records = []
+            for m_id, spec in POLICY_MODEL_REGISTRY.items():
+                p = model_path(m_id)
+                ready = (p / "model.safetensors").is_file()
+                records.append({
+                    "model_id": spec.canonical_id,
+                    "family": spec.family,
+                    "version": spec.model_version,
+                    "revision": spec.checkpoint_revision,
+                    "backend": spec.backend,
+                    "parameters": spec.parameter_count,
+                    "optional": spec.optional,
+                    "status": "ready" if ready else "missing",
+                    "path": str(p),
+                })
+            if args.json:
+                print(json.dumps(records, indent=2))
+            else:
+                print("=" * 60)
+                print("INK POLICY MODELS REGISTRY")
+                print("=" * 60)
+                for r in records:
+                    tier = "OPTIONAL" if r["optional"] else "DEFAULT"
+                    print(f"Model ID   : {r['model_id']} [{tier}]")
+                    print(f"Revision   : {r['revision']}")
+                    print(f"Backend    : {r['backend'].upper()}")
+                    print(f"Parameters : {r['parameters']:,}")
+                    print(f"Status     : {r['status'].upper()} ({r['path']})")
+                    print("-" * 60)
+            return 0
+        if args.command == "doctor":
+            import os
+
+            from .internal.model.constants import INK_DECISION_SMALL, resolve_policy_model_id
+            from .internal.model.policy_registry import POLICY_MODEL_REGISTRY, get_model_spec
+            from .internal.model.registry import model_path
+
+            env_model = os.environ.get("INK_POLICY_MODEL", "small")
+            resolved_id = resolve_policy_model_id(env_model) or INK_DECISION_SMALL
+            spec = POLICY_MODEL_REGISTRY.get(resolved_id, get_model_spec(INK_DECISION_SMALL))
+            m_dir = model_path(resolved_id)
+            ckpt_ready = (m_dir / "model.safetensors").is_file()
+            policy_info = {
+                "model_id": spec.canonical_id,
+                "revision": spec.checkpoint_revision,
+                "backend": "MLX" if spec.backend == "mlx" else spec.backend.upper(),
+                "checkpoint": "ready" if ckpt_ready else "missing",
+                "path": str(m_dir),
+            }
+
+            db_path = Path(args.db)
+            db_exists = db_path.is_file()
+            checks = {
+                "policy_model": policy_info["model_id"],
+                "revision": policy_info["revision"],
+                "backend": policy_info["backend"],
+                "checkpoint": policy_info["checkpoint"],
+                "database_path": str(db_path),
+                "database_exists": db_exists,
+                "integrity": "not_checked",
+                "schema_version": None,
+                "sites_count": 0,
+                "active_artifacts_count": 0,
+                "open_epochs_count": 0,
+                "status": "healthy" if db_exists else "warning_no_database",
+            }
+            if db_exists:
+                try:
+                    store = DecisionStore(str(db_path), readonly=True)
+                    try:
+                        summary = store.get_doctor_summary()
+                        checks["integrity"] = summary["integrity"]
+                        checks["schema_version"] = summary["user_version"]
+                        checks["sites_count"] = summary["sites_count"]
+                        checks["active_artifacts_count"] = summary["active_count"]
+                        checks["open_epochs_count"] = summary["epochs_count"]
+                    finally:
+                        store.close()
+                    if checks["integrity"] == "ok":
+                        checks["status"] = "healthy"
+                    else:
+                        checks["status"] = "degraded"
+                except Exception as ex:
+                    checks["status"] = "error"
+                    checks["error"] = str(ex)
+            if args.json:
+                print(json.dumps(checks, indent=2))
+            else:
+                print("=" * 45)
+                print("INK DOCTOR — SYSTEM DIAGNOSTIC")
+                print("=" * 45)
+                print(f"Policy model     : {policy_info['model_id']}")
+                print(f"Revision         : {policy_info['revision']}")
+                print(f"Backend          : {policy_info['backend']}")
+                print(f"Checkpoint       : {policy_info['checkpoint']}")
+                print("-" * 45)
+                print(f"Database         : {checks['database_path']}")
+                print(f"Database Exists  : {checks['database_exists']}")
+                print(f"DB Integrity     : {checks['integrity']}")
+                print(f"Schema Version   : {checks['schema_version']}")
+                print(f"Decision Sites   : {checks['sites_count']}")
+                print(f"Active Artifacts : {checks['active_artifacts_count']}")
+                print(f"Open Epochs      : {checks['open_epochs_count']}")
+                print(f"System Health    : {checks['status'].upper()}")
+                print("=" * 45)
             return 0
         if args.command == "value":
             if not Path(args.db).is_file():
@@ -256,7 +409,7 @@ def main(argv):
                     print("=" * 45)
             return 0
         if args.command in {"sites", "inspect", "status"} and not Path(args.db).is_file():
-            if args.command == "sites":
+            if args.command in {"sites", "status"}:
                 print("[]" if args.json else "No decision sites recorded.")
                 return 0
             raise ValueError("Decision database does not exist")

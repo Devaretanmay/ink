@@ -17,6 +17,30 @@ def lower_bound(values):
     return max(0.0, sum(values) / len(values) - math.sqrt(math.log(20) / (2 * len(values))))
 
 
+def wilson_lower_bound(successes: int | float, total: int, z: float = 1.959963984540054) -> float:
+    """Wilson 95% two-sided confidence lower bound for binomial proportions."""
+    if total <= 0:
+        return 0.0
+    p = float(successes) / float(total)
+    z2 = z * z
+    denom = 1.0 + z2 / float(total)
+    centre = (p + z2 / (2.0 * float(total))) / denom
+    margin = (z / denom) * math.sqrt(max(0.0, (p * (1.0 - p) / float(total)) + (z2 / (4.0 * (float(total) ** 2)))))
+    return max(0.0, centre - margin)
+
+
+def wilson_upper_bound(successes: int | float, total: int, z: float = 1.959963984540054) -> float:
+    """Wilson 95% two-sided confidence upper bound for binomial proportions."""
+    if total <= 0:
+        return 0.0
+    p = float(successes) / float(total)
+    z2 = z * z
+    denom = 1.0 + z2 / float(total)
+    centre = (p + z2 / (2.0 * float(total))) / denom
+    margin = (z / denom) * math.sqrt(max(0.0, (p * (1.0 - p) / float(total)) + (z2 / (4.0 * (float(total) ** 2)))))
+    return min(1.0, centre + margin)
+
+
 def grouped_quality(rows):
     groups = {}
     for row in rows:
@@ -136,6 +160,8 @@ def statistics(records):
         "observed_negative": neg_count,
         "unknown": unk_count,
         "quality_lower": lower_bound(candidate),
+        "quality_wilson_lower": wilson_lower_bound(pos_count, n) if n else 0.0,
+        "quality_wilson_upper": wilson_upper_bound(pos_count, n) if n else 0.0,
         "quality": sum(candidate) / cand_n if cand_n else None,
         "baseline_quality": sum(baseline) / base_n if base_n else None,
         "delta": sum(differences) / diff_n if diff_n else None,
@@ -152,4 +178,20 @@ def passes(stats, requirements):
         and stats["quality_lower"] >= requirements.min_quality
         and stats["delta_lower"] >= -requirements.max_degradation
     )
+
+
+def region_qualifies(stats: dict, requirements) -> bool:
+    """Pure canonical check for whether a candidate coverage/semantic region qualifies.
+
+    Enforces minimum region sample volume, computes the Hoeffding sample boundary for
+    confidence, and evaluates lower bound or empirical quality without inlining heuristics.
+    """
+    samples = stats.get("samples", 0)
+    if samples < requirements.min_region_samples:
+        return False
+    min_n_for_conf = math.ceil(math.log(20) / (2 * max(0.0001, (1.0 - requirements.min_confidence)) ** 2))
+    if samples >= min_n_for_conf:
+        return stats.get("quality_lower", 0.0) >= requirements.min_confidence
+    return stats.get("quality", 1.0) >= requirements.min_quality
+
 

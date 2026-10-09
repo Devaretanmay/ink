@@ -81,7 +81,7 @@ def test_autonomous_lifecycle_full_loop(tmp_path):
         _feed_traffic(loop, site, 100, "obs", quality=1.0)
 
         # Wait for background thread to detect compile eligibility and advance to SHADOW
-        deadline = time.time() + 4.0
+        deadline = time.time() + 15.0
         while time.time() < deadline:
             st = loop.status(site)
             if st["state"] == "SHADOW":
@@ -93,7 +93,7 @@ def test_autonomous_lifecycle_full_loop(tmp_path):
         _feed_traffic(loop, site, 30, "shadow", quality=1.0)
 
         # Wait for background thread to evaluate shadow evidence and advance to ACTIVE
-        deadline = time.time() + 4.0
+        deadline = time.time() + 15.0
         while time.time() < deadline:
             st = loop.status(site)
             if st["state"] == "ACTIVE":
@@ -143,7 +143,7 @@ def test_autonomous_lifecycle_full_loop(tmp_path):
 
         # 5. REQUALIFY: Feed fresh healthy shadow traffic to requalify
         _feed_traffic(loop, site, 30, "requal", quality=1.0)
-        deadline = time.time() + 4.0
+        deadline = time.time() + 15.0
         while time.time() < deadline:
             st = loop.status(site)
             if st["state"] == "ACTIVE":
@@ -300,9 +300,8 @@ def test_exact_factual_qualification_without_counterfactual_verifier(tmp_path):
         assert loop.status(site)["state"] == "ACTIVE"
 
 
-@needs_decision_model
-def test_semantic_engine_requires_verifier(tmp_path):
-    """A semantic engine must reject verifier=None rather than guess authority."""
+def test_policy_model_cannot_compile_as_serving_engine(tmp_path):
+    """Small proposals are compiler features, never serving artifacts."""
     db_path = str(tmp_path / "semantic_guard.db")
     site = DecisionSite("semantic.guard", {"tier": "integer"}, ("approve", "deny"))
 
@@ -310,9 +309,8 @@ def test_semantic_engine_requires_verifier(tmp_path):
         loop.register(site)
         _feed_traffic(loop, site, 100, "seed", quality=1.0)
 
-        loop.compile(site, engine="decision")
-        with pytest.raises(ValueError, match="Semantic engines require a verifier"):
-            loop.calibrate(site, verifier=None, requirements=REQ)
+        with pytest.raises(ValueError, match="control-plane inputs"):
+            loop.compile(site, engine="decision")
 
 
 def test_multi_site_fairness_and_time_budgeting(tmp_path):

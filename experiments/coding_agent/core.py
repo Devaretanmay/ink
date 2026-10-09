@@ -36,6 +36,10 @@ _UUID_RE = re.compile(
     r"[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}\b"
 )
 _TIMESTAMP_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}[T ][0-9:.+-]+Z?\b")
+_WORKTREE_RE = re.compile(
+    r"(?:/private)?/var/folders/[^\s:'\"]+/T/ink-agent-task-[^/\s]+/worktree/"
+    r"|(?:/private)?/tmp/ink-agent-task-[^/\s]+/worktree/"
+)
 _TMP_RE = re.compile(r"(?:/private)?/tmp/[\w./-]+|/var/folders/[\w./-]+")
 _PATH_RE = re.compile(r"/(?:Users|home)/[^\s:'\"]+(?:/[^\s:'\"]+)*")
 _PORT_RE = re.compile(r"(?<=:)(?:[1-9]\d{3,4})\b")
@@ -143,6 +147,7 @@ def _normalize_text(value: str, *, limit: int = 2000) -> str:
     text = _ANSI_RE.sub("", value or "")
     text = _UUID_RE.sub("<uuid>", text)
     text = _TIMESTAMP_RE.sub("<timestamp>", text)
+    text = _WORKTREE_RE.sub("<worktree>/", text)
     text = _TMP_RE.sub("<tmp>", text)
     text = _PATH_RE.sub("<path>", text)
     text = _PORT_RE.sub("<port>", text)
@@ -189,15 +194,15 @@ def verify_tool_result(observation: ToolObservation) -> Verification:
     if observation.timed_out and not signals:
         label = "unknown"
         reason = "unattributed_timeout"
+    elif observation.exit_code == 0:
+        label = "success"
+        reason = "zero_exit"
     elif len(signals) > 1:
         label = "unknown"
         reason = "conflicting_signals"
     elif signals:
         label = signals[0]
         reason = "deterministic_pattern"
-    elif observation.exit_code == 0:
-        label = "success"
-        reason = "zero_exit"
     else:
         label = "unknown"
         reason = "unrecognized_nonzero_exit" if observation.exit_code is not None else "no_exit_status"

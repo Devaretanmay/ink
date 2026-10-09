@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ink-jit"
-version = "0.6.0rc2"
+version = "0.6.0rc4"
 description = "Behavior JIT for production AI — turns repeated, verified decisions into local Fast Paths. Models handle novelty; Ink turns proven behavior into software."
 authors = [{ name = "Ink Team" }]
 license = "Apache-2.0"
@@ -25,15 +25,31 @@ classifiers = [
 
 dependencies = [
     "numpy>=2.0,<3",
+]
+
+[project.optional-dependencies]
+neural = [
     "mlx==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'",
     "mlx[cpu]==0.32.2; sys_platform == 'linux'",
     "tokenizers>=0.21,<0.24",
     "huggingface-hub>=0.30,<2",
 ]
-
-[project.optional-dependencies]
-neural = []
-mlx = []
+mlx = [
+    "mlx==0.32.2; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx[cpu]==0.32.2; sys_platform == 'linux'",
+]
+large = [
+    "gliner2>=0.2.0",
+    "torch>=2.2.0",
+    "transformers>=4.40.0",
+    "peft>=0.10.0",
+]
+policy-large = [
+    "gliner2>=0.2.0",
+    "torch>=2.2.0",
+    "transformers>=4.40.0",
+    "peft>=0.10.0",
+]
 dev = [
     "pytest>=8.0",
     "ruff>=0.6",
@@ -70,9 +86,12 @@ extend-exclude = ["target", "dist", ".venv", ".venv313"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "benchmarks/*" = ["E501", "B905", "F841", "E741", "E731", "B007", "F401", "I001"]
+"python/ink/tests/*" = ["B905", "F841", "B007", "F401", "I001", "B023", "E402"]
+"examples/*" = ["E501", "F401", "I001", "B023", "F841", "F541"]
 
 [tool.pytest.ini_options]
 pythonpath = ["python/ink"]

@@ -72,15 +72,19 @@ def test_invariant_2_fallback_on_unqualified_or_corrupt(tmp_path):
         assert res.choice == "deny"
 
 
-def test_invariant_3_single_active_guarantee(tmp_path):
+def test_invariant_3_single_active_per_engine_guarantee(tmp_path):
     with Ink(tmp_path / "single_active.db") as client:
         activate_site(client)
-        # Attempting to manually insert a second ACTIVE artifact violates DB uniqueness
+        # A second ACTIVE artifact for the same serving engine violates DB uniqueness.
+        existing = client._artifact(SITE.version)
         with pytest.raises(sqlite3.IntegrityError):
             with client.store.transaction() as db:
                 db.execute(
                     "INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?)",
-                    ("second_art", SITE.version, "{}", "fake_chk", "ACTIVE", 123.0, None, None),
+                    (
+                        "second_art", SITE.version, existing["payload_json"] if "payload_json" in existing else __import__("json").dumps(existing["payload"]),
+                        "fake_chk", "ACTIVE", 123.0, None, None,
+                    ),
                 )
 
 

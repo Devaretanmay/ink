@@ -10,11 +10,11 @@ from ink.internal.engines import DecisionModelEngine, resolve_engine_key
 from ink.internal.model import RUNTIME_VERSION, registry
 
 
-def test_neural_engine_is_default():
-    assert inspect.signature(Ink.compile).parameters["engine"].default == "decision"
-    assert inspect.signature(Ink.maintenance).parameters["engine"].default == "decision"
+def test_serving_engine_selection_is_default():
+    assert inspect.signature(Ink.compile).parameters["engine"].default == "auto"
+    assert inspect.signature(Ink.maintenance).parameters["engine"].default == "auto"
     assert DecisionModelEngine.name == "decision"
-    assert RUNTIME_VERSION.startswith("ink-decision-")
+    assert RUNTIME_VERSION.startswith("ink-runtime-v")
 
 
 def test_model_identity_key_resolves_to_integral_engine(tmp_path):
@@ -146,11 +146,11 @@ def test_default_model_cache_migrates_from_legacy_name(tmp_path, monkeypatch):
     )
 
     target = registry.ensure_installed()
-    assert target == tmp_path / ".cache/ink/models/decision-v1"
+    assert target == tmp_path / ".cache/ink/models/ink-decision-small"
     assert (target / "model.safetensors").read_bytes() == weights
     assert (target / "ink-model.json").is_file()
     migrated_spec = json.loads((target / "ink-model.json").read_text())
-    assert migrated_spec["name"] == "ink-decision-v1"
+    assert migrated_spec["name"] == "ink-decision-small"
     assert migrated_spec["base_checkpoint"] == "source/model@revision"
     assert (legacy / "model.safetensors").read_bytes() == weights
 

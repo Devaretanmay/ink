@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import time
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -65,9 +66,12 @@ class TextVectorizer:
 
 
 def _extract_text(state: dict[str, Any]) -> str:
-    for key in ("request", "query", "text", "message", "prompt"):
+    for key in ("request", "query", "text", "message", "prompt", "description", "content", "summary", "input"):
         if key in state and isinstance(state[key], str):
             return state[key]
+    for val in state.values():
+        if isinstance(val, str) and (" " in val or len(val) > 20):
+            return val
     return canonical(state)
 
 
@@ -106,16 +110,49 @@ class SemanticRegion:
     status: str = "CANDIDATE"  # CANDIDATE -> SHADOW -> ACTIVE
     last_changed: float = field(default_factory=time.time)
     counterexample_count: int = 0
+    engine: str = "exact"
+    structured_constraints: dict[str, Any] = field(default_factory=dict)
+    sample_count: int = 0
+    outcome_count: int = 0
+    positive_outcomes: int = 0
+    quality_lower_bound: float = 0.0
+    version: str = "reg_v2"
+
+    def __post_init__(self):
+        if not self.sample_count and self.member_count:
+            self.sample_count = self.member_count
+        elif not self.member_count and self.sample_count:
+            self.member_count = self.sample_count
 
     def distance(self, vector: np.ndarray) -> float:
         proto = np.array(self.prototype_vector, dtype=np.float32)
         cos_sim = float(np.dot(vector, proto))
         return max(0.0, 1.0 - cos_sim)
 
-    def contains(self, vector: np.ndarray) -> tuple[bool, float]:
+    def contains(
+        self, vector: np.ndarray, state: dict[str, Any] | None = None
+    ) -> tuple[bool, float]:
+        if state is not None and self.structured_constraints:
+            for k, expected in self.structured_constraints.items():
+                if state.get(k) != expected:
+                    return False, 1.0
         dist = self.distance(vector)
         is_inside = dist <= self.radius and dist < (self.negative_margin * 0.75)
         return is_inside, dist
+
+    def classify_membership(
+        self, vector: np.ndarray, state: dict[str, Any] | None = None
+    ) -> tuple[str, float]:
+        if state is not None and self.structured_constraints:
+            for k, expected in self.structured_constraints.items():
+                if state.get(k) != expected:
+                    return "constraint_mismatch", 1.0
+        dist = self.distance(vector)
+        if dist <= self.radius and dist < (self.negative_margin * 0.75):
+            return "inside", dist
+        elif dist <= self.radius * 1.25:
+            return "near_boundary", dist
+        return "outside", dist
 
     def tighten_margin(
         self, counterexample_vector: np.ndarray, safety_factor: float = 0.60
@@ -130,7 +167,6 @@ class SemanticRegion:
                 self.status = "SHADOW"
             return True
         return False
-
     def detect_multimodal_split(
         self,
         vectors: list[np.ndarray],
@@ -204,6 +240,9 @@ class SemanticRegion:
         return cls(**data)
 
 
+CoverageRegion = SemanticRegion
+
+
 class CoverageEngine:
     """Manages exact and semantic decision regions with strict abstention."""
 
@@ -212,10 +251,12 @@ class CoverageEngine:
         exact_coverage: dict[str, dict[str, Any]] | None = None,
         semantic_regions: list[SemanticRegion] | None = None,
         vectorizer: TextVectorizer | None = None,
+        ambiguity_margin: float = 0.08,
     ):
         self.exact_coverage = exact_coverage or {}
         self.semantic_regions = semantic_regions or []
         self.vectorizer = vectorizer or TextVectorizer()
+        self.ambiguity_margin = float(ambiguity_margin)
         self._sync_matrix()
 
     def _sync_matrix(self):
@@ -237,8 +278,9 @@ class CoverageEngine:
           - "exact": exact state match in qualified coverage
           - "semantic": independently qualified semantic region match
           - "shadow": candidate/shadow semantic region match (record, do not serve)
-          - "ambiguous": multiple competing regions disagree or margin is weak
+          - "ambiguous": multiple competing regions disagree or boundary margin is weak
           - "outside_coverage": unknown state falling outside all regions
+          - "revoked": region authority was revoked or degraded
         """
         key = canonical(state)
         if key in self.exact_coverage:
@@ -256,33 +298,49 @@ class CoverageEngine:
         if self._matrix.size > 0:
             cos_sims = self._matrix @ vec
             dists = np.clip(1.0 - cos_sims, 0.0, 2.0)
-            matching_indices = np.where(dists <= self._radii)[0]
-            if len(matching_indices) == 0:
-                return "outside_coverage", None, 0.0
-            matches: list[tuple[SemanticRegion, float]] = [
-                (self.semantic_regions[i], float(dists[i])) for i in matching_indices
-            ]
+            radii = self._radii
         else:
-            matches: list[tuple[SemanticRegion, float]] = []
-            for reg in self.semantic_regions:
-                inside, dist = reg.contains(vec)
-                if inside:
-                    matches.append((reg, dist))
-            if not matches:
-                return "outside_coverage", None, 0.0
+            dists = np.array([r.distance(vec) for r in self.semantic_regions], dtype=np.float32)
+            radii = np.array([r.radius for r in self.semantic_regions], dtype=np.float32)
+
+        matching_indices = np.where(dists <= radii)[0]
+        if len(matching_indices) == 0:
+            return "outside_coverage", None, 0.0
+
+        matches: list[tuple[SemanticRegion, float]] = []
+        for i in matching_indices:
+            reg = self.semantic_regions[i]
+            inside, dist = reg.contains(vec, state)
+            if inside:
+                matches.append((reg, float(dist)))
+        if not matches:
+            return "outside_coverage", None, 0.0
 
         matches.sort(key=lambda x: x[1])
         top_region, top_dist = matches[0]
 
+        # 1. Multi-match ambiguity check across conflicting choices
         if len(matches) > 1:
-            second_region, second_dist = matches[1]
-            if top_region.choice != second_region.choice:
-                return "ambiguous", None, top_dist
-            if abs(top_dist - second_dist) < 0.05 and top_region.choice != second_region.choice:
+            for other_reg, _ in matches[1:]:
+                if other_reg.choice != top_region.choice:
+                    return "ambiguous", None, top_dist
+
+        # 2. Competing hypothesis boundary margin check across ALL semantic regions
+        competing_dists = [
+            float(dists[i])
+            for i, r in enumerate(self.semantic_regions)
+            if r.choice != top_region.choice
+        ]
+        if competing_dists:
+            nearest_competing = min(competing_dists)
+            margin = nearest_competing - top_dist
+            if margin < self.ambiguity_margin:
                 return "ambiguous", None, top_dist
 
         top_dict = top_region.to_dict()
         top_dict["distance"] = round(top_dist, 4)
+        if top_region.status in ("REVOKED", "DEGRADED"):
+            return "revoked", top_dict, 0.0
         if top_region.status != "ACTIVE":
             return "shadow", top_dict, top_region.confidence
 
@@ -325,6 +383,7 @@ class CoverageEngine:
             "exact_coverage": self.exact_coverage,
             "semantic_regions": [r.to_dict() for r in self.semantic_regions],
             "vectorizer": self.vectorizer.to_dict(),
+            "ambiguity_margin": self.ambiguity_margin,
         }
 
     @classmethod
@@ -332,21 +391,87 @@ class CoverageEngine:
         exact = data.get("exact_coverage", {})
         sem = [SemanticRegion.from_dict(r) for r in data.get("semantic_regions", [])]
         vec = TextVectorizer.from_dict(data.get("vectorizer", {}))
-        return cls(exact_coverage=exact, semantic_regions=sem, vectorizer=vec)
+        ambiguity_margin = float(data.get("ambiguity_margin", 0.08))
+        return cls(
+            exact_coverage=exact,
+            semantic_regions=sem,
+            vectorizer=vec,
+            ambiguity_margin=ambiguity_margin,
+        )
+
+    def self_tune_from_history(
+        self,
+        history: list[dict[str, Any]],
+        requirements: dict[str, Any],
+        on_event: Callable[[str, dict[str, Any]], None] | None = None,
+    ) -> bool:
+        """Adapts coverage regions dynamically based on recent production counterexamples and splits."""
+        recent_counterexamples = [
+            r
+            for r in history[-50:]
+            if r.get("outcome") and r["outcome"].get("quality", 1.0) < 0.5
+        ]
+        tightened_any = False
+        for ce in recent_counterexamples:
+            tightened = self.ingest_counterexample(ce["state"], ce["choice"])
+            if tightened:
+                tightened_any = True
+                if on_event:
+                    on_event("region_tightened", {"regions": tightened})
+
+        if requirements.get("allow_region_split", True) and not requirements.get("high_risk", False):
+            min_reg_s = requirements.get("min_region_samples", 5)
+            split_candidates = []
+            for reg in list(self.semantic_regions):
+                if reg.status == "ACTIVE" and "." not in reg.region_id:
+                    matching = [
+                        (self.vectorizer.transform(_extract_text(r["state"])), r["state"])
+                        for r in history
+                        if reg.contains(self.vectorizer.transform(_extract_text(r["state"])))[0]
+                    ]
+                    if len(matching) >= 2 * min_reg_s:
+                        vecs = [m[0] for m in matching]
+                        sts = [m[1] for m in matching]
+                        split = reg.detect_multimodal_split(vecs, sts, min_reg_s)
+                        if split:
+                            split_candidates.extend(split)
+                            if on_event:
+                                on_event(
+                                    "region_split_candidate_created",
+                                    {
+                                        "parent_region": reg.region_id,
+                                        "child_a": split[0].region_id,
+                                        "child_b": split[1].region_id,
+                                    },
+                                )
+            for sc in split_candidates:
+                self.semantic_regions.append(sc)
+
+        return tightened_any
 
 
 def calibrate_semantic_boundaries(
     records: list[dict[str, Any]],
     vectorizer: TextVectorizer,
     site_version: str,
-    min_region_samples: int = 3,
-    max_radius: float = 0.50,
+    min_region_samples: int = 2,
+    max_radius: float = 0.75,
 ) -> list[SemanticRegion]:
     """Derive calibrated semantic regions and negative margins from observation evidence."""
     by_choice: dict[str, list[tuple[dict[str, Any], np.ndarray]]] = {}
     for r in records:
         vec = vectorizer.transform(_extract_text(r["state"]))
         by_choice.setdefault(r["choice"], []).append((r, vec))
+
+    all_other_vecs = {
+        choice: [
+            vec
+            for other_choice, other_group in by_choice.items()
+            if other_choice != choice
+            for _, vec in other_group
+        ]
+        for choice in by_choice
+    }
 
     semantic_regions: list[SemanticRegion] = []
     region_idx = 1
@@ -355,40 +480,39 @@ def calibrate_semantic_boundaries(
         if len(group) < min_region_samples:
             continue
 
-        other_vecs = [
-            vec for other_choice, other_group in by_choice.items()
-            if other_choice != choice
-            for _, vec in other_group
-        ]
+        other_vecs = all_other_vecs.get(choice, [])
+        choice_vecs = [vec for _, vec in group]
+        centroid = np.mean(choice_vecs, axis=0)
+        norm = np.linalg.norm(centroid)
+        if norm > 1e-9:
+            centroid /= norm
 
-        best_idx = 0
-        best_sim_sum = -1.0
-        for i, (_member_rec, member_vec) in enumerate(group):
-            sim_sum = sum(float(np.dot(member_vec, other_vec)) for _, other_vec in group)
-            if sim_sum > best_sim_sum:
-                best_sim_sum = sim_sum
-                best_idx = i
-
-        medoid_rec, medoid_vec = group[best_idx]
+        # Select medoid (most representative exemplar record)
+        med_idx = int(np.argmax([float(np.dot(centroid, v)) for v in choice_vecs]))
+        seed_state = group[med_idx][0]["state"]
 
         neg_dist = 1.0
         if other_vecs:
-            neg_sims = [float(np.dot(medoid_vec, ov)) for ov in other_vecs]
-            neg_dist = float(max(0.05, 1.0 - max(neg_sims)))
+            neg_sims = [float(np.dot(centroid, ov)) for ov in other_vecs]
+            if len(other_vecs) >= 20:
+                neg_dist = float(max(0.05, 1.0 - np.percentile(neg_sims, 98)))
+            else:
+                neg_dist = float(max(0.05, 1.0 - max(neg_sims)))
 
-        radius = min(max_radius, max(0.15, neg_dist * 0.6))
+        radius = min(max_radius, max(0.15, neg_dist * 0.95))
+        neg_margin = max(neg_dist, radius / 0.74)
 
         region = SemanticRegion(
             region_id=f"sem-{site_version[:8]}-{region_idx:03d}",
             site=site_version,
             choice=choice,
-            prototype_state=medoid_rec["state"],
-            prototype_vector=medoid_vec.tolist(),
+            prototype_state=seed_state,
+            prototype_vector=centroid.tolist(),
             radius=round(radius, 4),
-            negative_margin=round(neg_dist, 4),
+            negative_margin=round(neg_margin, 4),
             member_count=len(group),
             confidence=0.85,
-            status="SHADOW",  # Candidate regions always begin in shadow
+            status="SHADOW",
         )
         semantic_regions.append(region)
         region_idx += 1

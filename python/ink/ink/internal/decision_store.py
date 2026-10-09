@@ -8,10 +8,11 @@ import threading
 import time
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
-from .contracts import canonical
+from .contracts import InkArtifact, canonical
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 6
 
 SCHEMA = [
     """CREATE TABLE sites(version TEXT PRIMARY KEY, name TEXT NOT NULL,
@@ -28,7 +29,8 @@ SCHEMA = [
        payload TEXT NOT NULL, checksum TEXT NOT NULL,
        status TEXT NOT NULL CHECK(status IN ('CANDIDATE','SHADOW','VERIFIED','ACTIVE','RETIRED')),
        epoch REAL NOT NULL, profile TEXT, evidence TEXT)""",
-    """CREATE UNIQUE INDEX one_candidate ON artifacts(site)
+    """CREATE UNIQUE INDEX one_candidate_per_engine
+       ON artifacts(site, json_extract(payload, '$.engine_data.engine'))
        WHERE status IN ('CANDIDATE','SHADOW','VERIFIED','ACTIVE')""",
     """CREATE TABLE events(id INTEGER PRIMARY KEY,
        artifact TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
@@ -53,6 +55,61 @@ SCHEMA = [
     """CREATE TABLE artifact_links(parent TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
        child TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
        created REAL NOT NULL, PRIMARY KEY(parent, child))""",
+    """CREATE TABLE evidence_epochs(epoch_id TEXT PRIMARY KEY,
+       app_id TEXT NOT NULL DEFAULT 'default',
+       site TEXT NOT NULL, site_version TEXT NOT NULL,
+       artifact_id TEXT NOT NULL, representation_version TEXT NOT NULL,
+       engine TEXT NOT NULL, verifier TEXT NOT NULL,
+       verifier_version TEXT NOT NULL, schema_hash TEXT NOT NULL,
+       choices_hash TEXT NOT NULL, requirements TEXT NOT NULL,
+       status TEXT NOT NULL CHECK(status IN ('OPEN','QUALIFIED','REVOKED','SUPERSEDED')),
+       created REAL NOT NULL, last_updated REAL NOT NULL)""",
+    """CREATE TABLE progressive_evidence(id INTEGER PRIMARY KEY AUTOINCREMENT,
+       epoch_id TEXT NOT NULL REFERENCES evidence_epochs(epoch_id) ON DELETE CASCADE,
+       region_id TEXT NOT NULL,
+       decision_id TEXT NOT NULL REFERENCES decisions(id) ON DELETE CASCADE,
+       state_canonical TEXT NOT NULL, choice TEXT NOT NULL,
+       expected_choice TEXT, quality REAL NOT NULL,
+       verified_match INTEGER NOT NULL, distance REAL, created REAL NOT NULL)""",
+    """CREATE TABLE region_lifecycle(region_id TEXT NOT NULL,
+       artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+       site TEXT NOT NULL,
+       status TEXT NOT NULL CHECK(status IN ('CANDIDATE','SHADOW','QUALIFIED','ACTIVE','REVOKED','DEGRADED')),
+       sample_count INTEGER NOT NULL DEFAULT 0,
+       verified_positive INTEGER NOT NULL DEFAULT 0,
+       verified_negative INTEGER NOT NULL DEFAULT 0,
+       quality_lower REAL NOT NULL DEFAULT 0.0,
+       radius REAL NOT NULL, negative_margin REAL NOT NULL,
+       last_evaluated REAL NOT NULL,
+       PRIMARY KEY(artifact_id, region_id))""",
+    "CREATE INDEX progressive_ev_epoch_reg ON progressive_evidence(epoch_id, region_id)",
+    "CREATE INDEX evidence_epoch_app_site ON evidence_epochs(app_id, site, status)",
+    """CREATE TABLE policy_observations(decision TEXT PRIMARY KEY
+       REFERENCES decisions(id) ON DELETE CASCADE,
+       site TEXT NOT NULL, state TEXT NOT NULL, host_choice TEXT NOT NULL,
+       proposed_choice TEXT NOT NULL, scores TEXT NOT NULL,
+       representation TEXT, confidence REAL NOT NULL, ambiguity REAL,
+       act_probability REAL, checkpoint_identity TEXT NOT NULL,
+       verified_outcome TEXT, created REAL NOT NULL, verified_at REAL)""",
+    "CREATE INDEX policy_observation_site_time ON policy_observations(site, created)",
+    """CREATE TABLE authority_events(id INTEGER PRIMARY KEY AUTOINCREMENT,
+       step INTEGER NOT NULL, site TEXT NOT NULL, engine TEXT NOT NULL,
+       artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+       previous_status TEXT NOT NULL, new_status TEXT NOT NULL,
+       support_n INTEGER NOT NULL, quality REAL, lower_bound REAL,
+       coverage REAL, reason TEXT NOT NULL, created REAL NOT NULL)""",
+    "CREATE INDEX authority_event_site_step ON authority_events(site, step)",
+    """CREATE TABLE non_promotion_events(id INTEGER PRIMARY KEY AUTOINCREMENT,
+       step INTEGER NOT NULL, site TEXT NOT NULL, engine TEXT NOT NULL,
+       artifact_id TEXT NOT NULL REFERENCES artifacts(id) ON DELETE CASCADE,
+       reason TEXT NOT NULL, detail TEXT NOT NULL, created REAL NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS policy_utility_evidence(
+       site_key TEXT PRIMARY KEY,
+       site_version TEXT NOT NULL,
+       checkpoint_revision TEXT NOT NULL,
+       state TEXT NOT NULL,
+       evidence_json TEXT NOT NULL,
+       updated_at REAL NOT NULL)""",
 ]
 
 
@@ -204,6 +261,51 @@ def _migrate_3_to_4(db):
 MIGRATIONS[3] = _migrate_3_to_4
 
 
+def _migrate_4_to_5(db):
+    """Add progressive evidence epochs and region lifecycle tables."""
+    for statement in [
+        s
+        for s in SCHEMA
+        if s.startswith("CREATE TABLE evidence_epochs")
+        or s.startswith("CREATE TABLE progressive_evidence")
+        or s.startswith("CREATE TABLE region_lifecycle")
+        or s.startswith("CREATE INDEX progressive_ev_epoch_reg")
+        or s.startswith("CREATE INDEX evidence_epoch_app_site")
+    ]:
+        stmt = statement.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace(
+            "CREATE INDEX ", "CREATE INDEX IF NOT EXISTS "
+        )
+        db.execute(stmt)
+
+
+MIGRATIONS[4] = _migrate_4_to_5
+
+
+def _migrate_5_to_6(db):
+    """Permit one live serving artifact per engine and add control-plane ledgers."""
+    db.execute("DROP INDEX IF EXISTS one_candidate")
+    db.execute(
+        """CREATE UNIQUE INDEX IF NOT EXISTS one_candidate_per_engine
+        ON artifacts(site, json_extract(payload, '$.engine_data.engine'))
+        WHERE status IN ('CANDIDATE','SHADOW','VERIFIED','ACTIVE')"""
+    )
+    for statement in SCHEMA:
+        if (
+            statement.startswith("CREATE TABLE policy_observations")
+            or statement.startswith("CREATE INDEX policy_observation_site_time")
+            or statement.startswith("CREATE TABLE authority_events")
+            or statement.startswith("CREATE INDEX authority_event_site_step")
+            or statement.startswith("CREATE TABLE non_promotion_events")
+        ):
+            stmt = statement.replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ").replace(
+                "CREATE INDEX ", "CREATE INDEX IF NOT EXISTS "
+            )
+            db.execute(stmt)
+
+
+MIGRATIONS[5] = _migrate_5_to_6
+
+
 class DecisionStore:
     def __init__(self, path=".ink/decisions.db", *, readonly=False, timeout=1.0):
         self.path = str(path)
@@ -241,6 +343,15 @@ class DecisionStore:
                     migrate(db)
                     version += 1
                     db.execute(f"PRAGMA user_version={version}")
+            db.execute(
+                """CREATE TABLE IF NOT EXISTS policy_utility_evidence(
+                   site_key TEXT PRIMARY KEY,
+                   site_version TEXT NOT NULL,
+                   checkpoint_revision TEXT NOT NULL,
+                   state TEXT NOT NULL,
+                   evidence_json TEXT NOT NULL,
+                   updated_at REAL NOT NULL)"""
+            )
 
     @contextmanager
     def transaction(self):
@@ -357,6 +468,1141 @@ class DecisionStore:
             ).rowcount
             self._rebuild_coverage(db, site_version)
             return count
+
+    def open_or_get_epoch(
+        self,
+        app_id: str,
+        site: str,
+        site_version: str,
+        artifact_id: str,
+        representation_version: str,
+        engine: str,
+        verifier: str,
+        verifier_version: str,
+        schema_hash: str,
+        choices_hash: str,
+        requirements: dict | str,
+    ) -> str:
+        req_str = canonical(requirements) if isinstance(requirements, dict) else str(requirements)
+        now = time.time()
+        with self.transaction() as db:
+            row = db.execute(
+                """SELECT epoch_id, site_version, artifact_id, representation_version,
+                          engine, verifier, verifier_version, schema_hash, choices_hash, requirements
+                   FROM evidence_epochs
+                   WHERE app_id=? AND site=? AND status='OPEN'
+                   ORDER BY created DESC LIMIT 1""",
+                (app_id, site),
+            ).fetchone()
+            if row:
+                compatible = (
+                    row["site_version"] == site_version
+                    and row["artifact_id"] == artifact_id
+                    and row["representation_version"] == representation_version
+                    and row["engine"] == engine
+                    and row["verifier"] == verifier
+                    and row["verifier_version"] == verifier_version
+                    and row["schema_hash"] == schema_hash
+                    and row["choices_hash"] == choices_hash
+                    and row["requirements"] == req_str
+                )
+                if compatible:
+                    db.execute(
+                        "UPDATE evidence_epochs SET last_updated=? WHERE epoch_id=?",
+                        (now, row["epoch_id"]),
+                    )
+                    return row["epoch_id"]
+                else:
+                    db.execute(
+                        "UPDATE evidence_epochs SET status='SUPERSEDED', last_updated=? WHERE epoch_id=?",
+                        (now, row["epoch_id"]),
+                    )
+
+            import uuid
+            epoch_id = f"ep-{uuid.uuid4().hex[:12]}"
+            db.execute(
+                """INSERT INTO evidence_epochs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    epoch_id,
+                    app_id,
+                    site,
+                    site_version,
+                    artifact_id,
+                    representation_version,
+                    engine,
+                    verifier,
+                    verifier_version,
+                    schema_hash,
+                    choices_hash,
+                    req_str,
+                    "OPEN",
+                    now,
+                    now,
+                ),
+            )
+            return epoch_id
+
+    def record_progressive_evidence(
+        self,
+        epoch_id: str,
+        region_id: str,
+        decision_id: str,
+        state_canonical: str,
+        choice: str,
+        expected_choice: str | None,
+        quality: float,
+        verified_match: int,
+        distance: float | None = None,
+    ):
+        now = time.time()
+        with self.transaction() as db:
+            db.execute(
+                """INSERT INTO progressive_evidence(epoch_id, region_id, decision_id,
+                   state_canonical, choice, expected_choice, quality, verified_match, distance, created)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    epoch_id,
+                    region_id,
+                    decision_id,
+                    state_canonical,
+                    choice,
+                    expected_choice,
+                    quality,
+                    verified_match,
+                    distance,
+                    now,
+                ),
+            )
+            db.execute(
+                "UPDATE evidence_epochs SET last_updated=? WHERE epoch_id=?",
+                (now, epoch_id),
+            )
+
+    def get_progressive_evidence(self, epoch_id: str, region_id: str | None = None) -> list[dict]:
+        if region_id:
+            return self.rows(
+                "SELECT * FROM progressive_evidence WHERE epoch_id=? AND region_id=? ORDER BY created ASC",
+                (epoch_id, region_id),
+            )
+        return self.rows(
+            "SELECT * FROM progressive_evidence WHERE epoch_id=? ORDER BY created ASC",
+            (epoch_id,),
+        )
+
+    def sync_region_lifecycle(
+        self,
+        artifact_id: str,
+        site: str,
+        region_id: str,
+        status: str,
+        radius: float,
+        negative_margin: float,
+        sample_count: int = 0,
+        verified_positive: int = 0,
+        verified_negative: int = 0,
+        quality_lower: float = 0.0,
+    ):
+        now = time.time()
+        with self.transaction() as db:
+            db.execute(
+                """INSERT INTO region_lifecycle(region_id, artifact_id, site, status,
+                   sample_count, verified_positive, verified_negative, quality_lower,
+                   radius, negative_margin, last_evaluated)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?)
+                   ON CONFLICT(artifact_id, region_id) DO UPDATE SET
+                   status=excluded.status,
+                   sample_count=excluded.sample_count,
+                   verified_positive=excluded.verified_positive,
+                   verified_negative=excluded.verified_negative,
+                   quality_lower=excluded.quality_lower,
+                   radius=excluded.radius,
+                   negative_margin=excluded.negative_margin,
+                   last_evaluated=excluded.last_evaluated""",
+                (
+                    region_id,
+                    artifact_id,
+                    site,
+                    status,
+                    sample_count,
+                    verified_positive,
+                    verified_negative,
+                    quality_lower,
+                    radius,
+                    negative_margin,
+                    now,
+                ),
+            )
+
+    def get_active_regions(self, artifact_id: str) -> set[str]:
+        rows = self.rows(
+            "SELECT region_id FROM region_lifecycle WHERE artifact_id=? AND status='ACTIVE'",
+            (artifact_id,),
+        )
+        return {r["region_id"] for r in rows}
+
+    def get_region_lifecycles(self, artifact_id: str) -> list[dict]:
+        return self.rows(
+            "SELECT * FROM region_lifecycle WHERE artifact_id=? ORDER BY region_id ASC",
+            (artifact_id,),
+        )
+
+    def revoke_epoch_and_regions(self, artifact_id: str, db=None):
+        now = time.time()
+        if db is not None:
+            db.execute(
+                "UPDATE evidence_epochs SET status='REVOKED', last_updated=? WHERE artifact_id=? AND status='OPEN'",
+                (now, artifact_id),
+            )
+            db.execute(
+                "UPDATE region_lifecycle SET status='REVOKED', last_evaluated=? WHERE artifact_id=?",
+                (now, artifact_id),
+            )
+        else:
+            with self.transaction() as conn:
+                conn.execute(
+                    "UPDATE evidence_epochs SET status='REVOKED', last_updated=? WHERE artifact_id=? AND status='OPEN'",
+                    (now, artifact_id),
+                )
+                conn.execute(
+                    "UPDATE region_lifecycle SET status='REVOKED', last_evaluated=? WHERE artifact_id=?",
+                    (now, artifact_id),
+                )
+
+    def get_site(self, version: str) -> dict | None:
+        rows = self.rows("SELECT * FROM sites WHERE version=?", (version,))
+        return rows[0] if rows else None
+
+    def get_site_by_name(self, name: str) -> dict | None:
+        rows = self.rows("SELECT * FROM sites WHERE name=? ORDER BY created DESC LIMIT 1", (name,))
+        return rows[0] if rows else None
+
+    def get_site_contract(self, name: str) -> str | None:
+        rows = self.rows("SELECT contract FROM sites WHERE name=? ORDER BY created DESC LIMIT 1", (name,))
+        return rows[0]["contract"] if rows else None
+
+    def get_all_sites(self) -> list[dict]:
+        return self.rows("SELECT * FROM sites ORDER BY name, created")
+
+    def save_site(self, version: str, name: str, contract_json: str, created: float):
+        with self.transaction() as db:
+            db.execute("INSERT OR IGNORE INTO sites VALUES (?,?,?,?)", (version, name, contract_json, created))
+
+    def get_artifact(self, artifact_id: str) -> dict | None:
+        rows = self.rows("SELECT * FROM artifacts WHERE id=?", (artifact_id,))
+        return rows[0] if rows else None
+
+    def get_artifact_for_site(self, site_version: str, status: str | None = None) -> dict | None:
+        if status:
+            rows = self.rows("SELECT * FROM artifacts WHERE site=? AND status=?", (site_version, status))
+        else:
+            rows = self.rows(
+                "SELECT * FROM artifacts WHERE site=? AND status!='RETIRED' ORDER BY epoch DESC LIMIT 1",
+                (site_version,),
+            )
+        return rows[0] if rows else None
+
+    def get_artifacts_for_site(
+        self, site_version: str, status: str | None = None
+    ) -> list[dict]:
+        """Return live artifacts in serving order: Exact, then Linear.
+
+        Policy-model artifacts are deliberately excluded from this production
+        dispatcher view; they are control-plane inputs, not serving engines.
+        """
+        if status:
+            return self.rows(
+                "SELECT * FROM artifacts WHERE site=? AND status=? ORDER BY epoch DESC",
+                (site_version, status),
+            )
+        return self.rows(
+            "SELECT * FROM artifacts WHERE site=? AND status!='RETIRED' ORDER BY epoch DESC",
+            (site_version,),
+        )
+
+    def get_active_artifact(self, site_version: str) -> dict | None:
+        rows = self.rows(
+            "SELECT * FROM artifacts WHERE site=? AND status='ACTIVE' ORDER BY epoch DESC LIMIT 1",
+            (site_version,),
+        )
+        return rows[0] if rows else None
+
+    def get_artifact_view(self, artifact_id: str) -> InkArtifact | None:
+        row = self.get_artifact(artifact_id)
+        return InkArtifact.from_row(row) if row else None
+
+    def get_active_artifact_view(self, site_version: str) -> InkArtifact | None:
+        row = self.get_active_artifact(site_version)
+        return InkArtifact.from_row(row) if row else None
+
+    def save_artifact(
+        self,
+        artifact_id: str,
+        site_version: str,
+        payload_json: str,
+        checksum: str,
+        status: str,
+        epoch: float,
+        profile_json: str | None = None,
+        evidence_json: str | None = None,
+        replace_existing: bool = False,
+    ):
+        with self.transaction() as db:
+            engine_key = json.loads(payload_json).get("engine_data", {}).get("engine")
+            previous = db.execute(
+                """SELECT id, status FROM artifacts WHERE site=? AND status!='RETIRED'
+                AND json_extract(payload, '$.engine_data.engine')=?""",
+                (site_version, engine_key),
+            ).fetchone()
+            if previous:
+                if not replace_existing:
+                    raise ValueError("Site already has a candidate; explicitly replace to recompile")
+                db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (previous["id"],))
+                self.record_event(
+                    previous["id"],
+                    previous["status"],
+                    "RETIRED",
+                    json.dumps({"replaced_by": artifact_id}),
+                    db=db,
+                )
+            db.execute(
+                "INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    artifact_id,
+                    site_version,
+                    payload_json,
+                    checksum,
+                    status,
+                    epoch,
+                    profile_json,
+                    evidence_json,
+                ),
+            )
+            self.record_event(artifact_id, "NONE", status, json.dumps({"reason": "compiled"}), db=db)
+
+    def retire_artifact(self, artifact_id: str, replaced_by: str | None = None, db=None):
+        detail = json.dumps({"replaced_by": replaced_by}) if replaced_by else "{}"
+        if db is not None:
+            db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (artifact_id,))
+            self.record_event(artifact_id, "ACTIVE", "RETIRED", detail, db=db)
+        else:
+            with self.transaction() as conn:
+                conn.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (artifact_id,))
+                self.record_event(artifact_id, "ACTIVE", "RETIRED", detail, db=conn)
+
+    def demote_artifact(
+        self,
+        artifact_id: str,
+        new_status: str = "SHADOW",
+        epoch: float | None = None,
+        evidence: str | None = None,
+        db=None,
+    ) -> int:
+        ep = epoch if epoch is not None else time.time()
+        if db is not None:
+            count = db.execute(
+                "UPDATE artifacts SET status=?, epoch=? WHERE id=? AND status='ACTIVE'",
+                (new_status, ep, artifact_id),
+            ).rowcount
+            if count:
+                self.revoke_epoch_and_regions(artifact_id, db=db)
+                self.record_event(artifact_id, "ACTIVE", new_status, evidence or "{}", db=db)
+            return count
+        else:
+            with self.transaction() as conn:
+                count = conn.execute(
+                    "UPDATE artifacts SET status=?, epoch=? WHERE id=? AND status='ACTIVE'",
+                    (new_status, ep, artifact_id),
+                ).rowcount
+                if count:
+                    self.revoke_epoch_and_regions(artifact_id, db=conn)
+                    self.record_event(artifact_id, "ACTIVE", new_status, evidence or "{}", db=conn)
+                return count
+
+    def promote_artifact(
+        self,
+        artifact_id: str,
+        new_status: str = "ACTIVE",
+        epoch: float | None = None,
+        evidence: str | None = None,
+        db=None,
+    ):
+        ep = epoch if epoch is not None else time.time()
+        ev = evidence or "{}"
+        if db is not None:
+            db.execute(
+                "UPDATE artifacts SET status=?, epoch=?, evidence=? WHERE id=?",
+                (new_status, ep, ev, artifact_id),
+            )
+            self.record_event(artifact_id, "SHADOW", new_status, ev, db=db)
+        else:
+            with self.transaction() as conn:
+                conn.execute(
+                    "UPDATE artifacts SET status=?, epoch=?, evidence=? WHERE id=?",
+                    (new_status, ep, ev, artifact_id),
+                )
+                self.record_event(artifact_id, "SHADOW", new_status, ev, db=conn)
+
+    def update_artifact_profile(self, artifact_id: str, profile_json: str, db=None):
+        if db is not None:
+            db.execute(
+                "UPDATE artifacts SET profile=? WHERE id=? AND profile IS NULL AND status='SHADOW'",
+                (profile_json, artifact_id),
+            )
+        else:
+            with self.transaction() as conn:
+                conn.execute(
+                    "UPDATE artifacts SET profile=? WHERE id=? AND profile IS NULL AND status='SHADOW'",
+                    (profile_json, artifact_id),
+                )
+
+    def update_active_artifact_profile(self, artifact_id: str, profile_json: str):
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE artifacts SET profile=? WHERE id=? AND status='ACTIVE'",
+                (profile_json, artifact_id),
+            )
+
+    def update_artifact_evidence(self, artifact_id: str, evidence_json: str, db=None):
+        if db is not None:
+            db.execute("UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id))
+        else:
+            with self.transaction() as conn:
+                conn.execute("UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id))
+
+    def record_event(
+        self,
+        artifact_id: str,
+        previous: str,
+        current: str,
+        detail_json: str,
+        created: float | None = None,
+        db=None,
+    ):
+        ts = created if created is not None else time.time()
+        if db is not None:
+            db.execute(
+                "INSERT INTO events(artifact, created, previous, current, detail) VALUES (?,?,?,?,?)",
+                (artifact_id, ts, previous, current, detail_json),
+            )
+        else:
+            with self.transaction() as conn:
+                conn.execute(
+                    "INSERT INTO events(artifact, created, previous, current, detail) VALUES (?,?,?,?,?)",
+                    (artifact_id, ts, previous, current, detail_json),
+                )
+
+    def get_events(self, artifact_id: str) -> list[dict]:
+        return self.rows("SELECT * FROM events WHERE artifact=? ORDER BY id", (artifact_id,))
+
+    def record_decision(
+        self,
+        decision_id: str,
+        site_version: str,
+        task: str,
+        created: float,
+        state_json: str,
+        choice: str,
+        source: str,
+        reason: str | None,
+        artifact_id: str | None,
+        prediction_json: str | None,
+        confidence: float | None,
+        elapsed: float,
+        usage_json: str,
+        fast_served: int = 0,
+    ):
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    decision_id,
+                    site_version,
+                    task,
+                    created,
+                    state_json,
+                    choice,
+                    source,
+                    reason,
+                    artifact_id,
+                    prediction_json,
+                    confidence,
+                    elapsed,
+                    usage_json,
+                ),
+            )
+            db.execute(
+                """INSERT INTO state_coverage(site, state, observations, fast_served)
+                VALUES (?,?,1,?) ON CONFLICT(site, state) DO UPDATE SET
+                observations=observations+1, fast_served=fast_served+excluded.fast_served""",
+                (site_version, state_json, fast_served),
+            )
+
+    def record_outcome_payload(
+        self,
+        decision_id: str,
+        payload_json: str,
+        created: float | None = None,
+        quality: float | None = None,
+    ) -> dict:
+        ts = created if created is not None else time.time()
+        with self.transaction() as db:
+            dec = db.execute(
+                "SELECT site, state, artifact, prediction, choice FROM decisions WHERE id=?",
+                (decision_id,),
+            ).fetchone()
+            if dec is None:
+                raise KeyError(f"Unknown decision ID: {decision_id}")
+            prev = db.execute("SELECT payload FROM outcomes WHERE decision=?", (decision_id,)).fetchone()
+            if prev is not None:
+                raise ValueError("Outcome already recorded for decision")
+            db.execute("INSERT INTO outcomes VALUES (?,?,?)", (decision_id, payload_json, ts))
+            q_val = quality if quality is not None else 0.0
+            db.execute(
+                """INSERT INTO state_coverage(site, state, observations, outcomes, quality_sum)
+                VALUES (?,?,0,1,?) ON CONFLICT(site, state) DO UPDATE SET
+                outcomes=outcomes+1, quality_sum=quality_sum+excluded.quality_sum""",
+                (dec["site"], dec["state"], q_val),
+            )
+            return dict(dec)
+
+    def get_decision(self, decision_id: str) -> dict | None:
+        rows = self.rows("SELECT * FROM decisions WHERE id=?", (decision_id,))
+        return rows[0] if rows else None
+
+    def get_outcome(self, decision_id: str) -> dict | None:
+        rows = self.rows("SELECT * FROM outcomes WHERE decision=?", (decision_id,))
+        return rows[0] if rows else None
+
+    def get_site_decisions_count(self, site_version: str) -> int:
+        rows = self.rows("SELECT COUNT(*) as c FROM decisions WHERE site=?", (site_version,))
+        return rows[0]["c"] if rows else 0
+
+    def get_total_fast_served(self, site_version: str) -> int:
+        rows = self.rows(
+            "SELECT SUM(fast_served) as fast_count FROM state_coverage WHERE site=?",
+            (site_version,),
+        )
+        return (rows[0]["fast_count"] or 0) if rows else 0
+
+    def get_site_contracts(self, site_name: str) -> list[dict]:
+        return self.rows("SELECT contract FROM sites WHERE name=? ORDER BY created DESC", (site_name,))
+
+    def get_state_coverage(self, site_version: str) -> list[dict]:
+        return self.rows(
+            "SELECT state, observations, fast_served, outcomes, quality_sum FROM state_coverage WHERE site=? ORDER BY observations DESC",
+            (site_version,),
+        )
+
+    def get_drift_checks(self, site_version: str) -> list[dict]:
+        return self.rows(
+            "SELECT d.* FROM drift_checks d JOIN artifacts a ON a.id=d.artifact WHERE a.site=? ORDER BY d.created DESC, d.id DESC",
+            (site_version,),
+        )
+
+    def get_promotion_records(self, site_version: str) -> list[dict]:
+        return self.rows(
+            "SELECT p.* FROM promotion_records p JOIN artifacts a ON a.id=p.artifact WHERE a.site=? ORDER BY p.decided DESC",
+            (site_version,),
+        )
+
+    def get_artifact_links(self, site_version: str) -> list[dict]:
+        return self.rows(
+            "SELECT l.* FROM artifact_links l JOIN artifacts a ON a.id=l.child WHERE a.site=? ORDER BY l.created",
+            (site_version,),
+        )
+
+    def record_drift_check(
+        self,
+        artifact_id: str,
+        created: float,
+        demoted: int,
+        active_samples: int,
+        comparison_samples: int,
+        missing_outcomes: int,
+        quality_lower: float | None,
+        delta_lower: float | None,
+        uncovered_rate: float | None,
+        db=None,
+    ):
+        params = (
+            artifact_id,
+            created,
+            demoted,
+            active_samples,
+            comparison_samples,
+            missing_outcomes,
+            quality_lower,
+            delta_lower,
+            uncovered_rate,
+        )
+        if db is not None:
+            db.execute(
+                """INSERT INTO drift_checks(artifact, created, demoted, active_samples,
+                comparison_samples, missing_outcomes, quality_lower, delta_lower, uncovered_rate)
+                VALUES (?,?,?,?,?,?,?,?,?)""",
+                params,
+            )
+        else:
+            with self.transaction() as conn:
+                conn.execute(
+                    """INSERT INTO drift_checks(artifact, created, demoted, active_samples,
+                    comparison_samples, missing_outcomes, quality_lower, delta_lower, uncovered_rate)
+                    VALUES (?,?,?,?,?,?,?,?,?)""",
+                    params,
+                )
+
+    def delete_decisions_by_ids(self, ids: list[str]) -> int:
+        if not ids:
+            return 0
+        deleted = 0
+        with self.transaction() as db:
+            for i in range(0, len(ids), 900):
+                chunk = ids[i : i + 900]
+                q = f"DELETE FROM decisions WHERE id IN ({','.join('?' for _ in chunk)})"
+                deleted += db.execute(q, chunk).rowcount
+        return deleted
+
+    def commit_fast_path_decision(
+        self,
+        decision_id: str,
+        site_version: str,
+        task_id: str,
+        created: float,
+        state_json: str,
+        choice: str,
+        artifact_id: str,
+        fast_path_version: str,
+        prediction_json: str | None,
+        confidence: float | None,
+        elapsed: float,
+        usage_json: str,
+        expected_epoch: float,
+    ):
+        with self.transaction() as db:
+            current = db.execute(
+                "SELECT status,epoch FROM artifacts WHERE id=?", (artifact_id,)
+            ).fetchone()
+            if not current or current["status"] != "ACTIVE" or current["epoch"] != expected_epoch:
+                raise sqlite3.OperationalError("Artifact changed during dispatch")
+            db.execute(
+                "INSERT INTO decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    decision_id,
+                    site_version,
+                    task_id,
+                    created,
+                    state_json,
+                    choice,
+                    "fast_path",
+                    None,
+                    fast_path_version,
+                    prediction_json,
+                    confidence,
+                    elapsed,
+                    usage_json,
+                ),
+            )
+            db.execute(
+                """INSERT INTO state_coverage(site, state, observations, fast_served)
+                VALUES (?,?,1,1) ON CONFLICT(site, state) DO UPDATE SET
+                observations=observations+1, fast_served=fast_served+1""",
+                (site_version, state_json),
+            )
+
+    def commit_fallback_decision(
+        self,
+        decision_id: str,
+        site_version: str,
+        task_id: str,
+        created: float,
+        state_json: str,
+        choice: str,
+        reason: str | None,
+        artifact_id: str | None,
+        fast_path_version: str | None,
+        prediction_json: str | None,
+        confidence: float | None,
+        elapsed: float,
+        usage_json: str,
+    ):
+        with self.transaction() as db:
+            db.execute(
+                "INSERT INTO decisions VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    decision_id,
+                    site_version,
+                    task_id,
+                    created,
+                    state_json,
+                    choice,
+                    "fallback",
+                    reason,
+                    fast_path_version,
+                    prediction_json,
+                    confidence,
+                    elapsed,
+                    usage_json,
+                ),
+            )
+            db.execute(
+                """INSERT INTO state_coverage(site, state, observations, fast_served)
+                VALUES (?,?,1,0) ON CONFLICT(site, state) DO UPDATE SET
+                observations=observations+1""",
+                (site_version, state_json),
+            )
+
+    def record_outcome_transaction(
+        self,
+        decision_id: str,
+        payload_json: str,
+        quality: float,
+    ) -> dict | None:
+        with self.transaction() as db:
+            row = db.execute(
+                "SELECT site, state, artifact, prediction, choice FROM decisions WHERE id=?",
+                (decision_id,),
+            ).fetchone()
+            if not row:
+                return None
+            existing = db.execute(
+                "SELECT payload FROM outcomes WHERE decision=?", (decision_id,)
+            ).fetchone()
+            if existing:
+                if existing[0] != payload_json:
+                    raise ValueError("Conflicting outcome; recorded evidence is immutable")
+                return dict(row)
+            db.execute(
+                "INSERT INTO outcomes VALUES (?,?,?)", (decision_id, payload_json, time.time())
+            )
+            db.execute(
+                """INSERT INTO state_coverage(site, state, observations, outcomes, quality_sum)
+                VALUES (?,?,0,1,?) ON CONFLICT(site, state) DO UPDATE SET
+                outcomes=outcomes+1, quality_sum=quality_sum+excluded.quality_sum""",
+                (row["site"], row["state"], quality),
+            )
+            return dict(row)
+
+    def get_open_epoch(self, artifact_id: str, app_id: str = "default") -> dict | None:
+        rows = self.rows(
+            "SELECT epoch_id, requirements FROM evidence_epochs "
+            "WHERE artifact_id=? AND app_id=? AND status='OPEN' "
+            "ORDER BY created DESC LIMIT 1",
+            (artifact_id, app_id),
+        )
+        return rows[0] if rows else None
+
+    def compile_candidate_artifact(
+        self,
+        artifact_id: str,
+        site_version: str,
+        payload_json: str,
+        checksum: str,
+        engine_key: str,
+        replace_existing: bool = False,
+    ):
+        now = time.time()
+        with self.transaction() as db:
+            previous = db.execute(
+                """SELECT id, status FROM artifacts WHERE site=? AND status!='RETIRED'
+                AND json_extract(payload, '$.engine_data.engine')=?""",
+                (site_version, engine_key),
+            ).fetchone()
+            if previous:
+                if not replace_existing:
+                    raise ValueError("Site already has a candidate; explicitly replace to recompile")
+                db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (previous["id"],))
+                self.record_event(
+                    previous["id"],
+                    previous["status"],
+                    "RETIRED",
+                    json.dumps({"replaced_by": artifact_id}),
+                    db=db,
+                )
+            db.execute(
+                "INSERT INTO artifacts VALUES (?,?,?,?,?,?,?,?)",
+                (
+                    artifact_id,
+                    site_version,
+                    payload_json,
+                    checksum,
+                    "CANDIDATE",
+                    now,
+                    None,
+                    None,
+                ),
+            )
+            if previous:
+                db.execute(
+                    "INSERT OR IGNORE INTO artifact_links VALUES (?,?,?)",
+                    (previous["id"], artifact_id, now),
+                )
+            self.record_event(artifact_id, "OBSERVE", "CANDIDATE", json.dumps({"engine": engine_key}), db=db)
+            db.execute("UPDATE artifacts SET status='SHADOW' WHERE id=?", (artifact_id,))
+            self.record_event(artifact_id, "CANDIDATE", "SHADOW", "{}", db=db)
+
+    def save_policy_observation(
+        self,
+        *,
+        decision_id: str,
+        site_version: str,
+        state: dict,
+        host_choice: str,
+        proposed_choice: str,
+        scores: dict,
+        representation: list[float] | None,
+        confidence: float,
+        ambiguity: float | None,
+        act_probability: float | None,
+        checkpoint_identity: str,
+        created: float | None = None,
+    ) -> None:
+        with self.transaction() as db:
+            db.execute(
+                """INSERT OR IGNORE INTO policy_observations(
+                decision,site,state,host_choice,proposed_choice,scores,representation,
+                confidence,ambiguity,act_probability,checkpoint_identity,created)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    decision_id,
+                    site_version,
+                    canonical(state),
+                    host_choice,
+                    proposed_choice,
+                    canonical(scores),
+                    canonical(representation) if representation is not None else None,
+                    confidence,
+                    ambiguity,
+                    act_probability,
+                    checkpoint_identity,
+                    created if created is not None else time.time(),
+                ),
+            )
+
+    def attach_policy_outcome(self, decision_id: str, outcome: dict) -> None:
+        with self.transaction() as db:
+            db.execute(
+                """UPDATE policy_observations SET verified_outcome=?,verified_at=?
+                WHERE decision=?""",
+                (canonical(outcome), time.time(), decision_id),
+            )
+
+    def get_policy_observations(
+        self, site_version: str, *, verified_only: bool = False
+    ) -> list[dict]:
+        suffix = " AND verified_outcome IS NOT NULL" if verified_only else ""
+        rows = self.rows(
+            "SELECT * FROM policy_observations WHERE site=?" + suffix + " ORDER BY created,decision",
+            (site_version,),
+        )
+        for row in rows:
+            for key in ("state", "scores", "representation", "verified_outcome"):
+                row[key] = json.loads(row[key]) if row.get(key) else None
+        return rows
+
+    def record_authority_event(
+        self,
+        *,
+        step: int,
+        site: str,
+        engine: str,
+        artifact_id: str,
+        previous_status: str,
+        new_status: str,
+        support_n: int,
+        quality: float | None,
+        lower_bound: float | None,
+        coverage: float | None,
+        reason: str,
+    ) -> None:
+        with self.transaction() as db:
+            db.execute(
+                """INSERT INTO authority_events(step,site,engine,artifact_id,
+                previous_status,new_status,support_n,quality,lower_bound,coverage,reason,created)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    step, site, engine, artifact_id, previous_status, new_status,
+                    support_n, quality, lower_bound, coverage, reason, time.time(),
+                ),
+            )
+
+    def authority_events(self, site_version: str) -> list[dict]:
+        return self.rows(
+            "SELECT * FROM authority_events WHERE site=? ORDER BY step,id", (site_version,)
+        )
+
+    def record_non_promotion(
+        self, *, step: int, site: str, engine: str, artifact_id: str,
+        reason: str, detail: dict | None = None
+    ) -> None:
+        allowed = {
+            "insufficient support", "quality bound failed", "degradation bound failed",
+            "region purity failed", "ambiguity", "OOD", "insufficient comparisons",
+        }
+        if reason not in allowed:
+            raise ValueError(f"Unknown non-promotion reason: {reason}")
+        with self.transaction() as db:
+            db.execute(
+                """INSERT INTO non_promotion_events(step,site,engine,artifact_id,reason,detail,created)
+                VALUES (?,?,?,?,?,?,?)""",
+                (step, site, engine, artifact_id, reason, canonical(detail or {}), time.time()),
+            )
+
+    def calibrate_candidate_artifact(self, artifact_id: str, profile_json: str):
+        with self.transaction() as db:
+            count = db.execute(
+                "UPDATE artifacts SET profile=? WHERE id=? AND profile IS NULL AND status='SHADOW'",
+                (profile_json, artifact_id),
+            ).rowcount
+            if not count:
+                raise ValueError("Candidate changed during calibration")
+
+    def promote_candidate_artifact(
+        self,
+        artifact_id: str,
+        expected_epoch: float,
+        evidence_json: str,
+        promotion_record: tuple,
+        qualified: bool,
+        auto_promote: bool,
+        profile_id: str,
+    ):
+        now = time.time()
+        with self.transaction() as db:
+            current = db.execute(
+                "SELECT status,epoch FROM artifacts WHERE id=?", (artifact_id,)
+            ).fetchone()
+            if not current or current["status"] != "SHADOW" or current["epoch"] != expected_epoch:
+                raise ValueError("Candidate changed during evaluation")
+            db.execute(
+                "UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id)
+            )
+            db.execute(
+                "INSERT OR REPLACE INTO promotion_records VALUES (?,?,?,?,?,?,?,?)",
+                promotion_record,
+            )
+            if qualified:
+                self.record_event(artifact_id, "SHADOW", "VERIFIED", evidence_json, db=db)
+                if auto_promote:
+                    self.record_event(
+                        artifact_id, "VERIFIED", "ACTIVE", json.dumps({"profile": profile_id}), db=db
+                    )
+                    db.execute(
+                        "UPDATE artifacts SET status='ACTIVE',epoch=? WHERE id=?",
+                        (now, artifact_id),
+                    )
+                else:
+                    db.execute("UPDATE artifacts SET status='VERIFIED' WHERE id=?", (artifact_id,))
+
+    def demote_active_artifact(
+        self,
+        artifact_id: str,
+        expected_epoch: float,
+        evidence_json: str,
+    ) -> bool:
+        now = time.time()
+        with self.transaction() as db:
+            count = db.execute(
+                "UPDATE artifacts SET status='SHADOW',epoch=? WHERE id=? AND status='ACTIVE' AND epoch=?",
+                (now, artifact_id, expected_epoch),
+            ).rowcount
+            if count:
+                self.revoke_epoch_and_regions(artifact_id, db=db)
+                self.record_event(artifact_id, "ACTIVE", "SHADOW", evidence_json, db=db)
+                return True
+            return False
+
+    def invalidate_artifact(
+        self, artifact_id: str, current_status: str, target_status: str, reason: str
+    ):
+        now = time.time()
+        with self.transaction() as db:
+            db.execute(
+                "UPDATE artifacts SET status=?, epoch=? WHERE id=?",
+                (target_status, now, artifact_id),
+            )
+            self.record_event(
+                artifact_id,
+                current_status,
+                target_status,
+                json.dumps({"reason": reason, "explicit": True}),
+                db=db,
+            )
+
+    def hot_swap_artifact(self, site_version: str, new_artifact_id: str) -> str:
+        now = time.time()
+        with self.transaction() as db:
+            old_art = db.execute(
+                "SELECT id, status, epoch FROM artifacts WHERE site=? AND status='ACTIVE'",
+                (site_version,),
+            ).fetchone()
+            new_art = db.execute(
+                "SELECT id, status FROM artifacts WHERE id=?", (new_artifact_id,)
+            ).fetchone()
+            if not new_art or new_art["status"] not in ("VERIFIED", "SHADOW"):
+                raise ValueError("Replacement artifact must be in VERIFIED or SHADOW state")
+            if old_art:
+                db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (old_art["id"],))
+                self.record_event(
+                    old_art["id"],
+                    "ACTIVE",
+                    "RETIRED",
+                    json.dumps({"replaced_by": new_artifact_id}),
+                    db=db,
+                )
+            db.execute(
+                "UPDATE artifacts SET status='ACTIVE', epoch=? WHERE id=?",
+                (now, new_artifact_id),
+            )
+            self.record_event(
+                new_artifact_id,
+                new_art["status"],
+                "ACTIVE",
+                json.dumps({"replaces": old_art["id"] if old_art else None, "hot_swapped": True}),
+                db=db,
+            )
+            if old_art:
+                db.execute(
+                    "INSERT OR IGNORE INTO artifact_links VALUES (?,?,?)",
+                    (old_art["id"], new_artifact_id, now),
+                )
+        return new_artifact_id
+
+    def compact_decisions(
+        self, site_version: str, keep_recent: int, cutoff_time: float, protected_ids: set[str]
+    ) -> tuple[int, int]:
+        with self.transaction() as db:
+            recent_ids = {
+                r[0]
+                for r in db.execute(
+                    "SELECT id FROM decisions WHERE site=? ORDER BY created DESC LIMIT ?",
+                    (site_version, keep_recent),
+                ).fetchall()
+            }
+            all_protected = protected_ids | recent_ids
+            rows_to_prune = [
+                r[0]
+                for r in db.execute(
+                    "SELECT id FROM decisions WHERE site=? AND created < ?",
+                    (site_version, cutoff_time),
+                ).fetchall()
+                if r[0] not in all_protected
+            ]
+            if rows_to_prune:
+                chunk_size = 500
+                for i in range(0, len(rows_to_prune), chunk_size):
+                    chunk = rows_to_prune[i : i + chunk_size]
+                    q = f"DELETE FROM decisions WHERE id IN ({','.join('?' for _ in chunk)})"
+                    db.execute(q, chunk)
+            remaining = db.execute(
+                "SELECT COUNT(*) FROM decisions WHERE site=?", (site_version,)
+            ).fetchone()[0]
+            self._rebuild_coverage(db, site_version)
+            return len(rows_to_prune), remaining
+
+    def compact_site_decisions(
+        self,
+        site_version: str,
+        keep_recent: int = 1000,
+        before_timestamp: float | None = None,
+    ) -> tuple[int, int]:
+        active = self.get_active_artifact(site_version)
+        shadows = self.rows(
+            "SELECT id, epoch, payload FROM artifacts WHERE site=? AND status IN ('SHADOW','CANDIDATE')",
+            (site_version,),
+        )
+        protected_ids = set()
+        for art in ([active] if active else []) + (shadows or []):
+            try:
+                p_load = json.loads(art["payload"]) if isinstance(art["payload"], str) else art["payload"]
+                for part_ids in p_load.get("partitions", {}).values():
+                    protected_ids.update(part_ids)
+            except (json.JSONDecodeError, TypeError, KeyError):
+                pass
+
+        min_epoch = active["epoch"] if active else None
+        for s in (shadows or []):
+            if min_epoch is None or s["epoch"] < min_epoch:
+                min_epoch = s["epoch"]
+
+        cutoff = before_timestamp if before_timestamp is not None else (min_epoch or time.time())
+        pruned_count, remaining = self.compact_decisions(site_version, keep_recent, cutoff, protected_ids)
+        if active:
+            self.record_event(
+                active["id"],
+                "ACTIVE",
+                "ACTIVE",
+                json.dumps({"event": "compaction", "pruned": pruned_count, "remaining": remaining}),
+            )
+        return pruned_count, remaining
+
+    def get_latest_drift_check(self, artifact_id: str) -> dict | None:
+        rows = self.rows(
+            "SELECT demoted, delta_lower, missing_outcomes FROM drift_checks "
+            "WHERE artifact=? ORDER BY created DESC, id DESC LIMIT 1",
+            (artifact_id,),
+        )
+        return rows[0] if rows else None
+
+    def get_doctor_summary(self) -> dict:
+        with self.lock:
+            integrity = self.conn.execute("PRAGMA integrity_check").fetchone()[0]
+            user_ver = self.conn.execute("PRAGMA user_version").fetchone()[0]
+            sites_cnt = self.conn.execute("SELECT COUNT(*) FROM sites").fetchone()[0]
+            active_cnt = self.conn.execute(
+                "SELECT COUNT(*) FROM artifacts WHERE status='ACTIVE'"
+            ).fetchone()[0]
+            epochs_cnt = self.conn.execute(
+                "SELECT COUNT(*) FROM evidence_epochs WHERE status='OPEN'"
+            ).fetchone()[0]
+            return {
+                "integrity": integrity,
+                "user_version": user_ver,
+                "sites_count": sites_cnt,
+                "active_count": active_cnt,
+                "epochs_count": epochs_cnt,
+            }
+
+    def save_policy_utility(
+        self,
+        *,
+        site_key: str,
+        site_version: str,
+        checkpoint_revision: str,
+        state: str,
+        evidence: dict[str, Any],
+        updated_at: float | None = None,
+    ) -> None:
+        with self.transaction() as db:
+            db.execute(
+                """INSERT OR REPLACE INTO policy_utility_evidence(
+                   site_key, site_version, checkpoint_revision, state, evidence_json, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (
+                    site_key,
+                    site_version,
+                    checkpoint_revision,
+                    state,
+                    canonical(evidence),
+                    updated_at if updated_at is not None else time.time(),
+                ),
+            )
+
+    def get_policy_utility(self, site_key: str) -> dict[str, Any] | None:
+        row = self.conn.execute(
+            "SELECT site_key, site_version, checkpoint_revision, state, evidence_json, updated_at "
+            "FROM policy_utility_evidence WHERE site_key = ?",
+            (site_key,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {
+            "site_key": row["site_key"],
+            "site_version": row["site_version"],
+            "checkpoint_revision": row["checkpoint_revision"],
+            "state": row["state"],
+            "evidence": json.loads(row["evidence_json"]),
+            "updated_at": row["updated_at"],
+        }
 
     def close(self):
         with self.lock:

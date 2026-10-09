@@ -8,11 +8,12 @@ import shutil
 import subprocess
 import tempfile
 import time
+from collections.abc import Iterable
 from contextlib import AbstractContextManager
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from .core import InkInstrumentor, Mode, ToolObservation
 
@@ -180,7 +181,7 @@ def parse_opencode_events(lines: Iterable[str]) -> tuple[list[ToolObservation], 
             ToolObservation(
                 tool_name=tool_name,
                 command=command,
-                exit_code=_metadata_exit_code(metadata) if status == "completed" else 1,
+                exit_code=_metadata_exit_code(metadata) if _metadata_exit_code(metadata) is not None else (0 if status == "completed" else 1),
                 timed_out="timeout" in error.lower() or "timed out" in error.lower(),
                 stdout=output,
                 stderr=error,
@@ -191,6 +192,80 @@ def parse_opencode_events(lines: Iterable[str]) -> tuple[list[ToolObservation], 
             )
         )
     return observations, usage
+
+
+def session_ids_from_events(lines: Iterable[str]) -> list[str]:
+    """Extract distinct OpenCode session IDs from raw JSONL event output."""
+    sessions: list[str] = []
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, TypeError):
+            continue
+        session_id = event.get("sessionID")
+        if isinstance(session_id, str) and session_id and session_id not in sessions:
+            sessions.append(session_id)
+    return sessions
+
+
+def _cache_total(cache: Any) -> int:
+    if isinstance(cache, dict):
+        return int(cache.get("read", 0) or 0) + int(cache.get("write", 0) or 0)
+    return int(cache or 0)
+
+
+def enrich_usage_from_db(session_ids: list[str], db_path: Path | str) -> dict[str, Any]:
+    """Read assistant-message usage for finished sessions from OpenCode's own store.
+
+    The `opencode run --format json` stream currently carries no usage events,
+    so this read-only query recovers the same run's genuine token/cost metadata.
+    Returns zeros when the database or sessions are unavailable.
+    """
+    usage = {
+        "frontier_calls": 0,
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_tokens": 0,
+        "cache_tokens": 0,
+        "cost": 0.0,
+    }
+    if not session_ids:
+        return usage
+    try:
+        import sqlite3
+
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            for session_id in session_ids:
+                rows = connection.execute(
+                    "SELECT data FROM message WHERE session_id=?", (session_id,)
+                ).fetchall()
+                for (payload,) in rows:
+                    try:
+                        message = json.loads(payload)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                    if message.get("role") != "assistant":
+                        continue
+                    tokens = message.get("tokens", {})
+                    usage["frontier_calls"] += 1
+                    usage["input_tokens"] += int(tokens.get("input", 0) or 0)
+                    usage["output_tokens"] += int(tokens.get("output", 0) or 0)
+                    usage["reasoning_tokens"] += int(tokens.get("reasoning", 0) or 0)
+                    usage["cache_tokens"] += _cache_total(tokens.get("cache", 0))
+                    usage["cost"] += float(message.get("cost", 0.0) or 0.0)
+        finally:
+            connection.close()
+    except Exception:
+        return {
+            "frontier_calls": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "reasoning_tokens": 0,
+            "cache_tokens": 0,
+            "cost": 0.0,
+        }
+    return usage
 
 
 def _append_jsonl(path: Path, record: dict[str, Any]) -> None:
@@ -280,7 +355,31 @@ def run_experiment(task: TaskSpec, config: ExperimentConfig) -> dict[str, Any]:
         patch_path = config.output_dir / f"{task.task_id}.{config.mode}.patch"
         patch_path.write_text(patch, encoding="utf-8")
 
-    observations, usage = parse_opencode_events(raw_path.read_text(encoding="utf-8").splitlines())
+    raw_lines = raw_path.read_text(encoding="utf-8").splitlines()
+    observations, usage = parse_opencode_events(raw_lines)
+    from .action_dispatch import extract_dispatch_observations
+
+    dispatch_observations = extract_dispatch_observations(
+        raw_lines,
+        task_id=task.task_id,
+        arm="control" if config.mode == "control" else "ink",
+        source_file=str(raw_path),
+    )
+    dispatch_path = config.output_dir / "action_dispatch.jsonl"
+    for observation in dispatch_observations:
+        _append_jsonl(dispatch_path, asdict(observation))
+    usage_source = "events"
+    if usage["frontier_calls"] == 0:
+        # Current `opencode run --format json` output carries no usage events;
+        # recover the same run's genuine metadata read-only from OpenCode's store.
+        db_path = os.environ.get(
+            "OPENCODE_DB_PATH",
+            str(Path.home() / ".local/share/opencode/opencode.db"),
+        )
+        enriched = enrich_usage_from_db(session_ids_from_events(raw_lines), db_path)
+        if enriched["frontier_calls"] > 0:
+            usage = enriched
+            usage_source = "opencode_db"
     decisions: list[dict[str, Any]] = []
     with InkInstrumentor(config.mode, config.ink_db) as instrumentor:
         for observation in observations:
@@ -312,7 +411,10 @@ def run_experiment(task: TaskSpec, config: ExperimentConfig) -> dict[str, Any]:
         "reasoning_tokens": usage["reasoning_tokens"],
         "cache_tokens": usage["cache_tokens"],
         "estimated_model_cost": usage["cost"],
+        "usage_source": usage_source,
         "tool_calls": len(observations),
+        "action_dispatch_observations": len(dispatch_observations),
+        "action_dispatch_capture": str(dispatch_path),
         "selected_decision_site_calls": len(decisions),
         "ink_exact_serves": sum(item["source"] == "fast_path" and item["engine"] == "exact" for item in decisions),
         "ink_learned_serves": sum(item["source"] == "fast_path" and item["engine"] != "exact" for item in decisions),
