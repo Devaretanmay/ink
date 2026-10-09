@@ -2,6 +2,8 @@
 
 Self-contained zero-dependency single-page application for local-first
 observability into Ink DecisionSites, Fast Paths, and system health.
+Crafted using the Impeccable design system with Midnight Espresso,
+Vanilla Custard, and Pistachio Frost palettes. Zero emojis.
 """
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -12,123 +14,175 @@ HTML_PAGE = """<!DOCTYPE html>
   <title>Ink Console — Behavior JIT</title>
   <style>
     :root {
-      --bg: #090a0f;
-      --card-bg: #12141c;
-      --card-border: #1f2333;
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
-      --primary: #6366f1;
-      --primary-light: #818cf8;
-      --accent: #38bdf8;
-      --success: #10b981;
-      --warning: #f59e0b;
-      --danger: #ef4444;
-      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      /* Brand Palette */
+      --vanilla-custard: #FFF9EB;
+      --pistachio-frost: #C5E384;
+      --midnight-espresso: #200F07;
+
+      /* Surfaces & Depth */
+      --bg-deep: #160A05;
+      --bg-base: #200F07;
+      --bg-surface: #29140B;
+      --bg-elevated: #331A0F;
+      --bg-hover: #3D2013;
+
+      /* Borders & Rules */
+      --border-subtle: rgba(255, 249, 235, 0.08);
+      --border-medium: rgba(255, 249, 235, 0.14);
+      --border-accent: rgba(197, 227, 132, 0.35);
+
+      /* Typography */
+      --text-primary: #FFF9EB;
+      --text-secondary: rgba(255, 249, 235, 0.82);
+      --text-muted: rgba(255, 249, 235, 0.54);
+      --text-faint: rgba(255, 249, 235, 0.30);
+
+      /* Accents & Signals */
+      --accent-pistachio: #C5E384;
+      --accent-pistachio-soft: rgba(197, 227, 132, 0.12);
+      --accent-pistachio-glow: rgba(197, 227, 132, 0.28);
+      --accent-pistachio-dark: #200F07;
+
+      --signal-amber: #F2AE5C;
+      --signal-amber-soft: rgba(242, 174, 92, 0.14);
+
+      --signal-cyan: #7DD3FC;
+      --signal-cyan-soft: rgba(125, 211, 252, 0.14);
+
+      --signal-coral: #F87171;
+      --signal-coral-soft: rgba(248, 113, 113, 0.14);
+
+      /* Fonts */
+      --font-sans: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", "Inter", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Menlo, Monaco, Consolas, monospace;
     }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background: var(--bg);
-      color: var(--text);
+      background: var(--bg-base);
+      color: var(--text-primary);
       font-family: var(--font-sans);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
     }
+
     header {
-      background: #0d0f17;
-      border-bottom: 1px solid var(--card-border);
+      background: var(--bg-deep);
+      border-bottom: 1px solid var(--border-subtle);
       padding: 0.875rem 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
+
     .brand {
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      gap: 0.875rem;
     }
-    .brand-logo {
-      background: linear-gradient(135deg, #6366f1, #38bdf8);
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+
+    .brand-emblem {
+      background: var(--pistachio-frost);
+      color: var(--midnight-espresso);
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
       font-weight: 800;
-      font-size: 14px;
-      color: white;
+      letter-spacing: 0.05em;
+      padding: 0.3rem 0.6rem;
+      border-radius: 5px;
+      box-shadow: 0 0 16px var(--accent-pistachio-glow);
     }
-    .brand h1 {
-      font-size: 1.125rem;
+
+    .brand-title {
+      font-size: 1.0625rem;
       font-weight: 700;
-      letter-spacing: -0.025em;
+      letter-spacing: -0.02em;
+      color: var(--vanilla-custard);
     }
+
     .brand-tag {
-      font-size: 0.75rem;
+      font-size: 0.8125rem;
       color: var(--text-muted);
-      border-left: 1px solid var(--card-border);
-      padding-left: 0.75rem;
+      border-left: 1px solid var(--border-medium);
+      padding-left: 0.875rem;
       margin-left: 0.25rem;
     }
+
     .header-meta {
       display: flex;
       align-items: center;
       gap: 1rem;
     }
+
     .status-badge {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 0.5rem;
       font-size: 0.75rem;
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--success);
-      padding: 0.25rem 0.625rem;
-      border-radius: 9999px;
-      border: 1px solid rgba(16, 185, 129, 0.25);
-    }
-    .pulse-dot {
-      width: 6px;
-      height: 6px;
-      background: var(--success);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--success);
-    }
-    .demo-badge {
-      background: rgba(245, 158, 11, 0.15);
-      color: var(--warning);
-      border: 1px solid rgba(245, 158, 11, 0.3);
-      padding: 0.25rem 0.625rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
+      font-family: var(--font-mono);
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      background: var(--accent-pistachio-soft);
+      color: var(--accent-pistachio);
+      padding: 0.25rem 0.625rem;
+      border-radius: 9999px;
+      border: 1px solid var(--border-accent);
     }
+
+    .pulse-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--accent-pistachio);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-pistachio);
+    }
+
+    .demo-badge {
+      background: var(--signal-amber-soft);
+      color: var(--signal-amber);
+      border: 1px solid rgba(242, 174, 92, 0.35);
+      padding: 0.25rem 0.625rem;
+      border-radius: 9999px;
+      font-size: 0.6875rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
     nav {
-      background: #0d0f17;
-      border-bottom: 1px solid var(--card-border);
+      background: var(--bg-deep);
+      border-bottom: 1px solid var(--border-subtle);
       padding: 0 2rem;
       display: flex;
-      gap: 1.5rem;
+      gap: 1.75rem;
     }
+
     .nav-btn {
       background: none;
       border: none;
       color: var(--text-muted);
       font-size: 0.875rem;
       font-weight: 500;
+      letter-spacing: -0.01em;
       padding: 0.875rem 0;
       cursor: pointer;
       position: relative;
-      transition: color 0.15s;
+      transition: color 0.18s ease;
     }
-    .nav-btn:hover { color: var(--text); }
+
+    .nav-btn:hover { color: var(--text-primary); }
+
     .nav-btn.active {
-      color: var(--text);
+      color: var(--vanilla-custard);
       font-weight: 600;
     }
+
     .nav-btn.active::after {
       content: "";
       position: absolute;
@@ -136,8 +190,10 @@ HTML_PAGE = """<!DOCTYPE html>
       left: 0;
       right: 0;
       height: 2px;
-      background: var(--primary);
+      background: var(--pistachio-frost);
+      box-shadow: 0 0 10px var(--accent-pistachio-glow);
     }
+
     main {
       flex: 1;
       padding: 2rem;
@@ -145,118 +201,230 @@ HTML_PAGE = """<!DOCTYPE html>
       width: 100%;
       margin: 0 auto;
     }
+
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+
     .grid-4 {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 1.25rem;
       margin-bottom: 2rem;
     }
+
     .stat-card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
-      padding: 1.25rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 1.375rem;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.2s ease, transform 0.2s ease;
     }
+
+    .stat-card:hover {
+      border-color: var(--border-medium);
+      transform: translateY(-1px);
+    }
+
+    .stat-card.accent-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--pistachio-frost);
+      box-shadow: 0 0 8px var(--accent-pistachio-glow);
+    }
+
     .stat-label {
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
+      font-family: var(--font-mono);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0.08em;
       color: var(--text-muted);
       margin-bottom: 0.5rem;
     }
+
     .stat-value {
-      font-size: 1.875rem;
+      font-size: 2rem;
       font-weight: 700;
-      letter-spacing: -0.025em;
-      color: var(--text);
+      letter-spacing: -0.03em;
+      color: var(--vanilla-custard);
+      font-feature-settings: "tnum" 1;
     }
+
+    .stat-value.highlight {
+      color: var(--pistachio-frost);
+    }
+
     .stat-sub {
       font-size: 0.75rem;
       color: var(--text-muted);
       margin-top: 0.375rem;
     }
+
     .card {
-      background: var(--card-bg);
-      border: 1px solid var(--card-border);
-      border-radius: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
       margin-bottom: 2rem;
       overflow: hidden;
     }
+
     .card-header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--card-border);
+      padding: 1.125rem 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
       display: flex;
       justify-content: space-between;
       align-items: center;
+      background: rgba(22, 10, 5, 0.45);
     }
+
     .card-title {
-      font-size: 1rem;
+      font-size: 0.9375rem;
       font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--vanilla-custard);
     }
+
     .card-sub {
       font-size: 0.8125rem;
       color: var(--text-muted);
+      margin-top: 0.125rem;
     }
+
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
       font-size: 0.875rem;
     }
+
     th {
-      background: #0d0f17;
+      background: var(--bg-deep);
       color: var(--text-muted);
       font-weight: 600;
-      font-size: 0.75rem;
+      font-size: 0.6875rem;
+      font-family: var(--font-mono);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    td {
+      padding: 0.875rem 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: middle;
+      color: var(--text-secondary);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-hover); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 0.6875rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      padding: 0.75rem 1.5rem;
-      border-bottom: 1px solid var(--card-border);
     }
-    td {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--card-border);
-      vertical-align: middle;
+
+    .badge-ACTIVE {
+      background: var(--accent-pistachio-soft);
+      color: var(--accent-pistachio);
+      border: 1px solid var(--border-accent);
     }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
-    .badge {
-      display: inline-block;
+
+    .badge-SHADOW {
+      background: var(--signal-cyan-soft);
+      color: var(--signal-cyan);
+      border: 1px solid rgba(125, 211, 252, 0.3);
+    }
+
+    .badge-CANDIDATE {
+      background: var(--signal-amber-soft);
+      color: var(--signal-amber);
+      border: 1px solid rgba(242, 174, 92, 0.3);
+    }
+
+    .badge-OBSERVE {
+      background: rgba(255, 249, 235, 0.08);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .badge-DEOPT {
+      background: var(--signal-coral-soft);
+      color: var(--signal-coral);
+      border: 1px solid rgba(248, 113, 113, 0.3);
+    }
+
+    .source-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
       font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.2rem 0.5rem;
-      border-radius: 6px;
-      text-transform: uppercase;
       font-family: var(--font-mono);
+      font-weight: 600;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
     }
-    .badge-ACTIVE { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-SHADOW { background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.3); }
-    .badge-CANDIDATE { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-OBSERVE { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); border: 1px solid rgba(148, 163, 184, 0.3); }
-    .badge-DEOPT { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
-    .source-fast { color: var(--success); font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem; }
-    .source-fallback { color: var(--warning); display: inline-flex; align-items: center; gap: 0.25rem; }
-    .mono { font-family: var(--font-mono); }
+
+    .source-fast {
+      background: var(--accent-pistachio-soft);
+      color: var(--accent-pistachio);
+      border: 1px solid var(--border-accent);
+    }
+
+    .source-fallback {
+      background: var(--signal-amber-soft);
+      color: var(--signal-amber);
+      border: 1px solid rgba(242, 174, 92, 0.28);
+    }
+
+    .svg-icon {
+      width: 13px;
+      height: 13px;
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-feature-settings: "tnum" 1;
+    }
+
     .code-pill {
       font-family: var(--font-mono);
       font-size: 0.75rem;
-      background: rgba(255, 255, 255, 0.06);
-      padding: 0.15rem 0.4rem;
+      background: var(--bg-elevated);
+      padding: 0.15rem 0.45rem;
       border-radius: 4px;
-      color: #cbd5e1;
+      color: var(--vanilla-custard);
+      border: 1px solid var(--border-subtle);
     }
+
     .empty-state {
       padding: 4rem 2rem;
       text-align: center;
       color: var(--text-muted);
     }
+
     .empty-state h3 {
-      font-size: 1.125rem;
-      color: var(--text);
+      font-size: 1.0625rem;
+      color: var(--vanilla-custard);
       margin-bottom: 0.5rem;
+      letter-spacing: -0.01em;
     }
+
     .refresh-bar {
       display: flex;
       align-items: center;
@@ -266,26 +434,51 @@ HTML_PAGE = """<!DOCTYPE html>
       font-size: 0.8125rem;
       color: var(--text-muted);
     }
+
     .btn {
-      background: var(--card-border);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: var(--text);
-      padding: 0.4rem 0.8rem;
-      border-radius: 6px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-medium);
+      color: var(--vanilla-custard);
+      padding: 0.4rem 0.85rem;
+      border-radius: 5px;
       cursor: pointer;
       font-size: 0.8125rem;
-      transition: background 0.15s;
+      font-weight: 500;
+      transition: background 0.15s ease, border-color 0.15s ease;
     }
-    .btn:hover { background: #2a3044; }
-    .btn-primary { background: var(--primary); }
-    .btn-primary:hover { background: var(--primary-light); }
+
+    .btn:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-accent);
+    }
+
+    .btn-primary {
+      background: var(--pistachio-frost);
+      color: var(--midnight-espresso);
+      border: 1px solid var(--pistachio-frost);
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background: #b6d773;
+    }
+
+    .verified-mark {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      color: var(--accent-pistachio);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="brand">
-      <div class="brand-logo">I</div>
-      <h1>INK</h1>
+      <div class="brand-emblem">INK</div>
+      <div class="brand-title">Console</div>
       <span class="brand-tag">Behavior JIT for Production AI</span>
     </div>
     <div class="header-meta">
@@ -301,10 +494,10 @@ HTML_PAGE = """<!DOCTYPE html>
   <nav>
     <button class="nav-btn active" onclick="showTab('overview')">Overview</button>
     <button class="nav-btn" onclick="showTab('sites')">DecisionSites</button>
-    <button class="nav-btn" onclick="showTab('fastpaths')">Inks & Fast Paths</button>
-    <button class="nav-btn" onclick="showTab('activity')">Activity Feed</button>
+    <button class="nav-btn" onclick="showTab('fastpaths')">Inks &amp; Fast Paths</button>
+    <button class="nav-btn" onclick="showTab('activity')">Activity Stream</button>
     <button class="nav-btn" onclick="showTab('discovery')">Discovery</button>
-    <button class="nav-btn" onclick="showTab('system')">Doctor & System</button>
+    <button class="nav-btn" onclick="showTab('system')">Doctor &amp; System</button>
   </nav>
 
   <main>
@@ -314,30 +507,30 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="stat-card">
           <div class="stat-label">Total Decisions</div>
           <div class="stat-value" id="statDecisions">0</div>
-          <div class="stat-sub">Observed & evaluated</div>
+          <div class="stat-sub">Observed and evaluated</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card accent-card">
           <div class="stat-label">Fast Path Served Rate</div>
-          <div class="stat-value" id="statFastRate">0.0%</div>
+          <div class="stat-value highlight" id="statFastRate">0.0%</div>
           <div class="stat-sub" id="statFastSub">0 served locally</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card accent-card">
           <div class="stat-label">Est. Latency Saved</div>
-          <div class="stat-value" id="statLatencySaved">0 ms</div>
-          <div class="stat-sub">Bypassing remote LLMs</div>
+          <div class="stat-value highlight" id="statLatencySaved">0 ms</div>
+          <div class="stat-sub">Bypassing host fallback models</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Active Fast Paths</div>
           <div class="stat-value" id="statActiveSites">0</div>
-          <div class="stat-sub" id="statActiveSub">0 total sites</div>
+          <div class="stat-sub" id="statActiveSub">0 total registered sites</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">DecisionSites Overview</div>
-            <div class="card-sub">Active authority, observation status, and progressive coverage</div>
+            <div class="card-title">DecisionSites Status</div>
+            <div class="card-sub">Active serving authority, observation metrics, and qualified local coverage</div>
           </div>
         </div>
         <div id="overviewSitesContainer">
@@ -352,7 +545,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="card-header">
           <div>
             <div class="card-title">Recent Decisions</div>
-            <div class="card-sub">Latest production decisions handled by Ink or host fallback</div>
+            <div class="card-sub">Chronological production decisions resolved locally or dispatched to fallback</div>
           </div>
         </div>
         <div id="overviewRecentContainer"></div>
@@ -365,7 +558,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="card-header">
           <div>
             <div class="card-title">Registered DecisionSites</div>
-            <div class="card-sub">Explicit bounded decision boundaries and verification states</div>
+            <div class="card-sub">Explicit bounded decision contracts and serving qualification states</div>
           </div>
         </div>
         <div id="sitesListContainer"></div>
@@ -377,8 +570,8 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">Compiled Inks & Artifacts</div>
-            <div class="card-sub">Qualified local execution engines serving traffic without remote models</div>
+            <div class="card-title">Compiled Inks &amp; Artifacts</div>
+            <div class="card-sub">Qualified local execution engines serving traffic without remote host calls</div>
           </div>
         </div>
         <div id="artifactsContainer"></div>
@@ -395,7 +588,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="card-header">
           <div>
             <div class="card-title">Live Decision Stream</div>
-            <div class="card-sub">Chronological ledger of routing decisions and serving sources</div>
+            <div class="card-sub">Real-time ledger of decision outcomes, confidence scores, and source paths</div>
           </div>
         </div>
         <div id="activityContainer"></div>
@@ -407,7 +600,7 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">Authority Horizon & Candidate Sites</div>
+            <div class="card-title">Authority Horizon &amp; Candidate Sites</div>
             <div class="card-sub">Repeated semantic decision patterns identified across production traces</div>
           </div>
         </div>
@@ -420,8 +613,8 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">Ink Doctor & Engine Health</div>
-            <div class="card-sub">Runtime configuration, database health, and available local engines</div>
+            <div class="card-title">Ink Doctor &amp; Engine Health</div>
+            <div class="card-sub">Runtime configuration, database integrity, and serving tier readiness</div>
           </div>
         </div>
         <div id="systemContainer"></div>
@@ -431,6 +624,11 @@ HTML_PAGE = """<!DOCTYPE html>
 
   <script>
     let activeTab = 'overview';
+
+    // Vector Icon Templates (Clean SVG, Zero Emojis)
+    const SVG_BOLT = `<svg class="svg-icon" viewBox="0 0 16 16" fill="currentColor"><path d="M9.5 1.5L2.5 9h5l-1 5.5L13.5 7h-5l1-5.5z"/></svg>`;
+    const SVG_BRANCH = `<svg class="svg-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8a5.5 5.5 0 0 1 9.39-3.89L13.5 6"/><path d="M13.5 2.5v3.5h-3.5"/><path d="M13.5 8a5.5 5.5 0 0 1-9.39 3.89L2.5 10"/><path d="M2.5 13.5V10h3.5"/></svg>`;
+    const SVG_CHECK = `<svg class="svg-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.5 3.5 6.5-7.5"/></svg>`;
 
     function showTab(tabId) {
       activeTab = tabId;
@@ -494,7 +692,7 @@ HTML_PAGE = """<!DOCTYPE html>
             <td>${s.observations || 0}</td>
             <td>${s.outcomes || 0}</td>
             <td>${cov}</td>
-            <td><span class="source-fast">⚡ ${s.fast_served || 0}</span></td>
+            <td><span class="source-tag source-fast">${SVG_BOLT} ${s.fast_served || 0}</span></td>
             <td><span class="code-pill">${s.engine || 'none'}</span></td>
           </tr>`;
         }
@@ -510,15 +708,17 @@ HTML_PAGE = """<!DOCTYPE html>
         let rHtml = '<table><thead><tr><th>Time</th><th>Site</th><th>Source</th><th>Choice</th><th>Confidence</th><th>Reason</th></tr></thead><tbody>';
         for (const row of data.recent_activity) {
           const isFast = row.source === 'fast_path';
-          const srcIcon = isFast ? '<span class="source-fast">⚡ fast_path</span>' : '<span class="source-fallback">🔄 fallback</span>';
-          const conf = row.confidence !== null ? (row.confidence * 100).toFixed(1) + '%' : '—';
+          const srcIcon = isFast 
+            ? `<span class="source-tag source-fast">${SVG_BOLT} fast_path</span>` 
+            : `<span class="source-tag source-fallback">${SVG_BRANCH} fallback</span>`;
+          const conf = row.confidence !== null ? (row.confidence * 100).toFixed(1) + '%' : '-';
           rHtml += `<tr>
             <td class="mono" style="color:var(--text-muted); font-size:0.75rem;">${formatTime(row.created)}</td>
-            <td class="mono">${row.site}</td>
+            <td class="mono"><strong>${row.site}</strong></td>
             <td>${srcIcon}</td>
             <td><span class="code-pill">${row.choice}</span></td>
             <td>${conf}</td>
-            <td style="color:var(--text-muted);">${row.fallback_reason || '—'}</td>
+            <td style="color:var(--text-muted);">${row.fallback_reason || '-'}</td>
           </tr>`;
         }
         rHtml += '</tbody></table>';
@@ -537,7 +737,7 @@ HTML_PAGE = """<!DOCTYPE html>
       for (const s of data) {
         const badgeClass = 'badge-' + (s.state || 'OBSERVE');
         const choices = (s.choices || []).map(c => `<span class="code-pill">${c}</span>`).join(' ');
-        const schema = Object.keys(s.schema || {}).join(', ') || '—';
+        const schema = Object.keys(s.schema || {}).join(', ') || '-';
         html += `<tr>
           <td class="mono"><strong>${s.name}</strong><br><span style="font-size:0.75rem; color:var(--text-muted);">${s.description || ''}</span></td>
           <td><span class="badge ${badgeClass}">${s.state}</span></td>
@@ -569,7 +769,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <td><span class="badge ${badgeClass}">${a.status}</span></td>
           <td><strong>${a.active_regions_count || 0}</strong></td>
           <td>${a.epoch || 1}</td>
-          <td style="color:var(--success);">✓ Verified SHA256</td>
+          <td><span class="verified-mark">${SVG_CHECK} Verified SHA256</span></td>
         </tr>`;
       }
       html += '</tbody></table>';
@@ -586,8 +786,10 @@ HTML_PAGE = """<!DOCTYPE html>
       let html = '<table><thead><tr><th>Timestamp</th><th>Site</th><th>Served By</th><th>Choice</th><th>Confidence</th><th>Reason / Details</th></tr></thead><tbody>';
       for (const row of data) {
         const isFast = row.source === 'fast_path';
-        const srcIcon = isFast ? '<span class="source-fast">⚡ fast_path</span>' : '<span class="source-fallback">🔄 fallback</span>';
-        const conf = row.confidence !== null ? (row.confidence * 100).toFixed(1) + '%' : '—';
+        const srcIcon = isFast 
+          ? `<span class="source-tag source-fast">${SVG_BOLT} fast_path</span>` 
+          : `<span class="source-tag source-fallback">${SVG_BRANCH} fallback</span>`;
+        const conf = row.confidence !== null ? (row.confidence * 100).toFixed(1) + '%' : '-';
         html += `<tr>
           <td class="mono" style="font-size:0.75rem; color:var(--text-muted);">${formatTime(row.created)}</td>
           <td class="mono"><strong>${row.site}</strong></td>
@@ -614,7 +816,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <td class="mono"><strong>${d.name}</strong></td>
           <td>${d.unique_patterns || 0}</td>
           <td>${d.volume || 0}</td>
-          <td><strong style="color:var(--accent);">${(d.potential_coverage * 100).toFixed(1)}%</strong></td>
+          <td><strong style="color:var(--accent-pistachio);">${(d.potential_coverage * 100).toFixed(1)}%</strong></td>
           <td><span class="code-pill">${d.suggested_engine || 'exact'}</span></td>
         </tr>`;
       }
@@ -627,17 +829,17 @@ HTML_PAGE = """<!DOCTYPE html>
       const cont = document.getElementById('systemContainer');
       if (!data) return;
       let html = `<div style="padding: 1.5rem;">
-        <h4 style="margin-bottom: 1rem; color: var(--text);">Database & Storage Health</h4>
+        <h4 style="margin-bottom: 1rem; color: var(--vanilla-custard);">Database &amp; Storage Health</h4>
         <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 2rem;">
           <div><span style="color:var(--text-muted);">Database Path:</span> <code class="code-pill">${data.database_path}</code></div>
-          <div><span style="color:var(--text-muted);">Database Status:</span> <strong style="color:var(--success);">${data.status}</strong></div>
-          <div><span style="color:var(--text-muted);">SQLite Integrity Check:</span> <strong style="color:var(--success);">${data.integrity}</strong></div>
+          <div><span style="color:var(--text-muted);">Database Status:</span> <strong style="color:var(--accent-pistachio);">${data.status}</strong></div>
+          <div><span style="color:var(--text-muted);">SQLite Integrity Check:</span> <strong style="color:var(--accent-pistachio);">${data.integrity}</strong></div>
           <div><span style="color:var(--text-muted);">Schema PRAGMA Version:</span> ${data.schema_version}</div>
           <div><span style="color:var(--text-muted);">Registered Sites Count:</span> ${data.sites_count}</div>
           <div><span style="color:var(--text-muted);">Active Artifacts Count:</span> ${data.active_artifacts_count}</div>
         </div>
 
-        <h4 style="margin-bottom: 1rem; color: var(--text);">Available Execution Engines</h4>
+        <h4 style="margin-bottom: 1rem; color: var(--vanilla-custard);">Available Execution Engines</h4>
         <table>
           <thead><tr><th>Engine Name</th><th>Tier</th><th>Hardware Backend</th><th>Status</th></tr></thead>
           <tbody>
@@ -666,7 +868,7 @@ HTML_PAGE = """<!DOCTYPE html>
     }
 
     function formatTime(ts) {
-      if (!ts) return '—';
+      if (!ts) return '-';
       const d = new Date(ts * 1000);
       return d.toLocaleTimeString();
     }
