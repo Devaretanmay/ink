@@ -1,122 +1,82 @@
 # Deployment Guide
 
-How Ink runs in single-process applications, containerized services, and multi-replica environments.
+Ink is an embedded local runtime. It runs inside your application process without requiring external microservices or vector databases.
 
 ---
 
-## Deployment Architecture
+## 1. Storage Architecture
 
-Ink is an **in-process library**, not a background service, daemon, or hosted control plane.
-
-```text
-┌────────────────────────────────────────────────────────┐
-│  Host Process (e.g. FastAPI, Celery, Agent Runner)     │
-│                                                        │
-│  from ink import Ink, DecisionSite                     │
-│                                                        │
-│  ┌───────────────────────┐   ┌──────────────────────┐  │
-│  │   ExactEngine (RAM)   │   │  DecisionModel (MLX) │  │
-│  └───────────────────────┘   └──────────────────────┘  │
-│             │                            │             │
-│             ▼                            ▼             │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │     DecisionStore (Local SQLite with WAL mode)   │  │
-│  │     Path: .ink/decisions.db                      │  │
-│  └──────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────┘
-```
-
----
-
-## Deployment Topologies
-
-### 1. Single-Process Python Application
-
-The simplest and most common deployment:
-
-- A single process runs your agent or service.
-- Ink writes to a local SQLite database at `.ink/decisions.db`.
-- SQLite operates in WAL mode, allowing concurrent reads while writes occur.
-- **Recommended for:** CLI tools, local agents, single-instance web services.
-
-### 2. Multi-Threaded Application (e.g. FastAPI / Gunicorn with threads)
-
-- Multiple threads within the same Python process share a single `Ink` instance.
-- Thread-safe: SQLite transactions and internal locks protect write operations.
-- Exact engine reads are pure memory lookups.
-- **Recommended for:** High-concurrency I/O-bound web services.
-
-### 3. Containerized Service (Docker / Kubernetes)
-
-```dockerfile
-FROM python:3.12-slim
-
-# Install Ink
-RUN pip install --no-cache-dir ink-jit
-
-# Pre-download decision model weights during build to prevent cold-start latency
-RUN ink model-install
-
-WORKDIR /app
-COPY . .
-
-# Persist decision database across container restarts
-VOLUME ["/app/.ink"]
-
-CMD ["python", "main.py"]
-```
-
----
-
-## Multi-Replica Limitations and Strategy
-
-Technical buyers must understand how Ink operates across multiple container replicas or horizontally scaled pods:
-
-> [!IMPORTANT]
-> **No Distributed Fleet Coordination:** Ink does not include a distributed coordinator, Raft cluster, or centralized cloud control plane. State is purely local SQLite.
-
-### Recommended Multi-Replica Architecture: Independent Local State
-
-```text
-Pod 1: [Agent Code] ──► Local SQLite (/var/ink/decisions.db) [Independent Lifecycle]
-Pod 2: [Agent Code] ──► Local SQLite (/var/ink/decisions.db) [Independent Lifecycle]
-Pod 3: [Agent Code] ──► Local SQLite (/var/ink/decisions.db) [Independent Lifecycle]
-```
-
-**How it works:**
-- Each replica runs its own `Ink` instance with its own local SQLite database (on an ephemeral volume or emptyDir).
-- Each replica independently observes, compiles, shadows, and qualifies Fast Paths.
-- Replicas with identical traffic patterns will qualify the same decision sites at approximately the same rate.
-- If one replica detects drift, it demotes locally; other replicas will detect the same drift independently as comparison traffic runs.
-
-**Trade-offs:**
-- **Qualification time:** Scales with traffic per replica (e.g., if total traffic is split 4 ways, each replica takes ~4x longer to reach qualification thresholds).
-- **Simplicity:** Zero network configuration, no Redis/Postgres dependency, zero distributed failure modes.
-
-### What NOT to Do with Multi-Replica
-
-- ❌ **Do NOT share a single SQLite database across multiple containers via NFS / SMB / CIFS.** SQLite file locking over network filesystems is unreliable and prone to corruption under write concurrency.
-- ❌ **Do NOT attempt to manually rsync the database between running instances.** Use `ink export` and import procedures if state transfer is required.
-
----
-
-## Health Checks and Fail-Open Monitoring
-
-Because Ink strictly fails open, an internal optimization error will not cause HTTP 500 responses. Monitor Ink's health through application logging:
+Ink stores decisions, verified outcomes, and compiled artifacts in a local SQLite database:
 
 ```python
-import logging
-
-ink_logger = logging.getLogger("ink")
-ink_logger.setLevel(logging.WARNING)
-
-# Ink logs warnings when failing open:
-# "Fast path routing error for site support.route: ...; failing open"
-# "Storage contention/error for site support.route (...); failing open without durable record"
+ink = Ink(".ink/decisions.db")
 ```
 
-Use the CLI to check site health periodically in health probes:
+### SQLite Engine Settings
+- Ink enables Write-Ahead Logging (`PRAGMA journal_mode = WAL`) automatically.
+- Readers do not block writers.
+- High-concurrency applications achieve up to thousands of local reads per second per core.
+
+---
+
+## 2. Process Concurrency & Background Maintenance
+
+Ink maintains Fast Paths in two modes:
+
+### Mode A: In-Process Auto-Maintenance (Default for Single Instances)
+```python
+ink = Ink(
+    ".ink/decisions.db",
+    auto_maintenance=True,
+    maintenance_interval=60.0,  # runs compiler every 60 seconds
+)
+```
+
+### Mode B: External Maintenance Worker (Recommended for Production Fleets)
+Disable in-process auto-maintenance on serving nodes and run a dedicated background maintenance process:
+
+```python
+# Serving API pods
+ink = Ink(".ink/decisions.db", auto_maintenance=False)
+```
 
 ```bash
-ink status --db .ink/decisions.db --json
+# Periodic cron or sidecar worker
+ink maintenance --db /shared/decisions.db --interval 60
+```
+
+---
+
+## 3. Horizontal Scaling & Multi-Node Fleets
+
+For stateless container fleets (Kubernetes, AWS ECS, Fly.io):
+
+1. **Shared Volume**:
+   Mount a high-performance shared volume (NFS, EFS, NVMe shared block) containing `decisions.db`.
+2. **Local Replica Sync**:
+   Export qualified artifacts from a primary node and distribute read-only Fast Paths to edge workers:
+   ```bash
+   ink export --site support.route --output artifact.json
+   ```
+
+---
+
+## 4. Health Checks & Diagnostics
+
+Verify runtime health in CI/CD and container entrypoints:
+
+```bash
+ink doctor --db .ink/decisions.db
+```
+
+Output:
+```json
+{
+  "status": "healthy",
+  "integrity": "ok",
+  "schema_version": 6,
+  "sites_count": 3,
+  "active_artifacts_count": 2,
+  "neural_available": true
+}
 ```

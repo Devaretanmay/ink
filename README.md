@@ -1,272 +1,161 @@
 # Ink
 
-**Behavior JIT for Production AI.**
+Your AI should not think twice about what it already knows.
+
+Ink is a Behavior JIT for production AI systems.
+
+It observes repeated bounded decisions, verifies their outcomes, and compiles trusted behavior into fast local software.
 
 > Models handle novelty. Ink turns proven behavior into software.
 
-```text
-new / uncertain state
-        ↓
-   host model decides
-        ↓
- Ink observes decision + outcome
-        ↓
- repeated behavior emerges
-        ↓
- candidate local behavior
-        ↓
-       shadow
-        ↓
- independently verified outcomes
-        ↓
-   qualify (Hoeffding concentration bound)
-        ↓
-   local Fast Path (sub-millisecond, $0)
-        ↓
- keep comparing against reality
-        ↓
- drift? → revoke Fast Path → model again
-```
-
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue.svg)](pyproject.toml)
-[![Status](https://img.shields.io/badge/status-production--ready-brightgreen.svg)]()
-
 ---
 
-## 1. What is Ink?
-
-Ink is a **Behavior JIT (Just-In-Time compiler) for bounded semantic decisions in production AI systems**.
-
-Just as a JavaScript or Java JIT engine identifies hot bytecode loops and compiles them down to native machine code at runtime, Ink identifies hot semantic decisions in your AI application (routing, triage, tool selection, escalation, classification) and turns them into locally executed **Fast Paths**.
-
-Once a decision is qualified, it executes in sub-millisecond local software with **zero LLM API calls and zero cloud latency**. Novel or uncertain inputs automatically fall through to your host model.
-
-## 2. What problem does it solve?
-
-Production AI systems make thousands of repetitive, bounded decisions every day:
-- *"Does this error require escalation?"*
-- *"Which worker agent should handle this subtask?"*
-- *"Is this inquiry billing, technical, or account management?"*
-- *"Can this refund request be auto-approved?"*
-
-Today, teams pay frontier LLMs ($0.003–$0.03 per call, 400ms–2000ms latency) to make the exact same decision over and over, even after the behavior has become completely deterministic.
-
-Hand-coding static regex or heuristic rules is brittle and breaks. Semantic caches serve stale or incorrect outputs when distribution shifts. Ink solves this by **learning candidate behavior from production traffic and compiling local software only when backed by mathematical evidence**.
-
-## 3. What is the mental model?
-
-- **Confidence does not grant authority.** A model being "99% confident" means nothing in production.
-- **Similarity does not grant authority.** Two sentences having cosine similarity 0.94 does not prove the same business action should be taken.
-- **Evidence grants authority.** A Fast Path is only granted execution authority when independent real-world outcomes prove that local execution matches host model quality with statistical certainty.
-
-When a decision boundary is cold, your host model explores in pencil. As verified evidence accumulates, Ink darkens the path. When behavior proves itself, Ink **commits the line in software**. If reality drifts, Ink revokes authority and falls back to your model immediately.
-
-## 4. How is this different from semantic caching?
-
-| Dimension | Semantic Caching | Ink (Behavior JIT) |
-| :--- | :--- | :--- |
-| **Authority Mechanism** | Cosine distance / vector similarity | Independent ground-truth outcome verification |
-| **Drift Detection** | None (silently serves stale data) | Continuous comparison traffic + automated deoptimization |
-| **Execution Tier** | Vector DB query (~15-50ms) | Local memory index / linear boundary (< 1ms) |
-| **Ambiguity Handling** | Returns nearest neighbor | Explicit abstention on multi-intent boundary margins |
-| **Safety Invariant** | Heuristic threshold | Nonparametric concentration bounds (Hoeffding) |
-
-## 5. How is this different from prompt distillation?
-
-Prompt distillation trains a smaller model offline from synthetically generated teacher tokens. It requires batch training jobs, manual redeployment cycles, and cannot adapt as production traffic shifts.
-
-Ink runs **online in your live runtime**. It compiles local execution engines progressively, qualifies them against live business outcomes, and deoptimizes in real time if distributions change.
-
-## 6. How is this different from fine-tuning?
-
-Fine-tuning modifies neural network weights to predict tokens. It does not provide:
-1. Serving authority boundaries (a fine-tuned model will still hallucinate on out-of-distribution inputs).
-2. Cost elimination (you still pay for model compute per token).
-3. Zero-shot deoptimization when underlying business logic changes.
-
-Ink wraps *around* any model (frontier or fine-tuned) and replaces model invocation with deterministic software whenever evidence allows.
-
----
-
-## 7. How does a developer integrate it?
-
-Install Ink:
+## Install
 
 ```bash
 pip install ink-jit
 ```
 
-### Option A: The `@ink.wrap` Decorator (Recommended)
+---
 
-Wrap any existing decision function:
+## Quick Example
 
 ```python
 from ink import DecisionSite, Ink
 
-ink = Ink()
+# 1. Initialize local evidence storage
+ink = Ink(".ink/decisions.db")
+
+# 2. Define a bounded DecisionSite
 site = DecisionSite(
-    name="workflow.route",
-    state_schema={"tier": "string", "amount": "number"},
-    choices=("auto_approve", "manual_review"),
+    name="support.route",
+    choices=("billing", "technical", "account"),
 )
 
-@ink.wrap(site)
-def route_transaction(state: dict) -> str:
-    # Your original LLM call — only executed when Ink falls back
-    return call_frontier_model(state)
+# 3. Resolve decisions: serves locally (< 0.1ms) when qualified; calls Host when novel
+state = {"query": "Where can I view my March invoice?"}
+result = ink.decide(site, state, fallback=lambda: call_llm(state))
 
-# In your application:
-decision = route_transaction({"tier": "enterprise", "amount": 150.0})
-print(decision.choice)  # e.g., 'auto_approve'
-```
-
-### Option B: The Explicit `ink.decide` API
-
-```python
-from ink import DecisionSite, Ink, Outcome
-
-ink = Ink()
-site = DecisionSite(
-    name="ticket.triage",
-    state_schema={"subject": "string", "priority": "string"},
-    choices=("billing", "tech", "general"),
-)
-
-# 1. Decide: Serves via Fast Path if qualified, falls back to model if novel
-res = ink.decide(
-    site=site,
-    state={"subject": "Billing issue", "priority": "high"},
-    fallback=lambda: call_frontier_model(...),
-)
-
-# 2. Record independent outcome when downstream result is known
-ink.record_outcome(
-    res.decision_id,
-    Outcome(quality=1.0, verifier="support_audit", verifier_version="v1"),
-)
+# 4. Record the verified outcome after action completes
+ink.record_outcome(result.decision_id, quality=1.0)
 ```
 
 ---
 
-## 8. How does qualification work? (The Math, Simplified)
+## Why Ink
 
-Ink never promotes a Fast Path based on training loss or heuristics. Promotion requires passing **Hoeffding's Inequality** on independent holdout and shadow evaluation partitions:
+Production agents spend large budgets calling frontier models for repeated decisions:
+- Routing customer tickets
+- Choosing agent tools
+- Escalating incident alerts
+- Filtering workflow requests
 
-$$\mathbb{P}(\mu \le \hat{\mu} - \epsilon) \le e^{-2n\epsilon^2} \le \alpha$$
+After enough verified outcomes, these decisions become predictable.
 
-Given $n$ independently verified observations with empirical quality $\hat{\mu}$, the conservative statistical lower bound is:
+```text
+WITHOUT INK
+Every Request ──────► Frontier Model ──────► $0.02 + 800ms latency
 
-$$\text{Lower Bound} = \hat{\mu} - \sqrt{\frac{\ln(1/\alpha)}{2n}}$$
 
-At standard risk parameter $\alpha = 0.05$ ($\ln(20) \approx 2.996$), Ink guarantees with $95\%$ confidence that true production quality meets or exceeds your required threshold before granting local execution authority.
-
----
-
-## 9. How does safety and drift work?
-
-1. **Continuous Comparison Traffic:** Even when a site is `ACTIVE`, Ink samples a small percentage of requests (default 5–25%) to run both the local Fast Path and the host fallback in parallel.
-2. **Automated Demotion (Deopt):** If the comparison arm detects that local quality drops below the model quality by more than `max_degradation`, Ink immediately **revokes the Fast Path** and transitions the site back to host fallback.
-3. **Out-of-Distribution Rejection:** States outside trained coverage regions or near ambiguous decision boundaries automatically abstain and route to the model.
-4. **Fail-Open Resilience:** If SQLite encounters a disk lock or transient failure, Ink falls open to the host model without interrupting application flow.
-
----
-
-## 10. Developer CLI
-
-Ink includes a complete developer CLI for inspecting, evaluating, and managing local decision boundaries:
-
-```bash
-# View summary table of registered sites, states, and serving rates
-ink status
-
-# Output machine-readable JSON status
-ink status --json
-
-# Run system health diagnostics (DB integrity, schema, available engines)
-ink doctor
-
-# Discover candidate decision boundaries from JSONL application traces
-ink discover traces.jsonl
-
-# Inspect deep state coverage and active semantic regions for a site
-ink inspect workflow.route
-
-# Launch local-first developer console
-ink console
+WITH INK
+Novel Request ──────► Host Model     ──────► Verified Outcome ──► Compile
+Qualified Request ──► Fast Path      ──────► $0.00 + 0.10ms latency
 ```
 
 ---
 
-## 11. Ink Console Alpha
+## How It Works
 
-Ink includes a local-first web dashboard that runs entirely on your machine with **zero external cloud accounts and zero CDN dependencies**:
+Ink operates across three distinct planes:
 
-```bash
-ink console --port 8000
+```text
+SERVING PATH (Sub-Millisecond)
+
+Exact Match (< 0.01ms)
+  ↓ miss
+Linear Boundary (< 0.10ms)
+  ↓ miss / novel
+Host Model Fallback
 ```
 
-Open `http://127.0.0.1:8000` to inspect:
-- **Overview:** Live decision volume, Fast Path serving percentage, estimated latency and cost savings.
-- **DecisionSites:** Full registry of sites, schemas, lifecycle status (`OBSERVE`, `SHADOW`, `ACTIVE`).
-- **Inks & Fast Paths:** Compiled engines, active regions, and qualification certificates.
-- **Activity Feed:** Live streaming ledger of recent decisions with serving source and confidence.
-- **Doctor & System:** Database integrity, SQLite PRAGMA version, and engine backends.
-
-Try the built-in demo mode:
-```bash
-ink console --demo
-```
+1. **Observe**: New requests execute through your Host model. Ink records states and real outcomes in local SQLite storage.
+2. **Compile**: When enough verified outcomes accumulate, Ink trains candidate local execution engines.
+3. **Qualify**: Ink evaluates candidates against independent holdout data. A candidate must satisfy the site error budget under a 95% Wilson confidence lower bound.
+4. **Serve**: Qualified candidates earn serving authority and execute locally in sub-milliseconds.
+5. **Protect**: Novel, uncertain, or ambiguous states automatically fall back to the Host model. If real outcomes degrade, Ink revokes authority instantly.
 
 ---
 
-## 12. Workload Fit Guide
+## Why Not "Just Train a Classifier"?
 
-### ✅ Ideal Workloads (High ROI)
-- **Workflow & Ticket Routing:** Deterministic or natural-language triage nodes handling $> 1,000$ decisions/day.
-- **Agent Graph Supervisors:** LangGraph, CrewAI, or AutoGen orchestrator nodes deciding next steps or worker delegation.
-- **Tool Selection:** Selecting which API tool or SQL query to run based on structured request state.
-- **Risk & Policy Gates:** Fast-approval and compliance triage where verifiable ground truth is recorded downstream.
+A classifier is a model. Ink is a lifecycle.
 
-### ❌ Poor Workloads (Do Not Use)
-- **Open-Ended Text Generation:** Generating essays, poems, codebases, or conversational dialogue.
-- **Unbounded State Spaces:** Systems where every request is completely unique with zero repeated semantic intent.
-- **Zero Feedback Systems:** Workloads where outcomes can never be verified or ground truth is impossible to determine.
+A static classifier cannot:
+- Decide when it is safe to serve traffic.
+- Detect distribution shift in production.
+- Demote itself back to the Host when business rules change.
+- Guarantee statistical error budgets on live traffic.
 
----
-
-## 13. Running the Reference Examples
-
-The repository includes ready-to-run reference examples demonstrating all core capabilities:
-
-```bash
-# 5-minute quickstart
-python examples/quickstart.py
-
-# Reference Example A: Structured transaction routing (ExactEngine)
-python examples/structured_routing.py
-
-# Reference Example B: Semantic NLP ticket triage (LinearClassifierEngine)
-python examples/semantic_triage.py
-
-# Reference Example C: Agent graph supervisor (LangGraph style)
-python examples/agent_supervisor.py
-
-# Framework Adapter A: LangGraph conditional edge wrapper
-python examples/framework_langgraph.py
-
-# Framework Adapter B: PydanticAI agent tool wrapper
-python examples/framework_pydantic_ai.py
-
-# Real model integration with offline simulation fallback
-python examples/real_model_api.py
-
-# Generate design partner pilot evaluation report
-python examples/pilot_report.py
-```
+Ink manages the lifecycle: observe, compile, qualify, serve, verify, detect drift, and revoke.
 
 ---
 
-## License
+## When to Use Ink
 
-Ink is licensed under the Apache 2.0 License. See [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
+### Good DecisionSites
+- **Tool Selection**: Picking tools from a fixed set in an agent graph.
+- **Triage & Routing**: Dispatching requests into explicit categories.
+- **Approval Gates**: Determining whether to approve, review, or deny transactions.
+- **Escalation**: Deciding whether an automated workflow requires human review.
+
+### Poor DecisionSites
+- **Open-Ended Writing**: Generating essays, marketing copy, or open dialogue.
+- **Unbounded Arguments**: Extracting arbitrary code or raw text.
+- **Zero-Feedback Tasks**: Workflows where outcomes cannot be verified.
+
+---
+
+## Production Safety
+
+- **Confidence does not grant authority.** A model predicting high confidence is not proof of correctness.
+- **Similarity does not grant authority.** Vector proximity does not guarantee safe execution.
+- **Neural models never serve live requests.** `ink-decision-small` operates only in the background compiler.
+- **Fail-open resilience.** If any internal error occurs, Ink routes immediately to the Host model.
+
+---
+
+## Empirical Evidence
+
+On internal evaluations across bounded production workloads:
+
+| Workload | Serving Engine | Local Serving Rate | Local Error Rate | 95% Wilson Lower Bound |
+| :--- | :--- | :--- | :--- | :--- |
+| **Tool Routing** | Linear | 78.4% | 0.0% | 98.49% |
+| **Support Triage** | Exact | 42.3% | 0.0% | 96.80% |
+| **Incident Triage** | Exact | 55.6% | 0.0% | 97.20% |
+
+- **Zero Hallucination**: Qualified Fast Paths caused 0 errors across evaluated holdout sets.
+- **Latency**: Local decisions resolved in under $0.10\text{ ms}$, saving an average of $650\text{ ms}$ per call.
+
+*Note: Controlled internal benchmarks. External design-partner validation is currently in progress.*
+
+---
+
+## Documentation
+
+- [Getting Started](docs/getting-started.md) — First Fast Path in 5 minutes
+- [Concepts](docs/concepts.md) — DecisionSites, Fast Paths, and verified outcomes
+- [Architecture](docs/architecture.md) — Serving path, control plane, and model roles
+- [Production Safety](docs/production-safety.md) — Statistical qualification and drift demotion
+- [Integration](docs/integration.md) — LangGraph, PydanticAI, and async adapters
+- [Deployment](docs/deployment.md) — SQLite persistence and multi-node fleets
+- [Benchmarks](docs/benchmarks.md) — Full benchmark methodology and replication
+- [CLI Reference](docs/cli.md) — Local inspection, maintenance, and observability
+
+---
+
+## Project Status & License
+
+Ink is under active development. The runtime and qualification system have internal validation.
+
+Released under the [Apache-2.0 License](LICENSE).

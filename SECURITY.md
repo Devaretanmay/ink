@@ -1,57 +1,38 @@
 # Security Policy
 
-## Supported versions
+## Supported Versions
 
-Only the latest release receives security fixes.
+Only the latest minor release receives security fixes.
 
 | Version | Supported |
-|---|---|
-| 0.6.x | yes |
-| < 0.6 | no |
+| :--- | :--- |
+| `0.6.x` | Yes |
+| `< 0.6` | No |
 
-## Reporting a vulnerability
+---
 
-**Do not open a public issue.**
+## Reporting a Vulnerability
 
-Use GitHub's private reporting, which creates an advisory only the maintainers can see:
+Do not open public GitHub issues for security vulnerabilities.
 
-**https://github.com/Devaretanmay/ink/security/advisories/new**
+Use GitHub Private Vulnerability Reporting:
+https://github.com/Devaretanmay/ink/security/advisories/new
 
-Please include:
+Include:
+- A description of the issue and potential impact.
+- The version or commit tested.
+- A minimal reproduction script.
 
-- what the issue is, and what an attacker gains from it
-- the version or commit you tested
-- a minimal reproduction
+Maintainers will acknowledge your report within 48 hours.
 
-You can expect an acknowledgement within a few days. If a fix is warranted it will ship in
-a new patch release, and the advisory will credit you unless you prefer otherwise.
+---
 
-## What Ink does and does not do
+## Data Handling & Threat Model
 
-Worth stating plainly, because it bounds the threat model:
+Ink is an embedded local library.
 
-- It runs **in process** inside your application. There is no network listener and no
-  daemon.
-- `decide()` and `record_outcome()` make **zero network calls**. All state is local.
-- State is stored in a **local SQLite database** (default `.ink/decisions.db`). Whatever
-  you place in `state` is written in canonical JSON, so keep declared fields minimal and
-  free of raw credentials.
-- It makes **no outbound calls during serving**. The one network operation is a
-  **one-time download of public model weights** from HuggingFace on first learned use
-  (skipped when you pre-provision with `ink model-install` or operate in exact-only mode).
-- It **does not execute** agent actions, run shell commands, or call your models. It decides
-  a candidate choice and returns it; your code executes the action.
-- It **fails open**: a runtime or storage error routes the decision to your original
-  fallback rather than failing the request.
-- It has runtime dependencies (`numpy`, `tokenizers`, `mlx`, `huggingface-hub`). Vulnerable
-  versions of those libraries are handled by normal dependency updates.
-- Trace files and `--requirements` JSON are **untrusted input**: malformed records raise
-  rather than being partially applied.
-
-## Scope
-
-In scope: the Python package, the CLI, the local decision model runtime, the SQLite decision
-store, and the trace ingestion path.
-
-Out of scope: issues in `benchmarks/` (a development harness, not shipped), and reports that
-require an attacker to already control your process.
+- **Local-Only Execution**: `decide()` and `record_outcome()` make zero outbound network calls.
+- **Data Storage**: Decisions, states, and verified outcomes persist in a local SQLite file (`.ink/decisions.db`). Declare only necessary fields in `state_schema` and exclude credentials or sensitive PII.
+- **Network Operations**: The only outbound network action is a one-time download of public model weights on first use (skipped when weights are pre-installed with `ink model-install` or when using `ExactEngine`).
+- **No Direct Action Execution**: Ink does not invoke external APIs or execute shell commands. It returns a selected choice string; your application executes the action.
+- **Fail-Open Safety**: Any internal runtime or database failure immediately routes the request to your Host fallback model.

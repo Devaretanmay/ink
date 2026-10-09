@@ -139,7 +139,7 @@ def main():
                 state=state,
                 fallback=lambda: simulate_expensive_frontier_model(state),
             )
-            src_label = "⚡ FAST PATH (LOCAL)" if res.source == "fast_path" else "🔄 FALLBACK (MODEL)"
+            src_label = "FAST PATH (LOCAL)" if res.source == "fast_path" else "HOST FALLBACK"
             print(f"   State: {state} -> Choice: {res.choice!r} | Source: {src_label}")
 
         print("\n" + "=" * 65)

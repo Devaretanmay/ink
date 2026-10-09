@@ -1,4 +1,4 @@
-"""Test for Phase 15 DX / Integration bug reported by unassisted design partner.
+"""Test for developer experience integration ergonomics.
 
 Issue: External developers naturally call:
 1. `ink.decide(site, state, fallback=...)` with positional arguments for site and state.

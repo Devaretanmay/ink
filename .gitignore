@@ -11,8 +11,7 @@ __pycache__/
 .env.*
 /results/
 /results*/
-/results_*
-!benchmarks/results/
+benchmarks/results/
 benchmarks/data/
 .microloop/
 .ink/

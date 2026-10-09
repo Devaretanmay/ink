@@ -1,4 +1,4 @@
-"""Phase 14 Structural Architecture & Refactoring Boundary Tests.
+"""Structural Architecture & Refactoring Boundary Tests.
 
 Verifies:
 1. Module decomposition into single-responsibility units (Compiler, Qualification, Evaluator).

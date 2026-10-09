@@ -8,7 +8,7 @@ from ink import DecisionSite, FallbackResult, Ink, Outcome, PromotionRequirement
 from ink.internal.coverage import CoverageEngine, SemanticRegion, TextVectorizer
 
 
-def test_phase10_ambiguity_margin_disambiguation():
+def test_ambiguity_margin_disambiguation():
     """Adversarial cross-intent boundary queries must return 'ambiguous' and fall back."""
     vocab = {"dispute": 0, "card": 1, "fee": 2, "transfer": 3, "payment": 4}
     idf = {w: 1.0 for w in vocab}
@@ -76,7 +76,7 @@ def test_phase10_ambiguity_margin_disambiguation():
     assert level == "outside_coverage"
 
 
-def test_phase10_decide_ambiguity_fails_open_to_fallback(tmp_path):
+def test_decide_ambiguity_fails_open_to_fallback(tmp_path):
     """Ink.decide() must safely fall back and never serve locally when boundary is ambiguous."""
     db_path = str(tmp_path / "ambig.db")
     site = DecisionSite("test.routing", {"text": "string"}, ("card_support", "transfer_support"))
@@ -125,7 +125,7 @@ def test_phase10_decide_ambiguity_fails_open_to_fallback(tmp_path):
         assert res.receipt["served_by"] == "fallback"
 
 
-def test_phase10_progressive_online_evidence_and_persistence(tmp_path):
+def test_progressive_online_evidence_and_persistence(tmp_path):
     """Progressive online evidence accumulates across batches and persists in SQLite."""
     db_path = str(tmp_path / "prog.db")
     site = DecisionSite("prog.site", {"text": "string"}, ("approve", "reject"))
@@ -168,7 +168,7 @@ def test_phase10_progressive_online_evidence_and_persistence(tmp_path):
             assert ev["verified_match"] == 1
 
 
-def test_phase10_process_restart_multi_run_roundtrip(tmp_path):
+def test_process_restart_multi_run_roundtrip(tmp_path):
     """Evidence accumulation, qualification, and serving survive clean process restarts."""
     db_path = str(tmp_path / "restart.db")
     site = DecisionSite("restart.site", {"query": "string"}, ("allow", "deny"))
@@ -227,7 +227,7 @@ def test_phase10_process_restart_multi_run_roundtrip(tmp_path):
         assert fast_path_served is True
 
 
-def test_phase10_application_namespace_isolation(tmp_path):
+def test_application_namespace_isolation(tmp_path):
     """Two apps with identical state schema must isolate evidence epochs completely."""
     db_path = str(tmp_path / "isolation.db")
     site = DecisionSite("shared.site", {"text": "string"}, ("cat_a", "cat_b"))
@@ -258,7 +258,7 @@ def test_phase10_application_namespace_isolation(tmp_path):
         assert len(beta_epochs) == 0
 
 
-def test_phase10_drift_revocation_and_epochs(tmp_path):
+def test_drift_revocation_and_epochs(tmp_path):
     """Sudden drift demotes active artifact and revokes evidence epoch."""
     db_path = str(tmp_path / "drift.db")
     site = DecisionSite("drift.site", {"tier": "string"}, ("pass", "fail"))
@@ -299,7 +299,7 @@ def test_phase10_drift_revocation_and_epochs(tmp_path):
         assert len(rev_epochs) == 1
 
 
-def test_phase10_cli_doctor(tmp_path, capsys):
+def test_cli_doctor(tmp_path, capsys):
     """'ink doctor' command inspects SQLite database health and prints diagnostic."""
     from ink.cli import main as cli_main
 
@@ -328,7 +328,7 @@ def test_phase10_cli_doctor(tmp_path, capsys):
     assert data["sites_count"] == 1
 
 
-def test_phase10_cli_discover_horizon(tmp_path, capsys):
+def test_cli_discover_horizon(tmp_path, capsys):
     """'ink discover' outputs authority horizon estimation based on trace volume."""
     from ink.cli import main as cli_main
 

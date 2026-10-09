@@ -1,4 +1,4 @@
-"""Tests for Ink Phase 11 — Productization.
+"""Tests for Ink public SDK, ergonomics, and CLI commands.
 
 Verifies:
 - Public SDK error hierarchy

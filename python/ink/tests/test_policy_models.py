@@ -1,4 +1,4 @@
-"""Tests for Ink Phase 19: Canonical Policy Model Rename, Ownership Migration & Backend Architecture."""
+"""Tests for canonical policy models, registry, and backend architecture."""
 
 from __future__ import annotations
 

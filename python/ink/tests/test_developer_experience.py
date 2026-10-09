@@ -94,7 +94,7 @@ def route_sem(ticket):
     assert len(lines_sem) <= 15, f"Expected <= 15 executable LOC, got {len(lines_sem)}"
 
 
-def test_phase4_syntax_and_subsequent_decisions(tmp_path):
+def test_syntax_and_subsequent_decisions(tmp_path):
     db_path = str(tmp_path / "syntax.db")
     with Ink(db_path) as loop:
         # First call defines site and schema dynamically
