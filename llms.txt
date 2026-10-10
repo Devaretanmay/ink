@@ -16,9 +16,8 @@ Install: pip install ink-jit
 Import: from ink import DecisionSite, Ink, FallbackResult
 Evaluate without integrating: ink discover traces.jsonl
 
-Read README.md and docs/: concepts.md, discovery.md, architecture.md, cli.md,
-integration.md, production-safety.md, security-data-handling.md, deployment.md,
-value-model.md, alternatives.md, claims.md, compatibility.md.
+Read README.md and docs/: getting-started.md, concepts.md, architecture.md,
+production-safety.md, integration.md, deployment.md, benchmarks.md, cli.md.
 
 Local-first, explicit sites, conservative exact-state coverage, independent outcome
 verification, randomized comparison traffic, and explicit deoptimization. No cloud

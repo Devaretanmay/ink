@@ -32,7 +32,6 @@ def main(argv):
             "sites",
             "inspect",
             "status",
-            "console",
             "compile",
             "evaluate",
             "maintenance",
@@ -49,11 +48,6 @@ def main(argv):
     parser.add_argument("site", nargs="?")
     parser.add_argument("--db", default=".ink/decisions.db")
     parser.add_argument("--json", action="store_true")
-    parser.add_argument("--host", default="127.0.0.1", help="Host interface to bind for console")
-    parser.add_argument("--port", type=int, default=8000, help="Port to bind for console")
-    parser.add_argument(
-        "--demo", action="store_true", help="Launch console in demonstration mode with sample data"
-    )
     parser.add_argument(
         "--profile", action="store_true", help="Include deep economic profile in discover"
     )
@@ -94,16 +88,6 @@ def main(argv):
     )
     args = parser.parse_args(argv)
     try:
-        if args.command == "console":
-            from .console import run_console
-
-            run_console(
-                host=args.host,
-                port=args.port,
-                db_path=args.db,
-                demo=args.demo,
-            )
-            return 0
         if args.command == "model-install":
             from .internal.model.constants import INK_DECISION_SMALL, resolve_policy_model_id
             from .internal.model.policy_registry import get_model_spec

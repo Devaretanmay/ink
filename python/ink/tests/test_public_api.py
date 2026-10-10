@@ -7,7 +7,6 @@ Verifies:
 - Outcome ergonomics in record_outcome
 - PromotionRequirements defaults and exports
 - CLI commands: status, doctor, inspect
-- Console API endpoints
 """
 
 from __future__ import annotations
@@ -35,7 +34,6 @@ from ink import (
     wrap,
 )
 from ink.cli import main as cli_main
-from ink.console.server import ConsoleHandler
 
 
 def test_public_error_hierarchy():
@@ -208,15 +206,3 @@ def test_cli_status_and_doctor(tmp_path, capsys):
     doc = json.loads(out)
     assert "status" in doc
     assert doc["database_path"] == db_path
-
-
-def test_console_demo_endpoints():
-    """Verify ConsoleHandler returns valid data in demo mode."""
-    handler = ConsoleHandler
-    handler.demo_mode = True
-
-    demo_data = handler._demo_overview(None)
-    assert demo_data["is_demo"] is True
-    assert demo_data["total_decisions"] > 0
-    assert len(demo_data["sites"]) == 3
-    assert demo_data["fast_served_rate"] > 0.5

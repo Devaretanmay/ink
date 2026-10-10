@@ -14,7 +14,7 @@ def main(argv: list[str] | None = None) -> int:
         print(
             "Ink — turns proven, verified decisions into local Fast Paths.\n\n"
             "Start by finding repeated behavior: ink discover TRACES.jsonl\n"
-            "Commands: discover TRACES, sites, status [SITE], inspect SITE, console,\n"
+            "Commands: discover TRACES, sites, status [SITE], inspect SITE,\n"
             "          compile SITE, evaluate SITE, maintenance, export, retain,\n"
             "          value, doctor, models, model-install, model-train.\n"
             "          Use COMMAND --help for options."

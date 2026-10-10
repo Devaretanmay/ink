@@ -6,6 +6,12 @@ All notable, user-facing changes to Ink. This project follows
 The PyPI distribution is **`ink-jit`** (`pip install ink-jit`); the Python import is
 **`ink`** and the CLI is **`ink`**.
 
+## [0.6.1] - 2026-10-10
+
+- Completely removed experimental web console and dashboard server.
+- Streamlined CLI command surface to local inspection, discovery, and compilation.
+- Refined and audited all documentation and metadata.
+
 ## [0.6.0] - 2026-10-10
 
 - Repositioned the project around one idea: *models handle novelty; Ink turns proven

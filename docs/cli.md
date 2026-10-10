@@ -13,9 +13,6 @@ ink sites [--db PATH] [--json]
 # Inspect a specific DecisionSite
 ink inspect <site_name> [--db PATH] [--json]
 
-# Launch the local web observability console
-ink console [--port 8000] [--host 127.0.0.1]
-
 # Check database and runtime health
 ink doctor [--db PATH] [--json]
 
@@ -47,15 +44,6 @@ Shows detailed status, observation count, active artifact, and qualification sta
 
 ```bash
 ink inspect support.route
-```
-
----
-
-### `ink console`
-Launches a local-first HTTP dashboard on port 8000 for monitoring Fast Path hit rates, latency savings, and decision streams.
-
-```bash
-ink console --port 8000
 ```
 
 ---
