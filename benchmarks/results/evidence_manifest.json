@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "evidence_level": "Level 3: Frozen Reproducible Evaluation",
+  "git_commit": "6dc4401e9499965ad673436a84999643ec2cd315",
+  "timestamp_utc": "2026-10-13T17:05:24Z",
+  "environment": {
+    "platform": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "python_version": "3.13.12",
+    "processor": "arm"
+  },
+  "verification_summary": {
+    "total_evaluated_traffic": 919,
+    "total_fast_path_serves": 513,
+    "total_eligible_traffic": 544,
+    "total_holdout_errors": 0,
+    "aggregate_holdout_error_rate": 0.0,
+    "all_qualifications_cleared": true,
+    "status": "VERIFIED"
+  },
+  "workloads": [
+    {
+      "workload": "Tool Routing",
+      "serving_engine": "linear",
+      "evaluated_traffic": 319,
+      "fast_path_served": 233,
+      "comparison_audited": 17,
+      "eligible_traffic": 250,
+      "local_serving_rate": 0.7837,
+      "holdout_errors": 0,
+      "holdout_error_rate": 0.0,
+      "wilson_95_confidence_lower_bound": 0.9838,
+      "required_error_budget": 0.02,
+      "qualification_outcome": "ACTIVE",
+      "p50_latency_ms": 4.372
+    },
+    {
+      "workload": "Support Triage",
+      "serving_engine": "exact",
+      "evaluated_traffic": 300,
+      "fast_path_served": 120,
+      "comparison_audited": 7,
+      "eligible_traffic": 127,
+      "local_serving_rate": 0.4233,
+      "holdout_errors": 0,
+      "holdout_error_rate": 0.0,
+      "wilson_95_confidence_lower_bound": 0.969,
+      "required_error_budget": 0.05,
+      "qualification_outcome": "ACTIVE",
+      "p50_latency_ms": 2.268
+    },
+    {
+      "workload": "Incident Triage",
+      "serving_engine": "exact",
+      "evaluated_traffic": 300,
+      "fast_path_served": 160,
+      "comparison_audited": 7,
+      "eligible_traffic": 167,
+      "local_serving_rate": 0.5567,
+      "holdout_errors": 0,
+      "holdout_error_rate": 0.0,
+      "wilson_95_confidence_lower_bound": 0.9766,
+      "required_error_budget": 0.05,
+      "qualification_outcome": "ACTIVE",
+      "p50_latency_ms": 2.333
+    }
+  ]
+}

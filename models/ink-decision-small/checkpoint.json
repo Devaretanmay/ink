@@ -1,0 +1,47 @@
+{
+  "name": "ink-decision-small",
+  "model_id": "ink-decision-small",
+  "model_family": "ink-decision",
+  "size_tier": "small",
+  "version": "1.0.0",
+  "model_version": "1.0.0",
+  "runtime_version": "2",
+  "revision": "phase18-full-kd",
+  "checkpoint_revision": "phase18-full-kd",
+  "repository": "ink/ink-decision-small",
+  "parameter_count": 421293830,
+  "architecture": "ModernBERT-large (28L/16H) + distilled DecisionHead + Scorer + act_head",
+  "weights_modified": true,
+  "trained_by": "ink-distill-phase18-full-kd",
+  "aliases": [
+    "ink-decision-v1",
+    "decision-v1"
+  ],
+  "provenance": {
+    "base_encoder": "ModernBERT-large",
+    "prior_checkpoint": "ink-decision-v1",
+    "lineage": "ModernBERT-large -> ink-decision-v1 -> Phase 18 Stage 1 -> Phase 18 Stage 2 -> Phase 18 Full KD -> ink-decision-small 1.0.0",
+    "adaptation": "Phase 18 Full Knowledge Distillation (top-2 encoder unfreeze)",
+    "teacher": "ink-decision-large (fastino/GLiNER2.5-Decide, Apache-2.0)",
+    "training_objective": "0.7*CE(verified) + 0.3*tau^2*KL(teacher || student)",
+    "temperature_schedule": "tau = 4 for steps 1-300, tau = 2 for steps 301-600",
+    "teacher_disagreement_weight": "KL contribution * 0.5",
+    "training_steps": 600,
+    "batch_size": 16,
+    "learning_rate": "5e-5",
+    "trainable": "DecisionHead + top-2 encoder layers",
+    "training_rows": 5598,
+    "final_loss": 0.2474,
+    "support_accuracy": 0.950,
+    "support_auroc": 0.9386,
+    "multi_domain_mean_accuracy": 0.7176,
+    "ood_alien_auroc": 0.9938
+  },
+  "sha256": {
+    "model.safetensors": "28e7e65bfbd272c6392c52616bbb409a7a425db604df442e2682ab0155593276",
+    "rl_agent_config.json": "f1ee15bdcc840e91f649e6eefe2c7dc3d1c7779cecc66215a01fccc10c02de08",
+    "encoder/config.json": "bf3ab80598fdccf414855a2ce80f22859e4492d06ca8a62ddd1cfb63972f8979",
+    "tokenizer/tokenizer.json": "6c8aaa9a542084f2457eab775d4eeb51f92a70c0fd9de28d5edb0ddec3c08d30",
+    "tokenizer/tokenizer_config.json": "50044de60daaa73df97d262e15a40d4faf0160e7d742df64b377877a1320dd12"
+  }
+}

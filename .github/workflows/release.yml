@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install ruff pytest build
+      - run: python scripts/check-repo-hygiene.py
+      - run: python scripts/check-brand-hygiene.py
+      - run: python scripts/check-product-hygiene.py
+      - run: ruff check .
+      - run: pytest python/ink/tests/
+      - run: python examples/quickstart.py
+      - run: python examples/tool_routing.py
+      - run: python examples/support_routing.py
+
+  build-artifacts:
+    name: build release artifacts
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install build
+      - run: python -m build --wheel --sdist --outdir dist/
+      - name: Verify wheel in clean environment
+        run: |
+          python -m venv .wheeltest
+          source .wheeltest/bin/activate
+          pip install dist/ink_jit-*.whl
+          ink --version
+          ink --help
+          ink discover --help
+          python -c "import ink; print(ink.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/*
+
+  publish-pypi:
+    name: publish ink-jit to PyPI
+    needs: [verify, build-artifacts]
+    if: vars.PUBLISH_PYPI == 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
+
+  release-summary:
+    name: release summary
+    needs: [verify, build-artifacts, publish-pypi]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report publication state
+        run: |
+          echo "verify:          ${{ needs.verify.result }}"
+          echo "build-artifacts: ${{ needs.build-artifacts.result }}"
+          echo "publish-pypi:    ${{ needs.publish-pypi.result }}"
+          echo ""
+          echo "Distribution:    ink-jit"
+          echo "Import:          ink"
+          echo "CLI:             ink"

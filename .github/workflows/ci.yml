@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  workflow-lint:
+    name: workflow lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color
+
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install ruff
+      - run: python scripts/check-brand-hygiene.py
+      - run: python scripts/check-product-hygiene.py
+      - run: python scripts/check-repo-hygiene.py
+      - run: ruff check .
+
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install build pytest
+      - run: python -m build --wheel --sdist --outdir dist/
+      - name: Verify wheel in clean environment
+        run: |
+          python -m venv .wheeltest
+          source .wheeltest/bin/activate
+          pip install dist/ink_jit-*.whl
+          ink --version
+          ink --help
+          ink discover --help
+          python -c "import ink; print(ink.__version__)"
+          pip install pytest
+          pytest python/ink/tests/
+          python examples/quickstart.py
+          python examples/tool_routing.py
+          python examples/support_routing.py
+      - name: Verify README install command matches distribution
+        run: |
+          grep -q 'pip install ink-jit' README.md || (echo "README install command mismatch" && exit 1)
+          ! grep -q 'pip install ink$' README.md || (echo "README contains bare 'pip install ink'" && exit 1)
+
+  python-314-rejection:
+    name: verify python 3.14 rejection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install build
+      - run: python -m build --wheel --outdir dist/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Verify pip rejects wheel on 3.14
+        run: |
+          if pip install dist/*.whl; then
+            echo "Expected pip install to fail on Python 3.14"
+            exit 1
+          else
+            echo "Successfully rejected Python 3.14"
+          fi

@@ -1,0 +1,7 @@
+Ink
+Copyright 2026 Tanmay Devare
+
+This product includes software developed as part of the Ink project.
+
+Bundled Ink Decision v1 inference and trained weights are maintained as part of
+the Ink project. See python/ink/ink/internal/model/NOTICE and LICENSE.

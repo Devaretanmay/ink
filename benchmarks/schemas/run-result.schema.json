@@ -1,0 +1,198 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "InkRunResult",
+  "type": "object",
+  "required": [
+    "run_mode",
+    "experiment",
+    "run_id",
+    "task_id",
+    "condition",
+    "ink_commit",
+    "harness_commit",
+    "mini_swe_version",
+    "docker_image",
+    "docker_image_digest",
+    "swe_bench_evaluator_commit",
+    "provider",
+    "model",
+    "exact_model_id",
+    "temperature",
+    "reasoning",
+    "max_steps",
+    "max_tokens",
+    "started_at",
+    "seed"
+  ],
+  "properties": {
+    "run_mode": {
+      "type": "string",
+      "enum": [
+        "real",
+        "simulated"
+      ],
+      "description": "Provenance gate. 'real' means an agent executed the task; 'simulated' means the offline generator produced it. Report generation rejects 'simulated' by default."
+    },
+    "experiment": {
+      "type": "string",
+      "example": "validation-final-v1"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "task_id": {
+      "type": "string"
+    },
+    "condition": {
+      "type": "string",
+      "enum": [
+        "vanilla",
+        "retry",
+        "supervisor",
+        "ink"
+      ]
+    },
+    "ink_commit": {
+      "type": "string"
+    },
+    "harness_commit": {
+      "type": "string"
+    },
+    "mini_swe_version": {
+      "type": "string"
+    },
+    "docker_image": {
+      "type": "string"
+    },
+    "docker_image_digest": {
+      "type": "string"
+    },
+    "swe_bench_evaluator_commit": {
+      "type": "string"
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "openai",
+        "anthropic",
+        "litellm",
+        "mock",
+        "offline"
+      ]
+    },
+    "model": {
+      "type": "string"
+    },
+    "exact_model_id": {
+      "type": "string"
+    },
+    "provider_response_metadata": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "temperature": {
+      "type": "number"
+    },
+    "reasoning": {
+      "type": "string"
+    },
+    "max_steps": {
+      "type": "integer"
+    },
+    "max_tokens": {
+      "type": "integer"
+    },
+    "started_at": {
+      "type": "string"
+    },
+    "ended_at": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "seed": {
+      "type": "integer"
+    },
+    "success": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "resolved_by_evaluator": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    },
+    "total_steps": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "total_tool_calls": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "tokens_prompt": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "tokens_prompt_cached_read": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "tokens_prompt_cache_write": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "tokens_completion": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "cost_usd": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "duration_seconds": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "interventions_applied": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "interventions_recovered": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "damaging_intervention": {
+      "type": [
+        "boolean",
+        "null"
+      ]
+    }
+  }
+}

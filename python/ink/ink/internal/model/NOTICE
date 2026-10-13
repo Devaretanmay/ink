@@ -1,0 +1,9 @@
+Ink Decision v1
+Copyright 2026 Tanmay Devare
+
+This package contains the Ink-maintained ModernBERT decision runtime, tokenizer
+handling, sequence preparation, choice scoring, prompt assembly, and calibrated
+choice-head inference path used by Ink's Decision Engine.
+
+The bundled checkpoint identity is recorded in checkpoint.json. Trained
+checkpoint lineage and operating constraints are documented in MODEL_CARD.md.

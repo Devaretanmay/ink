@@ -1,0 +1,25 @@
+# Ink
+
+Behavior JIT for production AI. Models handle novelty; Ink turns proven behavior into
+software. Ink observes repeated, bounded, verifiable decisions and their independent
+outcomes, qualifies behavior that has proven itself, serves it locally as Fast Paths, and
+deoptimizes when reality changes. Serving authority comes from verified outcomes, not
+similarity or confidence alone.
+
+The Python SDK exposes Ink, DecisionSite, DecisionResult, FallbackResult, Outcome,
+PromotionRequirements, decision, record_outcome, CandidateSite, discover_from_file, and
+discover_from_traces. The CLI exposes ink discover, ink sites, ink status, ink inspect,
+ink compile, ink evaluate, ink maintenance, ink value, ink export, ink retain,
+ink model-install, and ink model-train.
+
+Install: pip install ink-jit
+Import: from ink import DecisionSite, Ink, FallbackResult
+Evaluate without integrating: ink discover traces.jsonl
+
+Read README.md and docs/: getting-started.md, why-ink.md, decision-audit.md,
+concepts.md, architecture.md, production-safety.md, integration.md, deployment.md,
+benchmarks.md, cli.md.
+
+Local-first, explicit sites, conservative exact-state coverage, independent outcome
+verification, randomized comparison traffic, and explicit deoptimization. No cloud
+control plane, dashboard, workflow mining, or automatic framework attachment.

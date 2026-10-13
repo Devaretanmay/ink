@@ -1,0 +1,8 @@
+Ink
+Copyright 2026 Tanmay Devare
+
+This product includes software developed as part of the Ink project.
+
+Ink Decision v1 includes an Ink-maintained neural runtime and retrained
+checkpoint. See ink/internal/model/NOTICE, LICENSE, and MODEL_CARD.md for
+model identity and operating constraints.
