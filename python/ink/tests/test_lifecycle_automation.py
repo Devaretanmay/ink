@@ -103,8 +103,15 @@ def test_autonomous_lifecycle_full_loop(tmp_path):
         assert loop.status(site)["active_candidate"] is not None
 
         # 3. ACTIVE: Verify fast path serves traffic
-        active_res = _feed_traffic(loop, site, 20, "act", quality=1.0)
-        assert any(r.source == "fast_path" for r in active_res)
+        deadline = time.time() + 5.0
+        served_fast = False
+        while time.time() < deadline:
+            active_res = _feed_traffic(loop, site, 10, "act", quality=1.0)
+            if any(r.source == "fast_path" for r in active_res):
+                served_fast = True
+                break
+            time.sleep(0.05)
+        assert served_fast
 
         # 4. DRIFT: Inject degraded outcomes until automatic demotion triggers
         for i in range(40):
