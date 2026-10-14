@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/ink-banner.png" alt="Ink - Behavior JIT for production AI systems" width="100%">
+</p>
+
 # Ink
 
 **Behavior JIT for production AI systems.**
@@ -5,6 +9,13 @@
 Production AI systems accumulate behavioral knowledge over time. Once that behavior is independently proven, it should become software instead of being rented repeatedly from a general-purpose model.
 
 > **Models handle novelty. Ink turns proven behavior into software.**
+
+<p align="center">
+  <video src="docs/assets/ink-launch.mp4" controls="controls" width="100%"></video>
+  <br>
+  <a href="docs/assets/ink-launch.mp4"><strong>▶ Watch the Launch Video</strong></a>
+</p>
+
 
 ---
 
