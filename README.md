@@ -11,9 +11,11 @@ Production AI systems accumulate behavioral knowledge over time. Once that behav
 > **Models handle novelty. Ink turns proven behavior into software.**
 
 <p align="center">
-  <video src="docs/assets/ink-launch.mp4" controls="controls" width="100%"></video>
+  <a href="docs/assets/ink-launch.mp4">
+    <img src="docs/assets/ink-launch-preview.png" alt="Watch the Ink Launch Video" width="100%">
+  </a>
   <br>
-  <a href="docs/assets/ink-launch.mp4"><strong>▶ Watch the Launch Video</strong></a>
+  <a href="docs/assets/ink-launch.mp4"><strong>▶ Watch the Launch Video (0:48)</strong></a>
 </p>
 
 
