@@ -39,7 +39,7 @@ def redact_payload(obj: Any) -> Any:
 class InkUIHandler(BaseHTTPRequestHandler):
     """Handles API queries and static console views on localhost."""
 
-    server_version = "InkUI/0.7.0"
+    server_version = "InkUI/0.7.1"
 
     @property
     def client(self) -> Ink:
@@ -65,9 +65,13 @@ class InkUIHandler(BaseHTTPRequestHandler):
         if origin:
             parsed_origin = urllib.parse.urlparse(origin)
             origin_host = (parsed_origin.hostname or "").lower()
-            if origin_host not in allowed_hosts:
+            origin_port = parsed_origin.port or (
+                443 if parsed_origin.scheme == "https" else (80 if parsed_origin.scheme == "http" else None)
+            )
+            server_port = self.server.server_address[1]
+            if origin_host not in allowed_hosts or (origin_port is not None and origin_port != server_port):
                 self._send_json(
-                    {"error": "Forbidden: Cross-origin request denied"},
+                    {"error": "Forbidden: Cross-origin request denied (port/host mismatch)"},
                     status=403,
                 )
                 return False
@@ -163,7 +167,11 @@ class InkUIHandler(BaseHTTPRequestHandler):
             has_outcome = (has_outcome_raw == "1") if has_outcome_raw in ("1", "0") else None
             limit = int(query.get("limit", [50])[0])
             offset = int(query.get("offset", [0])[0])
-            redact = query.get("redact", ["1"])[0] in ("1", "true")
+            is_unredacted = (
+                query.get("raw", ["0"])[0] in ("1", "true")
+                or query.get("unredacted", ["0"])[0] in ("1", "true")
+                or query.get("redact", ["1"])[0] in ("0", "false")
+            )
 
             try:
                 rows, total = self.client.query_decisions(
@@ -174,10 +182,11 @@ class InkUIHandler(BaseHTTPRequestHandler):
                     limit=limit,
                     offset=offset,
                 )
-                if redact:
+                if not is_unredacted:
                     for r in rows:
-                        if "state" in r and r["state"] is not None:
-                            r["state"] = redact_payload(r["state"])
+                        for k in ("state", "prediction", "outcome"):
+                            if k in r and r[k] is not None:
+                                r[k] = redact_payload(r[k])
                 self._send_json(
                     {"decisions": rows, "total": total, "limit": limit, "offset": offset}
                 )
@@ -187,6 +196,11 @@ class InkUIHandler(BaseHTTPRequestHandler):
 
         if path.startswith("/api/decisions/"):
             decision_id = path[len("/api/decisions/") :]
+            is_unredacted = (
+                query.get("raw", ["0"])[0] in ("1", "true")
+                or query.get("unredacted", ["0"])[0] in ("1", "true")
+                or query.get("redact", ["1"])[0] in ("0", "false")
+            )
             try:
                 row = self.client.store.get_decision(decision_id)
                 if not row:
@@ -205,6 +219,14 @@ class InkUIHandler(BaseHTTPRequestHandler):
                     if outcome_row and outcome_row.get("payload")
                     else None
                 )
+
+                if not is_unredacted:
+                    if state_val is not None:
+                        state_val = redact_payload(state_val)
+                    if pred_val is not None:
+                        pred_val = redact_payload(pred_val)
+                    if out_val is not None:
+                        out_val = redact_payload(out_val)
 
                 resp = dict(row)
                 resp["state"] = state_val

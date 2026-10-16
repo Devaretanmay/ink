@@ -349,8 +349,9 @@ class Dispatcher:
                         h = int(digest(key_material)[:8], 16) / 0xFFFFFFFF
                         if h >= canary_rate:
                             return artifact, prediction, "canary_holdout"
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.error("Serving policy evaluation failed, falling safe to Host: %s", exc)
+                return artifact, prediction, "serving_policy_unavailable"
 
             if (
                 choice != region.get("choice")

@@ -375,7 +375,7 @@ INDEX_HTML = """<!DOCTYPE html>
         </svg>
       </div>
       <span>INK Console</span>
-      <span class="chip">v0.7.0</span>
+      <span class="chip">v0.7.1</span>
     </div>
     <div class="nav-tabs">
       <button class="nav-tab active" onclick="switchTab('overview')">Overview</button>
@@ -582,8 +582,10 @@ INDEX_HTML = """<!DOCTYPE html>
 
     function switchTab(tab) {
       currentTab = tab;
-      document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-      event.target.classList.add('active');
+      document.querySelectorAll('.nav-tab').forEach(b => {
+        const onclickAttr = b.getAttribute('onclick') || '';
+        b.classList.toggle('active', onclickAttr.includes(`'${tab}'`));
+      });
       ['overview', 'sites', 'explorer', 'controls'].forEach(v => {
         document.getElementById(`view-${v}`).style.display = (v === tab) ? 'block' : 'none';
       });
@@ -597,31 +599,33 @@ INDEX_HTML = """<!DOCTYPE html>
       else if (currentTab === 'controls') loadControls();
     }
 
-    let sessionAuthToken = null;
-
-    async function getAuthToken() {
-      if (!sessionAuthToken) {
-        try {
-          const res = await fetch('/api/auth/token');
-          const data = await res.json();
-          sessionAuthToken = data.token;
-        } catch (e) {}
-      }
-      return sessionAuthToken;
+    function escapeHTML(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     async function fetchJSON(url, opts = {}) {
       try {
-        if (!opts.headers) opts.headers = {};
-        if (opts.method && opts.method !== 'GET') {
-          const tok = await getAuthToken();
-          if (tok) opts.headers['X-Ink-Auth'] = tok;
-        }
         const res = await fetch(url, opts);
         return await res.json();
       } catch (err) {
         console.error('Fetch error:', err);
         return null;
+      }
+    }
+
+    function inspectSite(encodedName) {
+      const siteName = decodeURIComponent(encodedName);
+      switchTab('explorer');
+      const sel = document.getElementById('filter-site');
+      if (sel) {
+        sel.value = siteName;
+        loadExplorer();
       }
     }
 
@@ -642,35 +646,50 @@ INDEX_HTML = """<!DOCTYPE html>
       if (sites) {
         sitesCache = sites;
         const tbody = document.getElementById('overview-sites-tbody');
-        tbody.innerHTML = sites.map(s => `
-          <tr class="clickable" onclick="inspectSite('${s.name}')">
-            <td class="mono"><strong>${s.name}</strong></td>
-            <td><span class="badge-status ${s.state.toLowerCase()}">${s.state}</span></td>
-            <td>${s.observations.toLocaleString()}</td>
-            <td>${Math.round(s.coverage * 100)}%</td>
-            <td class="mono">${s.profile && s.profile.evidence ? s.profile.evidence.quality_wilson_lower || '—' : '—'}</td>
-            <td><span class="chip">${s.verifier_risk_level || 'low'}</span></td>
-            <td>$${(s.estimated_cost_saved || 0).toFixed(4)}</td>
-          </tr>
-        `).join('') || '<tr><td colspan="7" style="text-align:center; padding: 2rem;">No sites registered yet</td></tr>';
+        tbody.innerHTML = sites.map(s => {
+          const safeName = escapeHTML(s.name);
+          const encodedName = encodeURIComponent(s.name);
+          const safeState = escapeHTML(s.state);
+          const safeRisk = escapeHTML(s.verifier_risk_level || 'low');
+          const safeEvidence = s.profile && s.profile.evidence ? escapeHTML(String(s.profile.evidence.quality_wilson_lower || '—')) : '—';
+          return `
+            <tr class="clickable" onclick="inspectSite('${encodedName}')">
+              <td class="mono"><strong>${safeName}</strong></td>
+              <td><span class="badge-status ${safeState.toLowerCase()}">${safeState}</span></td>
+              <td>${Number(s.observations || 0).toLocaleString()}</td>
+              <td>${Math.round(Number(s.coverage || 0) * 100)}%</td>
+              <td class="mono">${safeEvidence}</td>
+              <td><span class="chip">${safeRisk}</span></td>
+              <td>$${(Number(s.estimated_cost_saved) || 0).toFixed(4)}</td>
+            </tr>
+          `;
+        }).join('') || '<tr><td colspan="7" style="text-align:center; padding: 2rem;">No sites registered yet</td></tr>';
       }
     }
 
     async function loadSites() {
       const sites = await fetchJSON('/api/sites');
       const tbody = document.getElementById('sites-tbody');
-      tbody.innerHTML = (sites || []).map(s => `
-        <tr>
-          <td><div class="mono" style="font-weight:600;">${s.name}</div><div class="mono" style="font-size:10px; color:var(--text-dim);">${s.active_revision || 'no active artifact'}</div></td>
-          <td>${(s.choices ? Object.keys(s.choices) : []).map(c => `<span class="chip">${c}</span>`).join(' ')}</td>
-          <td><span class="badge-status ${s.state.toLowerCase()}">${s.state}</span></td>
-          <td>${s.observations}</td>
-          <td>${s.fallbacks_avoided}</td>
-          <td>${s.fallbacks}</td>
-          <td><span class="chip">${s.selected_engine || 'none'}</span></td>
-          <td><button class="btn" onclick="inspectSite('${s.name}')">Inspect</button></td>
-        </tr>
-      `).join('') || '<tr><td colspan="8" style="text-align:center; padding: 2rem;">No sites found</td></tr>';
+      tbody.innerHTML = (sites || []).map(s => {
+        const safeName = escapeHTML(s.name);
+        const encodedName = encodeURIComponent(s.name);
+        const safeRev = escapeHTML(s.active_revision || 'no active artifact');
+        const safeState = escapeHTML(s.state);
+        const safeEngine = escapeHTML(s.selected_engine || 'none');
+        const safeChoices = (s.choices ? Object.keys(s.choices) : []).map(c => `<span class="chip">${escapeHTML(c)}</span>`).join(' ');
+        return `
+          <tr>
+            <td><div class="mono" style="font-weight:600;">${safeName}</div><div class="mono" style="font-size:10px; color:var(--text-dim);">${safeRev}</div></td>
+            <td>${safeChoices}</td>
+            <td><span class="badge-status ${safeState.toLowerCase()}">${safeState}</span></td>
+            <td>${Number(s.observations || 0)}</td>
+            <td>${Number(s.fallbacks_avoided || 0)}</td>
+            <td>${Number(s.fallbacks || 0)}</td>
+            <td><span class="chip">${safeEngine}</span></td>
+            <td><button class="btn" onclick="inspectSite('${encodedName}')">Inspect</button></td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="8" style="text-align:center; padding: 2rem;">No sites found</td></tr>';
     }
 
     async function loadExplorer() {
@@ -698,17 +717,27 @@ INDEX_HTML = """<!DOCTYPE html>
       document.getElementById('btn-prev').disabled = (explorerOffset === 0);
       document.getElementById('btn-next').disabled = (explorerOffset + explorerLimit >= res.total);
 
-      tbody.innerHTML = res.decisions.map(d => `
-        <tr class="clickable" onclick="inspectDecision('${d.id}')">
-          <td class="mono" style="font-size:11px; color:var(--text-muted);">${new Date(d.created * 1000).toLocaleTimeString()}</td>
-          <td class="mono"><strong>${d.site_name || d.site.slice(0, 8)}</strong></td>
-          <td><span class="chip" style="color:var(--primary);">${d.choice}</span></td>
-          <td><span class="badge-status ${d.source === 'fast_path' ? 'active' : 'shadow'}">${d.source === 'fast_path' ? 'Fast Path' : 'Fallback'}</span></td>
-          <td><span class="chip">${d.reason || d.prediction?.producer || '—'}</span></td>
-          <td>${d.outcome ? (d.outcome.quality === 1 ? '✅ 1.0' : '⚠️ ' + d.outcome.quality) : '<span style="color:var(--text-dim);">pending</span>'}</td>
-          <td class="mono">${(d.elapsed * 1000).toFixed(2)}ms</td>
-        </tr>
-      `).join('') || '<tr><td colspan="7" style="text-align:center; padding: 2rem;">No decisions found for filters</td></tr>';
+      tbody.innerHTML = res.decisions.map(d => {
+        const encodedId = encodeURIComponent(d.id);
+        const safeSite = escapeHTML(d.site_name || (d.site ? d.site.slice(0, 8) : ''));
+        const safeChoice = escapeHTML(d.choice);
+        const safeSource = d.source === 'fast_path' ? 'Fast Path' : 'Fallback';
+        const safeSourceClass = d.source === 'fast_path' ? 'active' : 'shadow';
+        const safeReason = escapeHTML(d.reason || d.prediction?.producer || '—');
+        const safeOutcome = d.outcome ? (d.outcome.quality === 1 ? '✅ 1.0' : '⚠️ ' + escapeHTML(String(d.outcome.quality))) : '<span style="color:var(--text-dim);">pending</span>';
+        const elapsedMs = (Number(d.elapsed || 0) * 1000).toFixed(2);
+        return `
+          <tr class="clickable" onclick="inspectDecision('${encodedId}')">
+            <td class="mono" style="font-size:11px; color:var(--text-muted);">${new Date(d.created * 1000).toLocaleTimeString()}</td>
+            <td class="mono"><strong>${safeSite}</strong></td>
+            <td><span class="chip" style="color:var(--primary);">${safeChoice}</span></td>
+            <td><span class="badge-status ${safeSourceClass}">${safeSource}</span></td>
+            <td><span class="chip">${safeReason}</span></td>
+            <td>${safeOutcome}</td>
+            <td class="mono">${elapsedMs}ms</td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="7" style="text-align:center; padding: 2rem;">No decisions found for filters</td></tr>';
 
       // Update site filter options if needed
       const sel = document.getElementById('filter-site');
@@ -734,55 +763,71 @@ INDEX_HTML = """<!DOCTYPE html>
       loadExplorer();
     }
 
-    async function inspectDecision(id) {
-      const d = await fetchJSON(`/api/decisions/${id}`);
+    async function inspectDecision(encodedId) {
+      const id = decodeURIComponent(encodedId);
+      const d = await fetchJSON(`/api/decisions/${encodeURIComponent(id)}`);
       if (!d) return;
       document.getElementById('drawer-subtitle').innerText = `ID: ${d.id}`;
       const content = document.getElementById('drawer-content');
+      const safeChoice = escapeHTML(d.choice);
+      const safeOutcome = d.outcome
+        ? `Quality: ${escapeHTML(String(d.outcome.quality))} (Verifier: ${escapeHTML(d.outcome.verifier || 'observed')})`
+        : 'No verified outcome recorded yet';
+      const safeStateJson = escapeHTML(JSON.stringify(d.state, null, 2));
+      const safeReceiptJson = escapeHTML(JSON.stringify(d.receipt || d.prediction?.receipt || {}, null, 2));
+      const encodedDecisionId = encodeURIComponent(d.id);
+      const safeSource = d.source === 'fast_path' ? 'FAST PATH SERVED' : 'HOST FALLBACK';
+      const safeSourceClass = d.source === 'fast_path' ? 'active' : 'shadow';
+      const elapsedMs = (Number(d.elapsed || 0) * 1000).toFixed(3);
+
       content.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
-          <span class="badge-status ${d.source === 'fast_path' ? 'active' : 'shadow'}">${d.source === 'fast_path' ? 'FAST PATH SERVED' : 'HOST FALLBACK'}</span>
-          <span class="mono" style="font-size:12px; color:var(--text-muted);">${(d.elapsed * 1000).toFixed(3)}ms</span>
+          <span class="badge-status ${safeSourceClass}">${safeSource}</span>
+          <span class="mono" style="font-size:12px; color:var(--text-muted);">${elapsedMs}ms</span>
         </div>
 
         <div style="font-weight:600; margin-top:1rem; font-size:13px;">Decision Outcome</div>
         <div style="padding:0.75rem; background:#141824; border-radius:6px; border:1px solid var(--card-border); margin-top:0.35rem;">
-          <div>Choice: <strong style="color:var(--primary);">${d.choice}</strong></div>
+          <div>Choice: <strong style="color:var(--primary);">${safeChoice}</strong></div>
           <div style="font-size:12px; color:var(--text-muted); margin-top:4px;">
-            ${d.outcome ? `Quality: ${d.outcome.quality} (Verifier: ${d.outcome.verifier || 'observed'})` : 'No verified outcome recorded yet'}
+            ${safeOutcome}
           </div>
         </div>
 
         <div style="font-weight:600; margin-top:1.25rem; font-size:13px;">Input State Payload</div>
-        <div class="json-box">${JSON.stringify(d.state, null, 2)}</div>
+        <div class="json-box">${safeStateJson}</div>
 
         <div style="font-weight:600; margin-top:1.25rem; font-size:13px;">Provenance & Verification Receipt</div>
-        <div class="json-box">${JSON.stringify(d.receipt || d.prediction?.receipt || {}, null, 2)}</div>
+        <div class="json-box">${safeReceiptJson}</div>
 
         <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--card-border); display:flex; gap:0.5rem;">
-          <button class="btn btn-primary" onclick="simulateReplay('${d.id}')">⚡ Inspect In-Memory Prediction</button>
+          <button class="btn btn-primary" onclick="simulateReplay('${encodedDecisionId}')">⚡ Inspect In-Memory Prediction</button>
         </div>
         <div id="replay-result" style="margin-top:0.75rem;"></div>
       `;
       openDrawer();
     }
 
-    async function simulateReplay(id) {
+    async function simulateReplay(encodedId) {
+      const id = decodeURIComponent(encodedId);
       const container = document.getElementById('replay-result');
       container.innerHTML = '<span style="color:var(--text-muted);">Evaluating in-memory engine prediction against state...</span>';
-      const res = await fetchJSON(`/api/decisions/${id}/replay`, { method: 'POST' });
+      const res = await fetchJSON(`/api/decisions/${encodeURIComponent(id)}/replay`, { method: 'POST' });
       if (!res) {
         container.innerHTML = '<span style="color:var(--danger);">Prediction inspection failed</span>';
         return;
       }
+      const safeLabel = escapeHTML(res.provenance_label || 'In-Memory Prediction');
+      const safeChoice = escapeHTML(res.candidate_choice || '—');
+      const matchText = res.matches_historical ? '✅ Yes' : '⚠️ No (Disagreement)';
       container.innerHTML = `
         <div style="padding:0.75rem; background:#181f2f; border:1px solid var(--primary); border-radius:6px;">
           <div style="font-weight:600; font-size:12px; color:var(--primary); margin-bottom:4px;">
-            ${res.provenance_label}
+            ${safeLabel}
           </div>
-          <div>Predicted Choice: <strong>${res.candidate_choice}</strong></div>
+          <div>Predicted Choice: <strong>${safeChoice}</strong></div>
           <div style="font-size:12px; color:var(--text-muted); margin-top:2px;">
-            Matches historical choice: ${res.matches_historical ? '✅ Yes' : '⚠️ No (Disagreement)'}
+            Matches historical choice: ${matchText}
           </div>
           <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
             Deterministic in-process engine prediction only. External callbacks, verifiers, and downstream network side effects are not executed.
@@ -796,13 +841,18 @@ INDEX_HTML = """<!DOCTYPE html>
       const tbody = document.getElementById('controls-tbody');
       tbody.innerHTML = (sites || []).map(s => {
         const pol = s.serving_policy || { mode: 'ACTIVE', canary_rate: 1.0, updated_at: 0 };
+        const safeName = escapeHTML(s.name);
+        const safeState = escapeHTML(s.state);
+        const safeMode = escapeHTML(pol.mode);
+        const canaryPct = Math.round(Number(pol.canary_rate || 1.0) * 100);
+        const updatedStr = pol.updated_at ? escapeHTML(new Date(pol.updated_at * 1000).toLocaleString()) : 'default';
         return `
           <tr>
-            <td class="mono"><strong>${s.name}</strong></td>
-            <td><span class="badge-status ${s.state.toLowerCase()}">${s.state}</span></td>
-            <td><span class="chip">${pol.mode}</span></td>
-            <td>${Math.round(pol.canary_rate * 100)}%</td>
-            <td style="font-size:11px; color:var(--text-muted);">${pol.updated_at ? new Date(pol.updated_at * 1000).toLocaleString() : 'default'}</td>
+            <td class="mono"><strong>${safeName}</strong></td>
+            <td><span class="badge-status ${safeState.toLowerCase()}">${safeState}</span></td>
+            <td><span class="chip">${safeMode}</span></td>
+            <td>${canaryPct}%</td>
+            <td style="font-size:11px; color:var(--text-muted);">${updatedStr}</td>
             <td style="font-size:11px; color:var(--text-muted);">Python API / CLI</td>
           </tr>
         `;

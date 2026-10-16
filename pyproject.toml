@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "ink-jit"
-version = "0.7.0"
+version = "0.7.1"
 description = "Behavior JIT for production AI. Turn verified repeated decisions into qualified local software."
 authors = [{ name = "Ink Team" }]
 license = "Apache-2.0"

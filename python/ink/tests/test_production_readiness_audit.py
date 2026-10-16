@@ -13,6 +13,7 @@ Validates:
 from __future__ import annotations
 
 import json
+import sqlite3
 import urllib.error
 import urllib.request
 from dataclasses import asdict
@@ -410,5 +411,226 @@ def test_http_policy_mutations_strictly_disabled_and_failsafe_exception_handling
         finally:
             server.shutdown()
             server.server_close()
+
+
+def test_console_xss_escaping():
+    """Verify that the console assets properly escape HTML to prevent stored XSS."""
+    from ink.ui.assets import INDEX_HTML
+
+    assert "function escapeHTML(str)" in INDEX_HTML
+    assert "&amp;" in INDEX_HTML
+    assert "&lt;" in INDEX_HTML
+    assert "&gt;" in INDEX_HTML
+    assert "&quot;" in INDEX_HTML
+    assert "&#39;" in INDEX_HTML
+    assert "escapeHTML(d.site_name" in INDEX_HTML
+    assert "escapeHTML(d.choice)" in INDEX_HTML
+    assert "escapeHTML(d.reason" in INDEX_HTML
+    assert "escapeHTML(JSON.stringify(d.state, null, 2))" in INDEX_HTML
+    assert "encodeURIComponent" in INDEX_HTML
+
+
+def test_dispatcher_serving_policy_exception_failsafe(tmp_path):
+    """When serving policy lookup throws an operational/unexpected exception, fail safe to Host."""
+    site = DecisionSite("fail.policy.site", {"k": "string"}, ("a", "b"))
+    req = PromotionRequirements(10, 0.5, 0.5, 0.6, 0.25, 5, 100)
+
+    with Ink(tmp_path / "fail_policy.db") as client:
+        client.register(site)
+
+        def verify_fn(s, c):
+            return Outcome(1.0, "verifier", "1", {})
+
+        # Train and qualify site to ACTIVE
+        for i in range(250):
+            res = client.decide(
+                site=site,
+                state={"k": "v"},
+                task_id=f"t-{i}",
+                fallback=lambda: "a",
+            )
+            client.record_outcome(res.decision_id, **asdict(verify_fn({"k": "v"}, res.choice)))
+
+        client.maintenance(verifier=verify_fn, requirements=req, engine="exact")
+        for i in range(100):
+            res = client.decide(
+                site=site,
+                state={"k": "v"},
+                task_id=f"s-{i}",
+                fallback=lambda: "a",
+            )
+            client.record_outcome(res.decision_id, **asdict(verify_fn({"k": "v"}, res.choice)))
+        client.maintenance(verifier=verify_fn, requirements=req, engine="exact")
+
+        art = client._artifact(site.version)
+        assert art["status"] == "ACTIVE"
+
+        # Under normal conditions, should be fast_path or comparison
+        res_normal = client.decide(
+            site=site, state={"k": "v"}, task_id="test-normal", fallback=lambda: "a"
+        )
+        assert res_normal.source == "fast_path" or res_normal.fallback_reason == "comparison"
+
+        # Now mock get_serving_policy to raise an unexpected database failure
+        orig_get_policy = client.store.get_serving_policy
+
+        def broken_policy(site_version):
+            raise sqlite3.OperationalError("disk I/O error reading serving policy")
+
+        client.store.get_serving_policy = broken_policy
+        try:
+            res_fail = client.decide(
+                site=site, state={"k": "v"}, task_id="test-fail", fallback=lambda: "a"
+            )
+            # Must fall safe to Host with reason "serving_policy_unavailable"
+            assert res_fail.source == "fallback"
+            assert res_fail.fallback_reason == "serving_policy_unavailable"
+        finally:
+            client.store.get_serving_policy = orig_get_policy
+
+
+def test_server_origin_port_validation_and_decision_redaction(tmp_path):
+    """Test strict Origin port checking and default privacy redaction on /api/decisions."""
+    site = DecisionSite(
+        "secure.redact.site", {"token": "string", "query": "string"}, ("ok", "fail")
+    )
+    with Ink(tmp_path / "secure_ui.db") as client:
+        client.register(site)
+        dec = client.decide(
+            site=site,
+            state={"token": "super_secret_api_key_12345", "query": "hello"},
+            task_id="task-redact-1",
+            fallback=lambda: "ok",
+        )
+        client.record_outcome(
+            dec.decision_id,
+            quality=1.0,
+            verifier="manual",
+            verifier_version="1",
+            evidence={"auth_token": "secret_receipt_token"},
+        )
+
+        server = start_server(client, host="127.0.0.1", port=4247, open_browser=False, background=True)
+        port = server.server_address[1]
+        base_url = f"http://127.0.0.1:{port}"
+
+        try:
+            # 1. Origin port mismatch MUST return 403 Forbidden
+            req_mismatch = urllib.request.Request(
+                f"{base_url}/api/overview",
+                headers={
+                    "Host": f"127.0.0.1:{port}",
+                    "Origin": "http://127.0.0.1:9999",  # Different port!
+                },
+            )
+            with pytest.raises(urllib.error.HTTPError) as exc_mismatch:
+                urllib.request.urlopen(req_mismatch, timeout=5)
+            assert exc_mismatch.value.code == 403
+
+            # 2. Origin matching port MUST succeed
+            req_match = urllib.request.Request(
+                f"{base_url}/api/overview",
+                headers={
+                    "Host": f"127.0.0.1:{port}",
+                    "Origin": f"http://127.0.0.1:{port}",
+                },
+            )
+            with urllib.request.urlopen(req_match, timeout=5) as resp:
+                assert resp.status == 200
+
+            # 3. Default GET /api/decisions MUST redact sensitive fields
+            req_decisions = urllib.request.Request(
+                f"{base_url}/api/decisions",
+                headers={"Host": f"127.0.0.1:{port}"},
+            )
+            with urllib.request.urlopen(req_decisions, timeout=5) as resp:
+                data = json.loads(resp.read().decode())
+                assert len(data["decisions"]) >= 1
+                first = data["decisions"][0]
+                assert first["state"]["token"] == "[REDACTED]"
+                assert first["state"]["query"] == "hello"
+
+            # 4. Opt-in unredacted GET /api/decisions?raw=1 exposes raw state
+            req_raw = urllib.request.Request(
+                f"{base_url}/api/decisions?raw=1",
+                headers={"Host": f"127.0.0.1:{port}"},
+            )
+            with urllib.request.urlopen(req_raw, timeout=5) as resp:
+                data_raw = json.loads(resp.read().decode())
+                first_raw = data_raw["decisions"][0]
+                assert first_raw["state"]["token"] == "super_secret_api_key_12345"
+
+            # 5. Default GET /api/decisions/<id> MUST redact state and outcome
+            req_single = urllib.request.Request(
+                f"{base_url}/api/decisions/{dec.decision_id}",
+                headers={"Host": f"127.0.0.1:{port}"},
+            )
+            with urllib.request.urlopen(req_single, timeout=5) as resp:
+                single_data = json.loads(resp.read().decode())
+                assert single_data["state"]["token"] == "[REDACTED]"
+                assert single_data["state"]["query"] == "hello"
+                assert single_data["outcome"]["evidence"]["auth_token"] == "[REDACTED]"
+
+            # 6. Opt-in unredacted GET /api/decisions/<id>?unredacted=1 exposes raw data
+            req_single_raw = urllib.request.Request(
+                f"{base_url}/api/decisions/{dec.decision_id}?unredacted=1",
+                headers={"Host": f"127.0.0.1:{port}"},
+            )
+            with urllib.request.urlopen(req_single_raw, timeout=5) as resp:
+                single_raw_data = json.loads(resp.read().decode())
+                assert single_raw_data["state"]["token"] == "super_secret_api_key_12345"
+                assert single_raw_data["outcome"]["evidence"]["auth_token"] == "secret_receipt_token"
+
+        finally:
+            server.shutdown()
+            server.server_close()
+
+
+def test_unknown_tasks_prevent_promotion():
+    """Verify that unknown tasks (missing/unverified disagreements) contribute 0.0 and block promotion."""
+    from ink.internal.verification import EvidenceStatus, passes, statistics
+
+    # Create 30 records across 30 tasks:
+    # 20 tasks are verified positive (quality 1.0)
+    # 10 tasks have UNVERIFIED_DISAGREEMENT or UNVERIFIABLE
+    records = []
+    for i in range(20):
+        records.append({
+            "task": f"task-pos-{i}",
+            "status": EvidenceStatus.VERIFIED_SUCCESS,
+            "candidate": {"quality": 1.0},
+            "baseline": {"quality": 1.0},
+            "agreement": 1.0,
+        })
+    for i in range(10):
+        records.append({
+            "task": f"task-unk-{i}",
+            "status": EvidenceStatus.UNVERIFIED_DISAGREEMENT,
+            "candidate": {"quality": 1.0},  # unverified candidate claim
+            "baseline": {"quality": 1.0},
+            "agreement": 0.0,
+        })
+
+    stats = statistics(records)
+    assert stats["samples"] == 30
+    assert stats["unknown"] == 10
+    assert stats["observed_positive"] == 20
+    assert stats["observed_negative"] == 0
+
+    # With 10 unknown tasks contributing 0.0, the effective lower bound is severely penalized:
+    # effective candidate vector has 20 ones and 10 zeros: effective mean is 20/30 = 0.667
+    # lower bound with Hoeffding penalty: 0.667 - sqrt(ln(20)/(2*30)) = 0.667 - 0.223 = ~0.443
+    assert stats["quality_lower"] < 0.50
+
+    # Minimum quality requirement of 0.70 must fail
+    req = PromotionRequirements(
+        min_samples=25,
+        min_quality=0.70,
+        min_confidence=0.80,
+        max_degradation=0.05,
+        min_region_samples=5,
+    )
+    assert not passes(stats, req)
+
 
 

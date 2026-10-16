@@ -215,9 +215,8 @@ def statistics(records):
         ]
         if has_unverifiable or has_unverified:
             unk_count += 1
-            if valid_cand:
-                task_cand_q = sum(valid_cand) / len(group)
-                candidate.append(task_cand_q)
+            # Unknown tasks contribute zero to candidate qualification:
+            # they are not added to candidate, so candidate_effective pads them with 0.0
         elif valid_cand:
             a = sum(valid_cand) / len(valid_cand)
             candidate.append(a)
@@ -278,6 +277,9 @@ def region_qualifies(stats: dict, requirements) -> bool:
     """
     samples = stats.get("samples", 0)
     if samples < requirements.min_region_samples:
+        return False
+    unknown = stats.get("unknown", 0)
+    if samples > 0 and (samples - unknown) / samples < requirements.min_quality:
         return False
     min_n_for_conf = math.ceil(
         math.log(20) / (2 * max(0.0001, (1.0 - requirements.min_confidence)) ** 2)

@@ -6,13 +6,23 @@ All notable, user-facing changes to Ink. This project follows
 The PyPI distribution is **`ink-jit`** (`pip install ink-jit`); the Python import is
 **`ink`** and the CLI is **`ink`**.
 
+## [0.7.1] - 2026-10-16
+
+### Security Hardening & Release Verification
+
+- **Stored XSS Prevention**: Sanitized and escaped all dynamic data rendering (site names, choice strings, reason identifiers, and raw JSON blobs) in the console HTML template.
+- **Fail-Safe Serving Policy Dispatch**: Any unexpected exception during serving policy lookup now immediately falls safe to Host fallback (`serving_policy_unavailable`), preventing unvetted fast-path dispatch.
+- **Strict Origin Port Validation**: Origin headers must match the exact listening server port in addition to host resolution, preventing cross-origin access from other local services.
+- **Consistent Decision Redaction**: Standardized privacy masking of `state`, `prediction`, and `outcome` across both collection and single-decision endpoints, requiring explicit `raw=1` or `unredacted=1` opt-in.
+- **Strict Qualification Sample Accounting**: Unknown and unverified tasks contribute exactly 0.0 to the candidate qualification vector in Hoeffding bounds, preventing artifacts with incomplete verification from qualifying or promoting.
+
 ## [0.7.0] - 2026-10-16
 
 ### Local Developer Workbench & Safety Hardening
 
 - **Local Developer Console (`ink ui`)**: Self-contained, zero-external-dependency web console styled in monochromatic Halftone Dot Art aesthetic, served on localhost.
 - **Decision Explorer & Traces**: Interactive decision inspection with automatic PII redaction, pagination, and side-effect-free in-memory counterfactual replay.
-- **Localhost HTTP Security**: Strict `Host` and `Origin` header validation protecting against DNS rebinding and cross-site attacks, a 1MB payload ceiling, and local authorization tokens required for control writes.
+- **Localhost HTTP Security**: Strict `Host` and `Origin` header validation protecting against DNS rebinding and cross-site attacks, a 1MB payload ceiling, and strictly read-only HTTP workbench with local controls managed programmatically via the Python API or CLI.
 - **Evidence Qualification Hardening**: Conservative denominator preservation for unverified disagreements and unknown outcomes under 95% Wilson confidence intervals and Hoeffding lower bounds.
 - **Fair Canary Allocation**: Stable task-anchored hashing across multi-step workflows; anchored to rollout IDs to prevent experiment reshuffling on artifact recompilation; request-level random assignment fallback when `task_id` is omitted.
 - **SQLite Concurrency & Compatibility**: Resilient serving policy persistence with graceful schema fallbacks on unmigrated legacy databases.
