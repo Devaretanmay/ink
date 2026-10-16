@@ -6,7 +6,7 @@
 
 **Stop paying frontier models to make decisions they already solved yesterday.**
 
-Production AI agents call GPT-4o, Claude, or Gemini hundreds of times an hour just to pick a tool, route a customer ticket, or choose a workflow branch. That is slow, expensive, and kind of ridiculous.
+Production AI agents call GPT, Claude, or Gemini hundreds of times an hour just to pick a tool, route a customer ticket, or choose a workflow branch. That is slow, expensive, and kind of ridiculous.
 
 Ink watches your model work, records whether the choice actually succeeded, and compiles proven behavior into local Python code that runs in **0.1 milliseconds for $0.00**.
 
