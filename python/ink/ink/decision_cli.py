@@ -43,11 +43,28 @@ def main(argv):
             "value",
             "doctor",
             "models",
+            "ui",
         ],
     )
     parser.add_argument("site", nargs="?")
     parser.add_argument("--db", default=".ink/decisions.db")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument(
+        "--port", type=int, default=4242, help="Port to bind Ink UI console (default: 4242)"
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host interface to bind Ink UI console (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--no-browser", action="store_true", help="Do not open browser automatically"
+    )
+    parser.add_argument(
+        "--allow-control-writes",
+        action="store_true",
+        help="Enable state-changing serving control writes in the console (disabled by default for security)",
+    )
     parser.add_argument(
         "--profile", action="store_true", help="Include deep economic profile in discover"
     )
@@ -56,10 +73,14 @@ def main(argv):
     )
     parser.add_argument("--checkpoint")
     parser.add_argument("--model", help="Policy model name: small, large, or auto")
-    parser.add_argument("--model-id", help="Canonical policy model ID: ink-decision-small, ink-decision-large")
+    parser.add_argument(
+        "--model-id", help="Canonical policy model ID: ink-decision-small, ink-decision-large"
+    )
     parser.add_argument("--replace", action="store_true", help="Retire the current candidate")
     parser.add_argument("--verifier", help="Explicit trusted Python module:callable")
-    parser.add_argument("--engine", default="auto", help="Serving engine to compile: auto, exact, or linear")
+    parser.add_argument(
+        "--engine", default="auto", help="Serving engine to compile: auto, exact, or linear"
+    )
     parser.add_argument("--requirements", help="JSON file with experiment requirements")
     parser.add_argument("--before", type=float, help="Retention cutoff as Unix timestamp")
     parser.add_argument("--days", type=float, help="Retention cutoff in days")
@@ -93,14 +114,13 @@ def main(argv):
             from .internal.model.policy_registry import get_model_spec
             from .internal.model.registry import install
 
-            target_model = resolve_policy_model_id(args.model_id or args.model or "small") or INK_DECISION_SMALL
+            target_model = (
+                resolve_policy_model_id(args.model_id or args.model or "small")
+                or INK_DECISION_SMALL
+            )
             dest = install(args.checkpoint, model_id=target_model)
             spec = get_model_spec(target_model)
-            print(
-                json.dumps(
-                    {"model": spec.canonical_id, "path": str(dest)}
-                )
-            )
+            print(json.dumps({"model": spec.canonical_id, "path": str(dest)}))
             return 0
         if args.command == "model-train":
             if not args.data or not args.output:
@@ -108,7 +128,10 @@ def main(argv):
             from .internal.model.constants import INK_DECISION_SMALL, resolve_policy_model_id
             from .internal.model.training import finetune
 
-            target_model = resolve_policy_model_id(args.model_id or args.model or "small") or INK_DECISION_SMALL
+            target_model = (
+                resolve_policy_model_id(args.model_id or args.model or "small")
+                or INK_DECISION_SMALL
+            )
             rows = [
                 json.loads(line)
                 for line in Path(args.data).read_text().splitlines()
@@ -176,9 +199,7 @@ def main(argv):
                 )
                 if roi_requested:
                     sim_vol = args.monthly_volume or int(c.call_frequency * 30)
-                    sim_cost = (
-                        args.avg_call_cost if args.avg_call_cost is not None else c.avg_cost
-                    )
+                    sim_cost = args.avg_call_cost if args.avg_call_cost is not None else c.avg_cost
                     sim_lat = (
                         args.avg_call_latency_ms
                         if args.avg_call_latency_ms is not None
@@ -231,17 +252,19 @@ def main(argv):
             for m_id, spec in POLICY_MODEL_REGISTRY.items():
                 p = model_path(m_id)
                 ready = (p / "model.safetensors").is_file()
-                records.append({
-                    "model_id": spec.canonical_id,
-                    "family": spec.family,
-                    "version": spec.model_version,
-                    "revision": spec.checkpoint_revision,
-                    "backend": spec.backend,
-                    "parameters": spec.parameter_count,
-                    "optional": spec.optional,
-                    "status": "ready" if ready else "missing",
-                    "path": str(p),
-                })
+                records.append(
+                    {
+                        "model_id": spec.canonical_id,
+                        "family": spec.family,
+                        "version": spec.model_version,
+                        "revision": spec.checkpoint_revision,
+                        "backend": spec.backend,
+                        "parameters": spec.parameter_count,
+                        "optional": spec.optional,
+                        "status": "ready" if ready else "missing",
+                        "path": str(p),
+                    }
+                )
             if args.json:
                 print(json.dumps(records, indent=2))
             else:
@@ -413,7 +436,9 @@ def main(argv):
                     print(f"Comparison calls      : {comparison_total:,}")
                     print(f"Sites past break-even : {past_break_even}/{len(sites)}")
                     print("=" * 45)
-                    print("Note: Savings are estimates. Pass --avg-call-cost to evaluate custom pricing.")
+                    print(
+                        "Note: Savings are estimates. Pass --avg-call-cost to evaluate custom pricing."
+                    )
             return 0
         if args.command in {"sites", "inspect", "status"} and not Path(args.db).is_file():
             if args.command in {"sites", "status"}:
@@ -431,13 +456,30 @@ def main(argv):
                 else None
             )
             verifier = load_callable(args.verifier) if args.verifier else None
-            if args.command == "sites":
+            if args.command == "ui":
+                from .ui import start_server
+
+                server = start_server(
+                    client,
+                    host=args.host,
+                    port=args.port,
+                    open_browser=not args.no_browser,
+                    allow_control_writes=getattr(args, "allow_control_writes", False),
+                )
+                print(f"Ink Console running at http://{args.host}:{args.port}")
+                print("Press Ctrl+C to stop.")
+                try:
+                    server.serve_forever()
+                except KeyboardInterrupt:
+                    print("\nStopping Ink Console.")
+                finally:
+                    server.server_close()
+                return 0
+            elif args.command == "sites":
                 result = client.sites()
             elif args.command == "inspect":
                 if not args.site:
-                    raise ValueError(
-                        "inspect requires a site name (e.g. 'ink inspect <site>')"
-                    )
+                    raise ValueError("inspect requires a site name (e.g. 'ink inspect <site>')")
                 result = client.inspect(args.site)
             elif args.command == "status":
                 if args.site:

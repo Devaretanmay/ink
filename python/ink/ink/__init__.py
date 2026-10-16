@@ -27,6 +27,8 @@ from .internal.contracts import (
     FallbackResult,
     Outcome,
     PromotionRequirements,
+    ServingMode,
+    ServingPolicy,
 )
 from .internal.engines import PolicyModelEngine, PolicyProposal
 from .internal.model.constants import (
@@ -34,6 +36,7 @@ from .internal.model.constants import (
     INK_DECISION_SMALL,
     LEGACY_INK_DECISION_V1,
 )
+from .internal.verification import EvidenceStatus
 
 logging.getLogger("ink").addHandler(logging.NullHandler())
 
@@ -43,7 +46,7 @@ except Exception:
     try:
         __version__ = _version("ink")
     except Exception:
-        __version__ = "0.6.1"
+        __version__ = "0.7.0"
 
 __all__ = [
     "Ink",
@@ -51,6 +54,9 @@ __all__ = [
     "DecisionResult",
     "FallbackResult",
     "Outcome",
+    "EvidenceStatus",
+    "ServingMode",
+    "ServingPolicy",
     "PromotionRequirements",
     "DEFAULT_REQUIREMENTS",
     "decide",
@@ -72,4 +78,3 @@ __all__ = [
     "PolicyProposal",
     "__version__",
 ]
-

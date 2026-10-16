@@ -1,10 +1,10 @@
-# Integration Guide
+# Integration guide
 
-This guide describes how to integrate Ink into Python applications and agent frameworks.
+Here is how you integrate Ink into Python applications and agent frameworks.
 
 ---
 
-## 1. Synchronous Integration
+## 1. Synchronous integration
 
 Wrap your existing model call with `ink.decide`:
 
@@ -17,6 +17,7 @@ site = DecisionSite(
     name="order.fraud_check",
     state_schema={"amount": "number", "country": "string"},
     choices=("allow", "review", "block"),
+    local_error_budget=0.01,
 )
 ink.register(site)
 
@@ -34,9 +35,9 @@ action = result.choice
 
 ---
 
-## 2. Asynchronous Integration
+## 2. Asynchronous integration
 
-For async runtimes (FastAPI, asyncio):
+For async runtimes (FastAPI, asyncio, Starlette):
 
 ```python
 result = await ink.decide_async(
@@ -48,23 +49,28 @@ result = await ink.decide_async(
 
 ---
 
-## 3. Function Decorator Ergonomics
+## 3. Function decorator ergonomics (`@ink.wrap`)
 
-Use the `@ink.wrap` decorator to instrument existing routing functions without restructuring code:
+Use the `@ink.wrap` decorator to instrument existing routing functions without restructuring your code:
 
 ```python
-@ink.wrap(site)
-def route_request(state: dict) -> str:
+from ink import Ink
+
+ink = Ink(".ink/decisions.db")
+
+@ink.wrap("order.fraud_check", choices=["allow", "review", "block"])
+def route_fraud(state: dict) -> str:
     # This function acts as the Host fallback
     return call_remote_llm(state)
 
-# Automatically queries Fast Path first, falling back to route_request
-choice = route_request({"query": "Need technical assistance"})
+# Automatically queries Fast Path first, falling back to route_fraud:
+result = route_fraud({"amount": 250.0, "country": "US"})
+print(result.choice)
 ```
 
 ---
 
-## 4. LangGraph Integration
+## 4. LangGraph integration
 
 Accelerate conditional edges in LangGraph workflows:
 
@@ -94,25 +100,19 @@ workflow.add_conditional_edges("supervisor", ink_edge, {
 
 ---
 
-## 5. PydanticAI Integration
+## 5. PydanticAI integration
 
 Accelerate tool selection in PydanticAI agents:
 
 ```python
-from pydantic_ai import Agent
-from ink import DecisionSite, Ink
+from ink import Ink
 
 ink = Ink(".ink/decisions.db")
-site = DecisionSite("agent.tool_gate", choices=("query_db", "fetch_api", "ask_user"))
 
-agent = Agent("openai:gpt-4o")
+@ink.wrap("agent.tool_selector", choices=["search_db", "fetch_url", "final_answer"])
+def select_tool(query: str):
+    return agent_model.select_tool(query)
 
-@agent.tool_plain
-def select_action(user_prompt: str) -> str:
-    result = ink.decide(
-        site=site,
-        state={"prompt": user_prompt},
-        fallback=lambda: agent.run_sync(f"Select action for: {user_prompt}").data,
-    )
-    return result.choice
+# Use in your agent loop
+tool = select_tool(user_prompt)
 ```

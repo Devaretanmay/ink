@@ -238,6 +238,11 @@ class Ink:
     def _resolve(self, site: str | DecisionSite) -> DecisionSite:
         if isinstance(site, DecisionSite):
             return site
+        if site in self._contracts:
+            return self._contracts[site]
+        for c in self._contracts.values():
+            if c.version == site or c.name == site:
+                return c
         contract = self.store.get_site_contract(site)
         if not contract:
             raise KeyError(f"Unknown decision site: {site}")
@@ -253,8 +258,8 @@ class Ink:
     def _effective_comparison_rate(self, artifact, profile) -> float:
         return self._dispatcher.effective_comparison_rate(artifact, profile)
 
-    def _route(self, site, state):
-        return self._dispatcher.route(site, state)
+    def _route(self, site, state, task_id=None):
+        return self._dispatcher.route(site, state, task_id=task_id)
 
     def _save(self, site, state, value, task_id, started, artifact, prediction, reason):
         return self._dispatcher.save(
@@ -383,7 +388,9 @@ class Ink:
                                 distance=route_info.get("distance"),
                             )
 
-                            reg_ev = self._epoch_manager.get_progressive_evidence(epoch_id, region_id)
+                            reg_ev = self._epoch_manager.get_progressive_evidence(
+                                epoch_id, region_id
+                            )
                             n_samples = len(reg_ev)
                             n_pos = sum(r["verified_match"] for r in reg_ev)
                             n_neg = n_samples - n_pos
@@ -392,7 +399,11 @@ class Ink:
                             q_lower = max(0.0, p_hat - eps)
 
                             reg_status = "SHADOW"
-                            if n_samples >= min_region_samples and q_lower >= min_conf and n_neg == 0:
+                            if (
+                                n_samples >= min_region_samples
+                                and q_lower >= min_conf
+                                and n_neg == 0
+                            ):
                                 reg_status = "ACTIVE"
 
                             self._epoch_manager.sync_region_lifecycle(
@@ -436,7 +447,9 @@ class Ink:
     def compile(self, site, *, engine="auto", replace_existing=False) -> str:
         return self._compiler.compile(site, engine=engine, replace_existing=replace_existing)
 
-    def calibrate(self, site, *, verifier=None, requirements: PromotionRequirements | None = None) -> dict:
+    def calibrate(
+        self, site, *, verifier=None, requirements: PromotionRequirements | None = None
+    ) -> dict:
         return self._qualification.calibrate(site, verifier=verifier, requirements=requirements)
 
     def evaluate(self, site, *, verifier=None, auto_promote: bool = True) -> dict:
@@ -445,7 +458,9 @@ class Ink:
     def reevaluate(self, site) -> dict:
         return self._qualification.reevaluate(site)
 
-    def invalidate(self, site: str | DecisionSite, *, reason: str = "policy_revision", action: str = "demote") -> dict:
+    def invalidate(
+        self, site: str | DecisionSite, *, reason: str = "policy_revision", action: str = "demote"
+    ) -> dict:
         return self._evaluator.invalidate(site, reason=reason, action=action)
 
     def maintenance(
@@ -493,6 +508,10 @@ class Ink:
     def sites(self) -> list[dict[str, Any]]:
         return self._diagnostics.sites()
 
+    def overview(self) -> dict[str, Any]:
+        """System-level aggregated telemetry summary across all sites."""
+        return self._diagnostics.overview()
+
     def profile(self, site) -> dict[str, Any]:
         return self._diagnostics.profile(site)
 
@@ -533,6 +552,36 @@ class Ink:
         """Exposes runtime Small policy model utility gating diagnostics."""
         return self._diagnostics.utility()
 
+    def query_decisions(
+        self,
+        site=None,
+        source: str | None = None,
+        reason: str | None = None,
+        has_outcome: bool | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        """Queries paginated decision history with filtering."""
+        site_version = self._resolve(site).version if site else None
+        return self.store.query_decisions(
+            site=site_version,
+            source=source,
+            reason=reason,
+            has_outcome=has_outcome,
+            limit=limit,
+            offset=offset,
+        )
+
+    def get_serving_policy(self, site) -> dict[str, Any]:
+        """Gets governed serving policy (ACTIVE, CANARY, SHADOW, HOST_OVERRIDE)."""
+        resolved_site = self._resolve(site)
+        return self.store.get_serving_policy(resolved_site.version)
+
+    def set_serving_policy(self, site, mode: str, canary_rate: float = 1.0) -> dict[str, Any]:
+        """Sets governed serving policy for an active artifact."""
+        resolved_site = self._resolve(site)
+        return self.store.set_serving_policy(resolved_site.version, mode, canary_rate)
+
     def wrap(
         self,
         site: str | DecisionSite,
@@ -543,12 +592,16 @@ class Ink:
         task_id: str | None = None,
     ):
         """Decorator wrapping a decision function with Ink's Fast Path runtime."""
+
         def decorator(fn):
             if inspect.iscoroutinefunction(fn):
+
                 async def async_wrapper(*args, **kwargs):
                     state = _extract_decision_state(args, kwargs)
+
                     async def async_fallback():
                         return await fn(*args, **kwargs)
+
                     res = await self.decide_async(
                         site=site,
                         state=state,
@@ -558,11 +611,13 @@ class Ink:
                         fallback_revision=fallback_revision,
                     )
                     return res.choice if unpack else res
+
                 async_wrapper.__wrapped__ = fn
                 async_wrapper.__name__ = getattr(fn, "__name__", "wrapped_decision")
                 async_wrapper.__doc__ = getattr(fn, "__doc__", None)
                 return async_wrapper
             else:
+
                 def sync_wrapper(*args, **kwargs):
                     state = _extract_decision_state(args, kwargs)
                     res = self.decide(
@@ -574,10 +629,12 @@ class Ink:
                         fallback_revision=fallback_revision,
                     )
                     return res.choice if unpack else res
+
                 sync_wrapper.__wrapped__ = fn
                 sync_wrapper.__name__ = getattr(fn, "__name__", "wrapped_decision")
                 sync_wrapper.__doc__ = getattr(fn, "__doc__", None)
                 return sync_wrapper
+
         return decorator
 
 

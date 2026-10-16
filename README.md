@@ -4,23 +4,27 @@
 
 # Ink
 
-**Behavior JIT for production AI systems.**
+**Stop paying frontier models to make decisions they already solved yesterday.**
 
-Production AI systems accumulate behavioral knowledge over time. Once that behavior is independently proven, it should become software instead of being rented repeatedly from a general-purpose model.
+Production AI agents call GPT-4o, Claude, or Gemini hundreds of times an hour just to pick a tool, route a customer ticket, or choose a workflow branch. That is slow, expensive, and kind of ridiculous.
+
+Ink watches your model work, records whether the choice actually succeeded, and compiles proven behavior into local Python code that runs in **0.1 milliseconds for $0.00**.
+
+When your agent hits something weird or novel, it calls your model like normal. When it sees something it has already proven 500 times, Ink runs it locally. No cloud. No background daemons. Just a local SQLite file and fast math.
 
 > **Models handle novelty. Ink turns proven behavior into software.**
 
-
-
 ---
 
-## What is Ink?
+## Why you need this
 
-Ink is an embedded local runtime that observes repeated, bounded AI decisions, records verified outcomes, and compiles qualified behavior into sub-millisecond local software.
+Every production AI system hits the same wall:
 
-When an AI system operates in production, it repeatedly calls frontier models for bounded choices: tool selection, ticket triage, approval gates, and workflow branches. Ink turns that proven behavior into owned software.
+1. **You are paying rent on solved problems.** 70% of your agent's LLM calls aren't creative writing. They are bounded choices: choosing `search_database` vs `escalate_human`, picking a support queue, or checking an approval gate.
+2. **Caches don't work for decisions.** Redis saves whatever your model blurted out. If the model hallucinated, a cache faithfully replays the hallucination. A cache can't tell you if an answer was right, and it can't generalize when someone types "billing inquiry" instead of "billing question".
+3. **Training a small classifier is a pain in production.** A standalone classifier has no idea when to abstain. It will happily make a wild guess on novel input and crash your workflow. It also won't tell you when your data drifted.
 
-**Your AI should not pay to rethink what it already knows.**
+Ink solves this by acting as a **Behavior JIT (Just-In-Time compiler)**. It sits right in front of your model call, learns from real-world outcomes, verifies behavior with statistical confidence intervals, and automatically hands traffic back to your model the moment anything drifts.
 
 ---
 
@@ -30,213 +34,228 @@ When an AI system operates in production, it repeatedly calls frontier models fo
 pip install ink-jit
 ```
 
-*Requires Python 3.11, 3.12, or 3.13 on Linux or macOS.*
+*Requires Python 3.11, 3.12, or 3.13 on macOS (with Apple Silicon Metal acceleration) or Linux. Zero cloud dependencies.*
 
 ---
 
-## Minimal Real Example
+## Quickstart (takes 2 minutes)
 
-Wrap your existing model call in an explicit `DecisionSite`. Pass your existing model as the fallback:
+Take any place in your code where an LLM picks from a list of choices. Wrap it with `ink.wrap`:
 
 ```python
-from ink import DecisionSite, Ink
+from ink import Ink
 
-# 1. Initialize local evidence storage
+# Everything saves to a local SQLite database. No background servers required.
 ink = Ink(".ink/decisions.db")
 
-# 2. Define a bounded DecisionSite
-site = DecisionSite(
-    name="agent.tool_choice",
-    choices=("search_kb", "query_db", "escalate_human"),
-    state_schema={"task_type": "string"},
-)
-ink.register(site)
+@ink.wrap("triage_ticket", choices=["billing", "technical", "sales"])
+def route_ticket(ticket_text: str):
+    # Your normal slow, expensive model call lives here:
+    return call_expensive_llm(ticket_text)
 
-# 3. Resolve decisions: serves locally (< 0.1ms) when qualified; falls back to Host when novel
-state = {"task_type": "account_balance"}
-result = ink.decide(
-    site=site,
-    state=state,
-    fallback=lambda: call_llm(state),
-)
+# First 100 times: Calls your model, watches what happens.
+# Next 10,000 times: Runs locally in 0.08ms. You pay $0.00.
+result = route_ticket("Where can I find my March invoice?")
+print(result.choice)  # -> "billing"
+print(result.source)  # -> "fallback" (initially) or "fast_path" (once qualified)
 
-# 4. Record verified outcome after downstream action completes
+# Feed back real-world proof after the downstream action completes:
 ink.record_outcome(
     decision_id=result.decision_id,
-    quality=1.0,  # 1.0 = verified success, 0.0 = error
-    verifier="api_execution_signal",
+    quality=1.0,  # 1.0 = success, 0.0 = error
+    verifier="zendesk_routing_signal",
     verifier_version="v1",
 )
 ```
 
 ---
 
-## The JIT Lifecycle
+## See it in action: The Local Console
+
+Ink comes with a built-in, dark-mode halftone console that runs entirely on localhost:
+
+```bash
+ink ui
+```
+
+Open `http://localhost:4242` to inspect your decisions, check your fast-path hit rate, watch token dollars saved, and inspect historical predictions in memory without side effects:
+
+- **100% offline & private:** No data leaves your machine. No accounts, no cookies, no tracking.
+- **Decision explorer:** Search past inputs, see whether they hit the fast path or fell back to your model, and inspect the raw state payload.
+- **Drift monitor:** See live agreement rates between your local code and your frontier model.
+- **Governed serving controls:** Inspect live serving modes (`ACTIVE`, `CANARY`, `SHADOW`, and `HOST_OVERRIDE`).
+
+---
+
+## The JIT lifecycle
 
 Ink is not a model and not a cache. Ink is an authority lifecycle:
 
 ```text
        ┌───────────┐
-       │  OBSERVE  │  Requests execute through your Host model; Ink records states and outcomes
+       │  OBSERVE  │  Requests run through your model; Ink logs states & verified outcomes
+       └─────┬─────┘
+             │ Minimum evidence threshold reached
+             ▼
+       ┌───────────┐
+       │  QUALIFY  │  Statistical gate tests candidate against error budget (Wilson 95% LB)
+       └─────┬─────┘
+             │ Passed statistical holdout
+             ▼
+       ┌───────────┐
+       │  COMPILE  │  Builds local Fast Path (Exact hash table or Linear boundary)
        └─────┬─────┘
              │
              ▼
        ┌───────────┐
-       │  QUALIFY  │  Independent statistical gate evaluates candidates against site error budget
+       │   SERVE   │  Qualified requests run locally (< 0.1ms); novel requests route to model
        └─────┬─────┘
              │
              ▼
        ┌───────────┐
-       │  COMPILE  │  Compiles local execution artifacts (Exact hash tables or Linear boundaries)
-       └─────┬─────┘
-             │
-             ▼
-       ┌───────────┐
-       │   SERVE   │  Qualified requests execute locally (< 0.1ms); novel requests route to Host
-       └─────┬─────┘
-             │
-             ▼
-       ┌───────────┐
-       │  VERIFY   │  Continuous comparison traffic detects drift; revokes authority if errors rise
+       │  VERIFY   │  Background comparison audits drift; automatically demotes if errors rise
        └───────────┘
 ```
 
-1. **Observe**: New requests execute through your Host model. Ink records inputs, decisions, and real outcomes in local SQLite storage.
-2. **Qualify**: Ink evaluates candidate behavior on independent holdout data. A candidate must satisfy the site error budget under a 95% Wilson confidence lower bound.
-3. **Compile**: Ink trains a local execution artifact (`ExactEngine` or `LinearClassifierEngine`).
-4. **Serve**: Qualified candidates earn serving authority and execute locally in sub-milliseconds without network or token costs.
-5. **Verify**: Live comparison traffic continuously audits active Fast Paths. When reevaluation detects that error rates exceed the budget, Ink revokes serving authority back to the Host model.
+1. **Observe:** Initial traffic routes 100% to your model. Ink records inputs, decisions, and real-world outcomes in local SQLite storage.
+2. **Qualify:** Ink tests candidate behavior on independent holdout data. A candidate must satisfy your site's error budget under a **95% Wilson confidence lower bound**.
+3. **Compile:** Ink trains a local execution artifact (`ExactEngine` hash table or `LinearClassifierEngine`).
+4. **Serve:** Qualified requests execute locally in sub-milliseconds with zero token bills. Unfamiliar or novel requests automatically route to your model.
+5. **Verify:** Ink sends a small sample of live traffic to your model in parallel to check for drift. If your API schema or customer behavior changes and errors rise, Ink immediately revokes local authority back to your model.
 
 ---
 
 ## What is a DecisionSite?
 
-A **DecisionSite** is a bounded contract in your application code. It specifies a single decision point where an AI system selects from a discrete, enumerable set of choices.
+A **DecisionSite** is a bounded contract in your application code. It defines a single decision point where an AI system selects from a discrete, enumerable set of choices:
+
+```python
+from ink import DecisionSite, Ink
+
+site = DecisionSite(
+    name="agent.tool_choice",
+    choices=("search_kb", "query_database", "escalate_human"),
+    state_schema={"task_type": "string", "retries": "integer"},
+    local_error_budget=0.01,  # Require 99% accuracy before local serving is allowed
+)
+```
 
 Every DecisionSite declares:
-- **`name`**: Unique hierarchical boundary name (`agent.tool_choice`, `support.triage`).
+- **`name`**: Unique identifier for the decision boundary (`agent.tool_choice`, `support.triage`).
 - **`choices`**: Tuple of valid output choices.
 - **`state_schema`**: Expected input types.
-
-Ink optimizes bounded choices. Open-ended generation (such as creative prose, open dialogue, or arbitrary text extraction) stays with the Host model.
-
----
-
-## Workload Fit
-
-### Good DecisionSites
-- **Tool Selection**: Choosing which tool or API to invoke from an agent registry.
-- **Support & Ticket Triage**: Directing customer requests to specialist queues.
-- **Approval & Security Gates**: Deciding whether to allow, review, or block operations.
-- **Workflow Branching**: Conditional transitions in agent state machines (LangGraph, PydanticAI).
-- **Incident Escalation**: Paging engineers based on error codes and telemetry summaries.
-
-### Poor DecisionSites
-- **Open-Ended Writing**: Drafting emails, essays, or conversational answers.
-- **Unbounded Arguments**: Extracting arbitrary code or raw unstructured text.
-- **Zero-Feedback Workflows**: Tasks where outcomes cannot be independently measured or verified.
+- **`local_error_budget`**: Maximum tolerable error rate (e.g. `0.01` for 1%, `0.05` for 5%).
 
 ---
 
-## Why Ink is Not a Cache
+## When to use Ink (and when NOT to)
 
-A cache stores outputs and replays them when inputs match.
+We want you to use Ink where it works wonders, and skip it where it doesn't make sense.
 
-Caches do not know if a previous answer was correct. If your model made a mistake yesterday, a cache repeats that mistake today. Caches cannot generalize across structured state variations, enforce statistical error budgets, or detect distribution shift.
+### Great fits for Ink:
+- **Tool selection:** Deciding whether an agent should call `search_docs`, `query_sql`, or `ask_human`.
+- **Workflow branching:** The conditional `if/else` edges in LangGraph, PydanticAI, or custom state machines.
+- **Support & ticket triage:** Directing 50,000 inbound tickets a day into 8 known department queues.
+- **Approval & risk gates:** Deciding whether a user action needs manual review, extra auth, or instant clearance.
+- **Incident routing:** Paging the right on-call engineer based on error codes and telemetry summaries.
 
-Ink requires independent outcome verification before candidate behavior can qualify. Ink serves through compiled mathematical execution boundaries, not raw memory retrieval.
-
----
-
-## Why Ink is Not "Just a Classifier"
-
-A classifier is a model that always makes a prediction.
-
-A standalone classifier cannot:
-- Decide when an input is sufficiently familiar to serve safely.
-- Abstain autonomously on out-of-distribution or ambiguous requests.
-- Guarantee an explicit statistical error budget on live production traffic.
-- Fall open to a frontier Host model when it encounters novelty.
-- Demote itself when downstream business rules change.
-
-**Prediction and permission are different things.** A classifier predicts; Ink manages whether local behavior is permitted to serve.
+### Terrible fits for Ink:
+- **Open-ended creative writing:** Drafting emails, writing essays, or generating marketing copy. Keep calling Claude.
+- **Unbounded outputs:** Extracting arbitrary JSON structures with 50 fields or generating raw code snippets.
+- **Workflows with zero feedback:** If you have no way to verify whether an action worked or failed, Ink will refuse to grant local authority. Ink doesn't guess; it needs proof.
 
 ---
 
-## Why Ink is Not Model Routing
+## Why Ink is not just a cache
 
-Model gateways route traffic between different external model providers (e.g., routing between GPT-4o and GPT-4o-mini).
+A cache stores outputs and blindly replays them whenever an input matches.
 
-Model routing still pays external providers for every token and still incurs network round-trips. It optimizes rental rates rather than building owned software assets.
+- **Caches repeat mistakes.** If your model hallucinated yesterday, a cache repeats that hallucination today at lightning speed.
+- **Caches can't generalize.** If a user writes "invoice help" instead of "billing help", a cache misses.
+- **Caches are blind to drift.** If your downstream database column changes, a cache will happily keep serving invalid queries until your logs catch fire.
 
-Ink turns proven decisions into owned, local code. Novel requests go to your Host model; proven behavior stays in your software.
+Ink requires independent outcome verification before candidate behavior can qualify. Ink serves through compiled mathematical execution boundaries, not raw string matching, and audits active paths continuously.
 
 ---
 
-## Architecture
+## Why Ink is not "just train a classifier"
 
-Ink separates synchronous serving from background compilation across four planes:
+A standalone classifier predicts on every input, even when an input is totally out-of-distribution. It has no concept of when to abstain, provides no fail-open fallback to a frontier model, and cannot quantify risk against an explicit statistical error budget.
+
+**Prediction and permission are different things.** A classifier predicts; Ink manages whether local behavior has earned the authority to serve live traffic.
+
+---
+
+## Architecture: The 4 planes
+
+Ink cleanly separates synchronous serving from background compilation:
 
 ```text
 1. SERVING PLANE      Qualified Local Fast Path (< 0.10ms)  │  Host Fallback on Novelty
 ─────────────────────────────────────────────────────────────────────────────────────────
 2. EVIDENCE PLANE     Local SQLite Ledger (WAL Mode)  •  Verified Outcomes  •  Lineage
 ─────────────────────────────────────────────────────────────────────────────────────────
-3. COMPILER PLANE     Background Representation Competition  •  Exact & Linear Training
+3. COMPILER PLANE     Background Representation Search  •  Exact & Linear Training
 ─────────────────────────────────────────────────────────────────────────────────────────
 4. AUTHORITY PLANE    Wilson 95% Confidence Gate  •  Error Budgets  •  Drift Revocation
 ```
 
-- **Synchronous Serving**: Runs in-process on CPU or Apple Silicon Metal. Fast Paths resolve in sub-milliseconds (typically $< 0.01\text{ ms}$ for Exact, $< 0.10\text{ ms}$ for Linear on local benchmarks) with zero network overhead.
-- **Fail-Open Invariant**: Ink routes to the Host fallback when supported runtime or storage failures prevent local execution.
-- **Zero Direct Neural Serving**: Neural models (`ink-decision-small`) operate exclusively in the background compiler plane. They never intercept live production traffic directly.
+- **Synchronous Serving:** Runs in-process on CPU or Apple Silicon Metal. Fast Paths resolve in `< 0.01 ms` for Exact matches and `< 0.10 ms` for Linear boundaries.
+- **Fail-Open Invariant:** If the database locks or an unexpected error occurs, Ink immediately routes to your model fallback. Your app never crashes because of Ink.
+- **Zero Direct Neural Serving:** Neural policy models (`ink-decision-small`) operate exclusively in the background compiler plane. They never intercept live production traffic.
 
 ---
 
-## Safety & Serving Authority
+## Production benchmarks
 
-- **Confidence does not grant authority.** High softmax confidence is not proof of correctness.
-- **Similarity does not grant authority.** Vector proximity does not guarantee safety.
-- **Model identity does not grant authority.** Neural representations are proposals, not permission.
-- **Authority requires evidence.** A candidate must clear the Wilson 95% confidence lower bound against the site error budget:
+Controlled benchmark results across canonical workloads (evaluated on Apple Silicon and Linux CPU):
 
-$$\text{Wilson Lower Bound}(k, n) \ge 1.0 - \text{Error Budget}$$
+| Workload | Serving Engine | Evaluated Traffic | Local Fast-Path Rate | Holdout Error Rate | 95% Wilson Lower Bound | Required Budget | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Tool Routing** | Linear | 319 requests | **78.4%** | **0.0%** | **98.49%** | $\le 2.0\%$ | **ACTIVE** |
+| **Support Triage** | Exact | 300 requests | **42.3%** | **0.0%** | **97.06%** | $\le 5.0\%$ | **ACTIVE** |
+| **Incident Triage** | Exact | 300 requests | **55.6%** | **0.0%** | **97.75%** | $\le 5.0\%$ | **ACTIVE** |
 
-- **Continuous Verification**: Live comparison traffic continuously audits active Fast Paths. When reevaluation detects that error rates exceed the budget, serving authority is revoked back to the Host model.
+*Measured in-process on local host CPU / Apple Silicon Metal benchmarks. ExactEngine latency: $< 0.01\text{ ms}$; LinearClassifierEngine latency: $< 0.10\text{ ms}$.*
 
 ---
 
-## Start with a Decision Audit
+## CLI at a glance
 
-The fastest path to evaluating Ink is a **Decision Audit**:
+```bash
+# Launch the local halftone dashboard on http://localhost:4242
+ink ui
 
-> **Give us one high-volume bounded model decision. We will determine whether any portion of it has a defensible path toward local serving authority.**
+# Scan existing LLM traces to find repeated, compilable decisions
+ink discover traces.jsonl --profile
 
-An audit examines decision definition, state schema, choice sets, production volume, outcome provenance, error budgets, and candidate coverage.
+# Inspect accumulated evidence and Wilson confidence for a site
+ink inspect agent.tool_choice
 
-A negative result is a valid outcome. If an audit reveals that a workload cannot satisfy statistical safety contracts, Ink explicitly advises against local compilation. We never weaken qualification thresholds to manufacture a positive pilot.
+# Re-evaluate shadow candidates and demote drifted paths
+ink maintenance
 
-Read the [Decision Audit Guide](docs/decision-audit.md) to evaluate your first decision site.
+# Verify database health and runtime integrity
+ink doctor
+```
 
 ---
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md) — 5-minute quickstart and workflow walkthrough
-- [Why Ink](docs/why-ink.md) — Category comparison with caches, classifiers, and fine-tuning
-- [Decision Audit](docs/decision-audit.md) — The 15-point audit methodology for candidate workloads
-- [Concepts](docs/concepts.md) — DecisionSites, Host fallback, outcome provenance, and Fast Paths
-- [Architecture](docs/architecture.md) — The four planes: Serving, Evidence, Compiler, and Authority
-- [Production Safety](docs/production-safety.md) — Statistical qualification, Wilson confidence bounds, and drift
-- [Integration](docs/integration.md) — LangGraph, PydanticAI, and asynchronous runtime adapters
-- [Deployment](docs/deployment.md) — Embedded SQLite storage, WAL concurrency, and fleet patterns
-- [Benchmarks](docs/benchmarks.md) — Evidence hierarchy, controlled workload results, and reproduction
-- [CLI Reference](docs/cli.md) — Local discovery, inspection, compilation, and diagnostics
+- [Getting Started](docs/getting-started.md) — 2-minute setup and walkthrough
+- [Why Ink](docs/why-ink.md) — Category breakdown vs caches, classifiers, and gateways
+- [Decision Audit](docs/decision-audit.md) — How to evaluate your first decision site
+- [Core Concepts](docs/concepts.md) — DecisionSites, Host fallbacks, outcomes, and Fast Paths
+- [Architecture](docs/architecture.md) — Deep dive into the 4 planes
+- [Production Safety](docs/production-safety.md) — Wilson bounds, error budgets, and drift deoptimization
+- [Integration](docs/integration.md) — LangGraph, PydanticAI, and async adapters
+- [Deployment](docs/deployment.md) — SQLite WAL concurrency, worker processes, and fleet setups
+- [Benchmarks](docs/benchmarks.md) — Evidence hierarchy and reproducible benchmark suites
+- [CLI Reference](docs/cli.md) — Complete command-line manual
 
 ---
 
-## Project Status & License
-
-Ink is under active development. The runtime, embedded SQLite evidence ledger, and statistical qualification system have completed internal controlled validation (Level 3 evidence). External design-partner validation (Level 4) is currently in progress.
+## License
 
 Released under the [Apache-2.0 License](LICENSE).

@@ -51,6 +51,28 @@ class Diagnostics:
             for r in self.store.get_all_sites()
         ]
 
+    def overview(self) -> dict[str, Any]:
+        """System-level aggregated telemetry summary across all sites."""
+        all_sites = self.sites()
+        total_decisions = sum(s.get("observations", 0) for s in all_sites)
+        total_fast_path = sum(s.get("fallbacks_avoided", 0) for s in all_sites)
+        total_verified = sum(s.get("verified_fast_path_decisions", 0) for s in all_sites)
+        total_estimated_saved = sum(s.get("estimated_cost_saved", 0.0) for s in all_sites)
+        total_model_calls_avoided = sum(s.get("model_calls_avoided", 0) or 0 for s in all_sites)
+        fast_path_ratio = (total_fast_path / total_decisions) if total_decisions else 0.0
+
+        status_counts = Counter(s.get("state", "OBSERVE") for s in all_sites)
+        return {
+            "sites_count": len(all_sites),
+            "total_decisions": total_decisions,
+            "total_fast_path": total_fast_path,
+            "total_verified": total_verified,
+            "fast_path_ratio": round(fast_path_ratio, 4),
+            "estimated_cost_saved": round(total_estimated_saved, 6),
+            "model_calls_avoided": total_model_calls_avoided,
+            "status_breakdown": dict(status_counts),
+        }
+
     def profile(self, site: str | DecisionSite) -> dict[str, Any]:
         """Historical latency, token, and error profile for a decision site."""
         resolved_site = self.client._resolve(site)
@@ -181,6 +203,24 @@ class Diagnostics:
         else:
             blocker = f"status_{artifact['status'].lower()}"
 
+        independent_verified_count = sum(
+            1
+            for r in rows
+            if r.get("outcome")
+            and r["outcome"].get("verifier")
+            not in (None, "observed", "observed_host", "unverified_divergence")
+        )
+        if rows:
+            unverified_ratio = (len(rows) - independent_verified_count) / len(rows)
+            if unverified_ratio > 0.50:
+                verifier_risk_level = "high"
+            elif unverified_ratio > 0.15:
+                verifier_risk_level = "medium"
+            else:
+                verifier_risk_level = "low"
+        else:
+            verifier_risk_level = "low"
+
         return {
             "name": resolved_site.name,
             "version": resolved_site.version,
@@ -194,8 +234,12 @@ class Diagnostics:
                 "implementation": (
                     self.engines["decision"].name if self.engines.get("decision") else None
                 ),
-                "policy_model_id": getattr(getattr(self.engines.get("decision"), "backend", None), "model_id", None),
-                "backend": getattr(getattr(self.engines.get("decision"), "backend", None), "backend_name", None),
+                "policy_model_id": getattr(
+                    getattr(self.engines.get("decision"), "backend", None), "model_id", None
+                ),
+                "backend": getattr(
+                    getattr(self.engines.get("decision"), "backend", None), "backend_name", None
+                ),
             },
             "state": artifact["status"] if artifact else "OBSERVE",
             "blocker": blocker,
@@ -221,6 +265,11 @@ class Diagnostics:
             "savings_basis": "declared_and_validated_fixed_call_count"
             if resolved_site.fallback_model_calls is not None
             else "unknown",
+            "estimated_cost_saved": round(len(fast) * profiler.fallback_cost_per_decision, 6)
+            if profiler.fallback_cost_per_decision > 0
+            else 0.0,
+            "independent_verified_count": independent_verified_count,
+            "verifier_risk_level": verifier_risk_level,
             "outcome_completeness": sum(r["outcome"] is not None for r in rows) / len(rows)
             if rows
             else 0,
@@ -234,9 +283,7 @@ class Diagnostics:
             "evidence": json.loads(artifact["evidence"])
             if artifact and artifact["evidence"]
             else None,
-            "lifecycle": self.store.get_events(artifact["id"])
-            if artifact
-            else [],
+            "lifecycle": self.store.get_events(artifact["id"]) if artifact else [],
             "auto_maintenance": self.client._auto_maintenance,
             "selected_engine": artifact["payload"]["engine_data"]["engine"] if artifact else None,
             "engine_metadata": get_engine_metadata(
@@ -246,22 +293,42 @@ class Diagnostics:
             if artifact and "engine_data" in artifact["payload"]
             else None,
             "policy_model_id": (
-                getattr(getattr(self.client.engines.get("decision"), "backend", None), "model_id", None)
-                if self.client._model_enabled else None
+                getattr(
+                    getattr(self.client.engines.get("decision"), "backend", None), "model_id", None
+                )
+                if self.client._model_enabled
+                else None
             ),
             "policy_model_version": (
-                getattr(getattr(self.client.engines.get("decision"), "backend", None), "model_version", None)
-                if self.client._model_enabled else None
+                getattr(
+                    getattr(self.client.engines.get("decision"), "backend", None),
+                    "model_version",
+                    None,
+                )
+                if self.client._model_enabled
+                else None
             ),
             "checkpoint_revision": (
-                getattr(getattr(self.client.engines.get("decision"), "backend", None), "checkpoint_revision", None)
-                if self.client._model_enabled else None
+                getattr(
+                    getattr(self.client.engines.get("decision"), "backend", None),
+                    "checkpoint_revision",
+                    None,
+                )
+                if self.client._model_enabled
+                else None
             ),
             "policy_backend": (
-                getattr(getattr(self.client.engines.get("decision"), "backend", None), "backend_name", None)
-                if self.client._model_enabled else None
+                getattr(
+                    getattr(self.client.engines.get("decision"), "backend", None),
+                    "backend_name",
+                    None,
+                )
+                if self.client._model_enabled
+                else None
             ),
-            "representation_version": artifact["payload"].get("representation", {}).get("version", "none")
+            "representation_version": artifact["payload"]
+            .get("representation", {})
+            .get("version", "none")
             if artifact
             else None,
             "exact_coverage_count": len(artifact["profile"].get("coverage", {}))
@@ -273,7 +340,11 @@ class Diagnostics:
             if artifact and artifact.get("profile")
             else 0,
             "qualified_semantic_region_count": len(
-                (json.loads(artifact["evidence"]) if isinstance(artifact.get("evidence"), str) else (artifact.get("evidence") or {})).get("qualified_semantic_regions", [])
+                (
+                    json.loads(artifact["evidence"])
+                    if isinstance(artifact.get("evidence"), str)
+                    else (artifact.get("evidence") or {})
+                ).get("qualified_semantic_regions", [])
             )
             if artifact and artifact.get("evidence")
             else 0,
@@ -452,7 +523,9 @@ class Diagnostics:
         if not cov_data:
             return []
         cov_engine = CoverageEngine.from_dict(cov_data)
-        return [self.region_health(resolved_site, reg.region_id) for reg in cov_engine.semantic_regions]
+        return [
+            self.region_health(resolved_site, reg.region_id) for reg in cov_engine.semantic_regions
+        ]
 
     def utility(self) -> dict[str, Any]:
         """Diagnostics regarding policy model utility gating."""

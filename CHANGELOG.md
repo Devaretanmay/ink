@@ -6,6 +6,18 @@ All notable, user-facing changes to Ink. This project follows
 The PyPI distribution is **`ink-jit`** (`pip install ink-jit`); the Python import is
 **`ink`** and the CLI is **`ink`**.
 
+## [0.7.0] - 2026-10-16
+
+### Local Developer Workbench & Safety Hardening
+
+- **Local Developer Console (`ink ui`)**: Self-contained, zero-external-dependency web console styled in monochromatic Halftone Dot Art aesthetic, served on localhost.
+- **Decision Explorer & Traces**: Interactive decision inspection with automatic PII redaction, pagination, and side-effect-free in-memory counterfactual replay.
+- **Localhost HTTP Security**: Strict `Host` and `Origin` header validation protecting against DNS rebinding and cross-site attacks, a 1MB payload ceiling, and local authorization tokens required for control writes.
+- **Evidence Qualification Hardening**: Conservative denominator preservation for unverified disagreements and unknown outcomes under 95% Wilson confidence intervals and Hoeffding lower bounds.
+- **Fair Canary Allocation**: Stable task-anchored hashing across multi-step workflows; anchored to rollout IDs to prevent experiment reshuffling on artifact recompilation; request-level random assignment fallback when `task_id` is omitted.
+- **SQLite Concurrency & Compatibility**: Resilient serving policy persistence with graceful schema fallbacks on unmigrated legacy databases.
+- **Documentation & Positioning**: Overhauled documentation suite, 2-minute quickstart, and CLI manual in direct, code-first developer voice.
+
 ## [0.6.1] - 2026-10-10
 
 - Completely removed experimental web console and dashboard server.

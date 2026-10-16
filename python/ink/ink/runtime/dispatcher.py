@@ -119,7 +119,9 @@ class Dispatcher:
         loaded = []
         for row in self.store.get_artifacts_for_site(site_version):
             row["payload"] = json.loads(row["payload"])
-            engine_name = resolve_engine_key(row["payload"].get("engine_data", {}).get("engine", ""))
+            engine_name = resolve_engine_key(
+                row["payload"].get("engine_data", {}).get("engine", "")
+            )
             if engine_name not in ("exact", "linear"):
                 continue
             if digest(row["payload"]) != row["checksum"]:
@@ -166,7 +168,7 @@ class Dispatcher:
         return base_rate
 
     def route(
-        self, site: DecisionSite, state: dict[str, Any]
+        self, site: DecisionSite, state: dict[str, Any], task_id: str | None = None
     ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, str | None]:
         """Serve strictly through qualified Exact, then qualified Linear, then Host."""
         if self.client._disable_fast_path or self.client._globally_disabled:
@@ -181,7 +183,7 @@ class Dispatcher:
         shadow_result = None
         last_reason = "outside_coverage"
         for artifact in artifacts:
-            routed = self._route_artifact(site, state, artifact)
+            routed = self._route_artifact(site, state, artifact, task_id=task_id)
             _, prediction, reason = routed
             if reason is None or reason == "comparison":
                 return routed
@@ -191,7 +193,11 @@ class Dispatcher:
         return shadow_result or (artifacts[-1], None, last_reason)
 
     def _route_artifact(
-        self, site: DecisionSite, state: dict[str, Any], artifact: dict[str, Any]
+        self,
+        site: DecisionSite,
+        state: dict[str, Any],
+        artifact: dict[str, Any],
+        task_id: str | None = None,
     ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, str | None]:
         """Evaluate one serving artifact. Never evaluates a Policy Model."""
         try:
@@ -251,7 +257,8 @@ class Dispatcher:
             if (is_semantic_shadow or level == "semantic") and has_proto:
                 engine_data = payload["engine_data"]
                 uses_compiled_small = engine_data.get("representation_strategy") in (
-                    "small", "structured_small"
+                    "small",
+                    "structured_small",
                 )
                 if (
                     engine_data.get("engine") == "exact"
@@ -306,10 +313,9 @@ class Dispatcher:
                             return artifact, prediction, "stale_evidence_identity"
                         eng_key = resolve_engine_key(payload["engine_data"]["engine"])
                         if eng_key == "decision" and self.engines.get("decision"):
-                            curr_rev = (
-                                getattr(self.engines["decision"], "checkpoint_hash", None)
-                                or getattr(self.engines["decision"], "model_id", None)
-                            )
+                            curr_rev = getattr(
+                                self.engines["decision"], "checkpoint_hash", None
+                            ) or getattr(self.engines["decision"], "model_id", None)
                             if (
                                 ev_data.get("model_revision") not in ("none", None, "decision")
                                 and curr_rev
@@ -321,6 +327,31 @@ class Dispatcher:
 
             if artifact["status"] != "ACTIVE" or profile is None or is_semantic_shadow:
                 return artifact, prediction, "shadow"
+
+            # Governed serving policy check (Canary rollout & emergency Host override)
+            try:
+                serving_policy = self.store.get_serving_policy(site.version)
+                mode = serving_policy.get("mode", "ACTIVE")
+                if mode == "HOST_OVERRIDE":
+                    return artifact, prediction, "host_override"
+                if mode == "SHADOW":
+                    return artifact, prediction, "shadow"
+                if mode == "CANARY":
+                    canary_rate = float(serving_policy.get("canary_rate", 1.0))
+                    if canary_rate < 1.0:
+                        # Stable experiment unit: explicit task_id matching outcome measurement.
+                        # When task_id is omitted, canary assignment defaults to per-request random distribution
+                        # (workflow stickiness across multi-step execution requires an explicit task_id).
+                        unit = task_id or uuid.uuid4().hex
+                        # Anchor experiment to rollout_id so recompiling an artifact does not reshuffle active experiments
+                        rollout_id = serving_policy.get("rollout_id") or site.version
+                        key_material = f"{site.version}:canary:{rollout_id}:{unit}"
+                        h = int(digest(key_material)[:8], 16) / 0xFFFFFFFF
+                        if h >= canary_rate:
+                            return artifact, prediction, "canary_holdout"
+            except Exception:
+                pass
+
             if (
                 choice != region.get("choice")
                 or prediction["confidence"] < profile["requirements"]["min_confidence"]
@@ -553,9 +584,20 @@ class Dispatcher:
         # Route via client._route to preserve monkeypatching in existing test suites
         route_fn = getattr(self.client, "_route", self.route)
         try:
-            artifact, prediction, reason = route_fn(resolved_site, encoded_state)
+            try:
+                sig = inspect.signature(route_fn)
+                if "task_id" in sig.parameters:
+                    artifact, prediction, reason = route_fn(
+                        resolved_site, encoded_state, task_id=task_id
+                    )
+                else:
+                    artifact, prediction, reason = route_fn(resolved_site, encoded_state)
+            except (TypeError, ValueError):
+                artifact, prediction, reason = route_fn(resolved_site, encoded_state)
         except (sqlite3.Error, OSError, KeyError, ValueError, RuntimeError) as exc:
-            logger.warning("Fast path routing error for site %s: %s; failing open", resolved_site.name, exc)
+            logger.warning(
+                "Fast path routing error for site %s: %s; failing open", resolved_site.name, exc
+            )
             artifact, prediction, reason = None, None, "engine_or_store_unavailable"
 
         save_fn = getattr(self.client, "_save", self.save)
@@ -681,11 +723,24 @@ class Dispatcher:
         # Offload route check to thread to avoid blocking loop
         route_fn = getattr(self.client, "_route", self.route)
         try:
-            artifact, prediction, reason = await asyncio.to_thread(
-                route_fn, resolved_site, encoded_state
-            )
+            try:
+                sig = inspect.signature(route_fn)
+                if "task_id" in sig.parameters:
+                    artifact, prediction, reason = await asyncio.to_thread(
+                        route_fn, resolved_site, encoded_state, task_id=task_id
+                    )
+                else:
+                    artifact, prediction, reason = await asyncio.to_thread(
+                        route_fn, resolved_site, encoded_state
+                    )
+            except (TypeError, ValueError):
+                artifact, prediction, reason = await asyncio.to_thread(
+                    route_fn, resolved_site, encoded_state
+                )
         except (sqlite3.Error, OSError, KeyError, ValueError, RuntimeError) as exc:
-            logger.warning("Fast path routing error for site %s: %s; failing open", resolved_site.name, exc)
+            logger.warning(
+                "Fast path routing error for site %s: %s; failing open", resolved_site.name, exc
+            )
             artifact, prediction, reason = None, None, "engine_or_store_unavailable"
 
         save_fn = getattr(self.client, "_save", self.save)

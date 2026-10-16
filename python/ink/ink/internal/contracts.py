@@ -59,6 +59,30 @@ class PolicyUtilityEvidence:
     reason: str
 
 
+class ServingMode(StrEnum):
+    """Governed runtime serving authority mode."""
+
+    ACTIVE = "ACTIVE"  # 100% qualified fast-path serving
+    CANARY = "CANARY"  # Deterministic % canary rollout for qualified artifact
+    SHADOW = "SHADOW"  # Shadow evaluation only; Host always serves
+    HOST_OVERRIDE = "HOST_OVERRIDE"  # Emergency override forcing 100% Host serving
+
+
+@dataclass(frozen=True)
+class ServingPolicy:
+    """Governed serving policy configuring rollout rates and overrides."""
+
+    mode: str = "ACTIVE"
+    canary_rate: float = 1.0
+    updated_at: float = 0.0
+
+    def __post_init__(self):
+        if self.mode not in ("ACTIVE", "CANARY", "SHADOW", "HOST_OVERRIDE"):
+            raise ValueError(f"Invalid serving mode: {self.mode}")
+        if not math.isfinite(self.canary_rate) or not 0.0 <= self.canary_rate <= 1.0:
+            raise ValueError("canary_rate must be finite and between 0.0 and 1.0")
+
+
 @dataclass(frozen=True)
 class DecisionSite:
     name: str
@@ -119,7 +143,9 @@ class DecisionSite:
                     "boolean?",
                 }
             ):
-                raise ContractError("Schema fields use string, integer, number, boolean, optionally ?")
+                raise ContractError(
+                    "Schema fields use string, integer, number, boolean, optionally ?"
+                )
 
     @property
     def version(self) -> str:
@@ -403,7 +429,11 @@ class InkArtifact:
             return default
 
     def __contains__(self, key: str) -> bool:
-        return key == "site" or hasattr(self, key) or (isinstance(self.payload, dict) and key in self.payload)
+        return (
+            key == "site"
+            or hasattr(self, key)
+            or (isinstance(self.payload, dict) and key in self.payload)
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -446,6 +476,3 @@ class MaintenanceOutcome(dict):
     @property
     def reason(self):
         return self["reason"]
-
-
-

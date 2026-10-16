@@ -1,8 +1,8 @@
-# Getting Started with Ink
+# Getting started with Ink
 
-Ink is the Behavior JIT for production AI systems.
+Ink is a Behavior JIT (Just-In-Time compiler) for production AI systems.
 
-Production AI systems accumulate behavioral knowledge over time. Once that behavior is independently proven, it should become software instead of being rented repeatedly from a general-purpose model.
+When an AI agent runs in production, it repeatedly calls expensive frontier models for bounded decisions: choosing a tool, routing a customer ticket, or picking a workflow branch. Ink records whether those decisions actually succeeded, qualifies proven behavior using statistical confidence intervals, and compiles it into local Python code that runs in **0.1 milliseconds for $0.00**.
 
 > **Models handle novelty. Ink turns proven behavior into software.**
 
@@ -22,30 +22,30 @@ Or using uv:
 uv add ink-jit
 ```
 
-Ink supports Python 3.11, 3.12, and 3.13 on Linux and macOS (including Apple Silicon Metal acceleration).
+*Supports Python 3.11, 3.12, and 3.13 on Linux and macOS (with Apple Silicon Metal acceleration). No cloud accounts or API keys required.*
 
 ---
 
-## 5-Minute Quickstart
+## 2-Minute quickstart
 
-This example registers a bounded DecisionSite, resolves decisions through Ink, and records verified outcomes.
+Here is how you instrument a decision point, resolve decisions through Ink, and record real-world outcomes.
 
 ```python
 from ink import DecisionSite, Ink
 
-# 1. Initialize local evidence storage (SQLite with WAL mode)
+# 1. Initialize local evidence storage (SQLite in WAL mode)
 ink = Ink(".ink/decisions.db")
 
-# 2. Define a bounded DecisionSite
+# 2. Define a bounded DecisionSite contract
 site = DecisionSite(
     name="support.route",
-    description="Customer ticket dispatch queue",
     choices=("billing", "technical", "account"),
     state_schema={"query": "string"},
+    local_error_budget=0.01,  # 99% accuracy required before local serving
 )
 ink.register(site)
 
-# 3. Define your existing Host model fallback
+# 3. Define your existing slow/expensive model fallback
 def call_host_model(state: dict) -> str:
     # Your existing LLM call (e.g. Claude, GPT-4o, Gemini)
     query = state["query"].lower()
@@ -57,7 +57,7 @@ def call_host_model(state: dict) -> str:
 
 # 4. Resolve decisions through Ink
 # When unverified: routes to call_host_model
-# When qualified: executes local Fast Path in sub-milliseconds
+# When qualified: runs locally in < 0.1ms without network calls
 state = {"query": "Where can I view my March invoice?"}
 result = ink.decide(
     site=site,
@@ -66,13 +66,13 @@ result = ink.decide(
 )
 
 print(f"Choice: {result.choice} | Source: {result.source}")
-# Output: Choice: billing | Source: fallback
+# Output: Choice: billing | Source: fallback (or fast_path once qualified)
 
 # 5. Record verified outcome after downstream action completes
-# Outcome provenance matters: feed back real execution signals
+# Feed back ground-truth signals (API success, database commit, human approval):
 ink.record_outcome(
     decision_id=result.decision_id,
-    quality=1.0,  # 1.0 = verified success, 0.0 = verified error
+    quality=1.0,  # 1.0 = verified success, 0.0 = error
     verifier="support_triage_team",
     verifier_version="v1",
 )
@@ -80,23 +80,61 @@ ink.record_outcome(
 
 ---
 
-## The JIT Lifecycle in Practice
+## Or use the `@ink.wrap` decorator
 
-Every DecisionSite progresses through five continuous stages:
+If you don't want to change your function signature, wrap it directly:
 
-1. **Observe**: Initial traffic routes 100% to your Host model. Ink records states, choices, and verified outcomes in local SQLite storage.
-2. **Compile**: When sufficient verified evidence accumulates, Ink compiles candidate local execution engines (`ExactEngine` or `LinearClassifierEngine`).
-3. **Qualify**: Ink evaluates candidates against independent holdout data. A candidate must satisfy the site error budget under a 95% Wilson confidence lower bound.
-4. **Serve**: Once qualified, matching production requests execute locally in sub-milliseconds without token fees or network latency.
-5. **Verify**: Ink samples live traffic to detect drift. When reevaluation detects rising error rates, Ink revokes local authority back to the Host model.
+```python
+from ink import Ink
+
+ink = Ink(".ink/decisions.db")
+
+@ink.wrap("support.route", choices=["billing", "technical", "account"])
+def route_ticket(query: str):
+    # Your model call goes here
+    return my_expensive_llm(query)
+
+# Calls your model until qualified; runs locally in 0.08ms afterward:
+decision = route_ticket("Where is my March invoice?")
+print(decision.choice)
+```
 
 ---
 
-## Next Steps
+## Open the local console
 
-- **Understand the Category**: Read [Why Ink](why-ink.md) for comparisons against caches, classifiers, and fine-tuning.
-- **Audit Your First Decision**: See [Decision Audit](decision-audit.md) to evaluate your highest-volume model boundaries.
-- **Learn the Core Primitives**: Explore [Concepts](concepts.md).
-- **Inspect System Architecture**: Read [Architecture](architecture.md).
-- **Review Safety Contracts**: Read [Production Safety](production-safety.md).
-- **Integrate with Frameworks**: See [Integration](integration.md) for LangGraph and PydanticAI adapters.
+Ink includes a zero-dependency, local halftone console to inspect your system:
+
+```bash
+ink ui
+```
+
+Open `http://localhost:4242` in your browser. You can:
+- Watch your fast-path hit rate climb in real time.
+- See total dollars and model calls saved.
+- Inspect the raw state payload of past decisions.
+- Inspect in-memory predictions against historical states without side effects.
+- View serving policy status (`ACTIVE`, `CANARY`, `SHADOW`, `HOST_OVERRIDE`).
+
+---
+
+## The JIT lifecycle in practice
+
+Every DecisionSite moves through 5 continuous stages:
+
+1. **Observe:** 100% of traffic routes to your model. Ink records inputs, decisions, and real-world outcomes in local SQLite storage.
+2. **Compile:** When enough verified evidence accumulates, Ink compiles local execution artifacts (`ExactEngine` hash table or `LinearClassifierEngine`).
+3. **Qualify:** Ink tests candidates against independent holdout data. A candidate must satisfy your site's error budget under a **95% Wilson confidence lower bound**.
+4. **Serve:** Once qualified, matching production requests run locally in sub-milliseconds with zero token bills.
+5. **Verify:** Ink sends a small sample of live traffic to your model in parallel to check for drift. If error rates rise, Ink automatically demotes the artifact and hands traffic back to your model.
+
+---
+
+## Next steps
+
+- **Category comparison:** Read [Why Ink](why-ink.md) for how Ink compares to caches, classifiers, and fine-tuning.
+- **Audit your first decision:** Check out the [Decision audit](decision-audit.md) guide.
+- **Learn the core concepts:** Explore [Concepts](concepts.md).
+- **Inspect the architecture:** Read [Architecture](architecture.md).
+- **Understand safety contracts:** Read [Production safety](production-safety.md).
+- **Integrate with agent frameworks:** See [Integration](integration.md) for LangGraph and PydanticAI.

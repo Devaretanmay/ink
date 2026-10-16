@@ -1,28 +1,28 @@
-# Decision Audit
+# Decision audit
 
-A Decision Audit is the structured evaluation process Ink uses to determine whether an existing production AI decision can safely become owned software.
+A Decision Audit is the structured evaluation process we use to figure out whether an existing production AI decision can safely become local software.
 
-The engagement offer is straightforward:
+Here is the deal:
 
 > **Give us one high-volume bounded model decision. We will determine whether any portion of it has a defensible path toward local serving authority.**
 
 ---
 
-## Why Audit Before Integrating?
+## Why audit before integrating?
 
 Not every AI decision should become local software.
 
-If a decision requires unbounded natural language generation, lacks ground-truth verification signals, or experiences continuous non-stationary drift, local compilation is inappropriate.
+If a decision requires unbounded natural language generation, lacks ground-truth verification signals, or experiences continuous non-stationary drift, local compilation is a bad idea.
 
 Ink conducts an audit to establish whether empirical evidence justifies local serving authority.
 
 > [!IMPORTANT]
-> **A negative result is a valid outcome.**
-> If an audit reveals that a workload cannot satisfy statistical safety contracts or lacks defensible outcome verification, Ink will explicitly advise against compilation. We will never weaken qualification thresholds or relax error budgets to manufacture a positive result.
+> **A negative result is a good outcome.**
+> If an audit reveals that your workload can't satisfy statistical safety contracts or lacks reliable outcome verification, we will tell you not to compile it. We never weaken qualification thresholds or relax error budgets just to manufacture a positive pilot.
 
 ---
 
-## The 15-Point Audit Checklist
+## The 15-point audit checklist
 
 Every Decision Audit analyzes the target decision across fifteen specific dimensions:
 
@@ -46,7 +46,7 @@ Every Decision Audit analyzes the target decision across fifteen specific dimens
 
 ---
 
-## The Audit Lifecycle
+## The audit lifecycle
 
 ```text
 Discovery & Trace Ingestion
@@ -76,7 +76,7 @@ Using existing trace logs (OpenTelemetry, LangSmith, LiteLLM, or JSONL), Ink sca
 ink discover traces.jsonl --profile
 ```
 
-### Stage 2: Contract Formalization
+### Stage 2: Contract formalization
 If candidate sites appear viable, an explicit `DecisionSite` contract is defined:
 
 ```python
@@ -86,37 +86,43 @@ site = DecisionSite(
     name="order.routing",
     state_schema={"customer_tier": "string", "query": "string"},
     choices=("standard_queue", "priority_queue", "fraud_review"),
+    local_error_budget=0.01,
 )
 ```
 
-### Stage 3: Outcome Provenance Verification
+### Stage 3: Outcome provenance verification
 We examine how downstream systems report success:
-- **Strong**: Deterministic API responses, explicit human agent confirmations, completed payments, regression test suites.
-- **Weak**: Model-as-a-judge scores, speculative heuristics, self-reported agent assertions.
+- **Strong:** Deterministic API responses, explicit human agent confirmations, completed payments, regression test suites.
+- **Weak:** Model-as-a-judge scores, speculative heuristics, self-reported agent assertions.
+
 If the outcome source is weak, the audit focuses on instrumenting a reliable verifier before compiling candidates.
 
-### Stage 4: Statistical Safety Simulation
-Ink calculates the sample depth $n$ required to prove that the Wilson 95% confidence lower bound clears $1.0 - \text{Error Budget}$:
+### Stage 4: Statistical safety simulation
+Ink calculates the sample depth $n$ required to prove that the Wilson 95% confidence lower bound clears $1.0 - \text{local\_error\_budget}$:
 
-$$\text{Wilson Lower Bound}(k, n) \ge 1.0 - \text{Error Budget}$$
+$$\text{Wilson Lower Bound}(k, n) \ge 1.0 - \text{local\_error\_budget}$$
 
 If the required sample volume cannot realistically be collected within the desired timeframe, the decision site remains in `OBSERVE` mode.
 
 ---
 
-## Audit Outcomes
+## Audit outcomes
 
-An audit delivers one of three formal recommendations:
+An audit delivers one of three recommendations:
 
-1. **Qualified for Immediate Shadowing**:
+1. **Qualified for immediate shadowing:**
    The decision is bounded, outcomes are verifiable, and recurrence is high. Ink installs a DecisionSite in shadow mode to accumulate evidence.
-2. **Instrument Outcome Feedback First**:
+2. **Instrument outcome feedback first:**
    The decision boundary is well-suited, but ground-truth outcome signals are currently missing or low-integrity. We define the verification signal before compiling.
-3. **Reject for Local Compilation**:
+3. **Reject for local compilation:**
    The workload is open-ended, lacks repeatable structure, or tolerates zero risk with insufficient volume. The workload remains permanently with the Host model.
 
 ---
 
-## Request an Audit
+## Run an audit today
 
-To evaluate a production decision site, run `ink discover` on your existing traces or contact our engineering team to review a high-volume candidate boundary.
+To evaluate a production decision site, run `ink discover` on your existing traces:
+
+```bash
+ink discover traces.jsonl --profile
+```

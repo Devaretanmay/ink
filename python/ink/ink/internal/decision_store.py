@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import math
 import sqlite3
 import threading
 import time
@@ -11,6 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from .contracts import InkArtifact, canonical
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 6
 
@@ -109,6 +113,11 @@ SCHEMA = [
        checkpoint_revision TEXT NOT NULL,
        state TEXT NOT NULL,
        evidence_json TEXT NOT NULL,
+       updated_at REAL NOT NULL)""",
+    """CREATE TABLE IF NOT EXISTS site_serving_policies(
+       site_version TEXT PRIMARY KEY,
+       mode TEXT NOT NULL DEFAULT 'ACTIVE',
+       canary_rate REAL NOT NULL DEFAULT 1.0,
        updated_at REAL NOT NULL)""",
 ]
 
@@ -519,6 +528,7 @@ class DecisionStore:
                     )
 
             import uuid
+
             epoch_id = f"ep-{uuid.uuid4().hex[:12]}"
             db.execute(
                 """INSERT INTO evidence_epochs VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
@@ -676,8 +686,11 @@ class DecisionStore:
         rows = self.rows("SELECT * FROM sites WHERE name=? ORDER BY created DESC LIMIT 1", (name,))
         return rows[0] if rows else None
 
-    def get_site_contract(self, name: str) -> str | None:
-        rows = self.rows("SELECT contract FROM sites WHERE name=? ORDER BY created DESC LIMIT 1", (name,))
+    def get_site_contract(self, name_or_version: str) -> str | None:
+        rows = self.rows(
+            "SELECT contract FROM sites WHERE name=? OR version=? ORDER BY created DESC LIMIT 1",
+            (name_or_version, name_or_version),
+        )
         return rows[0]["contract"] if rows else None
 
     def get_all_sites(self) -> list[dict]:
@@ -685,7 +698,10 @@ class DecisionStore:
 
     def save_site(self, version: str, name: str, contract_json: str, created: float):
         with self.transaction() as db:
-            db.execute("INSERT OR IGNORE INTO sites VALUES (?,?,?,?)", (version, name, contract_json, created))
+            db.execute(
+                "INSERT OR IGNORE INTO sites VALUES (?,?,?,?)",
+                (version, name, contract_json, created),
+            )
 
     def get_artifact(self, artifact_id: str) -> dict | None:
         rows = self.rows("SELECT * FROM artifacts WHERE id=?", (artifact_id,))
@@ -693,7 +709,9 @@ class DecisionStore:
 
     def get_artifact_for_site(self, site_version: str, status: str | None = None) -> dict | None:
         if status:
-            rows = self.rows("SELECT * FROM artifacts WHERE site=? AND status=?", (site_version, status))
+            rows = self.rows(
+                "SELECT * FROM artifacts WHERE site=? AND status=?", (site_version, status)
+            )
         else:
             rows = self.rows(
                 "SELECT * FROM artifacts WHERE site=? AND status!='RETIRED' ORDER BY epoch DESC LIMIT 1",
@@ -701,9 +719,7 @@ class DecisionStore:
             )
         return rows[0] if rows else None
 
-    def get_artifacts_for_site(
-        self, site_version: str, status: str | None = None
-    ) -> list[dict]:
+    def get_artifacts_for_site(self, site_version: str, status: str | None = None) -> list[dict]:
         """Return live artifacts in serving order: Exact, then Linear.
 
         Policy-model artifacts are deliberately excluded from this production
@@ -755,7 +771,9 @@ class DecisionStore:
             ).fetchone()
             if previous:
                 if not replace_existing:
-                    raise ValueError("Site already has a candidate; explicitly replace to recompile")
+                    raise ValueError(
+                        "Site already has a candidate; explicitly replace to recompile"
+                    )
                 db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (previous["id"],))
                 self.record_event(
                     previous["id"],
@@ -777,7 +795,9 @@ class DecisionStore:
                     evidence_json,
                 ),
             )
-            self.record_event(artifact_id, "NONE", status, json.dumps({"reason": "compiled"}), db=db)
+            self.record_event(
+                artifact_id, "NONE", status, json.dumps({"reason": "compiled"}), db=db
+            )
 
     def retire_artifact(self, artifact_id: str, replaced_by: str | None = None, db=None):
         detail = json.dumps({"replaced_by": replaced_by}) if replaced_by else "{}"
@@ -867,7 +887,9 @@ class DecisionStore:
             db.execute("UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id))
         else:
             with self.transaction() as conn:
-                conn.execute("UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id))
+                conn.execute(
+                    "UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id)
+                )
 
     def record_event(
         self,
@@ -952,7 +974,9 @@ class DecisionStore:
             ).fetchone()
             if dec is None:
                 raise KeyError(f"Unknown decision ID: {decision_id}")
-            prev = db.execute("SELECT payload FROM outcomes WHERE decision=?", (decision_id,)).fetchone()
+            prev = db.execute(
+                "SELECT payload FROM outcomes WHERE decision=?", (decision_id,)
+            ).fetchone()
             if prev is not None:
                 raise ValueError("Outcome already recorded for decision")
             db.execute("INSERT INTO outcomes VALUES (?,?,?)", (decision_id, payload_json, ts))
@@ -984,8 +1008,163 @@ class DecisionStore:
         )
         return (rows[0]["fast_count"] or 0) if rows else 0
 
+    def query_decisions(
+        self,
+        site: str | None = None,
+        source: str | None = None,
+        reason: str | None = None,
+        has_outcome: bool | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[dict], int]:
+        clauses = []
+        params = []
+        if site:
+            clauses.append("d.site = ?")
+            params.append(site)
+        if source:
+            clauses.append("d.source = ?")
+            params.append(source)
+        if reason:
+            clauses.append("d.reason = ?")
+            params.append(reason)
+        if has_outcome is True:
+            clauses.append("o.payload IS NOT NULL")
+        elif has_outcome is False:
+            clauses.append("o.payload IS NULL")
+
+        where_sql = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+        count_sql = f"""
+            SELECT COUNT(*) as total
+            FROM decisions d
+            LEFT JOIN outcomes o ON o.decision = d.id
+            {where_sql}
+        """
+        total_rows = self.rows(count_sql, tuple(params))
+        total = total_rows[0]["total"] if total_rows else 0
+
+        data_sql = f"""
+            SELECT d.*, o.payload AS outcome
+            FROM decisions d
+            LEFT JOIN outcomes o ON o.decision = d.id
+            {where_sql}
+            ORDER BY d.created DESC
+            LIMIT ? OFFSET ?
+        """
+        data_params = tuple(params) + (max(1, min(limit, 500)), max(0, offset))
+        rows = self.rows(data_sql, data_params)
+        for row in rows:
+            for key in ("state", "usage", "prediction", "outcome"):
+                row[key] = json.loads(row[key]) if row[key] else None
+        return rows, total
+
+    def get_serving_policy(self, site_version: str) -> dict[str, Any]:
+        """Retrieves serving policy for a site version.
+
+        Invariants:
+        1. Legacy schema compatibility: If site_serving_policies table is missing,
+           returns default ACTIVE (canary_rate=1.0).
+        2. Fail-safe safety controls: On operational database failure (corruption,
+           locked db, disk error), returns HOST_OVERRIDE (canary_rate=0.0) so traffic
+           fails safe to the Host model without overriding safety controls.
+        """
+        try:
+            rows = self.rows(
+                "SELECT * FROM site_serving_policies WHERE site_version=?", (site_version,)
+            )
+            if rows:
+                return {
+                    "site_version": rows[0]["site_version"],
+                    "mode": rows[0]["mode"],
+                    "canary_rate": float(rows[0]["canary_rate"]),
+                    "updated_at": float(rows[0]["updated_at"]),
+                }
+            return {
+                "site_version": site_version,
+                "mode": "ACTIVE",
+                "canary_rate": 1.0,
+                "updated_at": 0.0,
+            }
+        except sqlite3.OperationalError as op_err:
+            err_str = str(op_err).lower()
+            if "no such table" in err_str and "site_serving_policies" in err_str:
+                return {
+                    "site_version": site_version,
+                    "mode": "ACTIVE",
+                    "canary_rate": 1.0,
+                    "updated_at": 0.0,
+                }
+            logger.error(
+                "Operational database failure in get_serving_policy, failing safe to HOST_OVERRIDE: %s",
+                op_err,
+            )
+            return {
+                "site_version": site_version,
+                "mode": "HOST_OVERRIDE",
+                "canary_rate": 0.0,
+                "updated_at": 0.0,
+            }
+        except (sqlite3.DatabaseError, Exception) as exc:
+            logger.error(
+                "Database error in get_serving_policy, failing safe to HOST_OVERRIDE: %s", exc
+            )
+            return {
+                "site_version": site_version,
+                "mode": "HOST_OVERRIDE",
+                "canary_rate": 0.0,
+                "updated_at": 0.0,
+            }
+
+    def set_serving_policy(
+        self, site_version: str, mode: str, canary_rate: float = 1.0
+    ) -> dict[str, Any]:
+        """Atomically persists a serving policy mode and canary rollout rate.
+
+        Invariants:
+        1. ACTIVE or CANARY mode requires a qualified ACTIVE artifact to exist.
+        2. SHADOW and HOST_OVERRIDE can be set unconditionally as safety overrides.
+        """
+        if mode not in ("ACTIVE", "CANARY", "SHADOW", "HOST_OVERRIDE"):
+            raise ValueError(f"Invalid serving mode: {mode}")
+        if not math.isfinite(canary_rate) or not 0.0 <= canary_rate <= 1.0:
+            raise ValueError("canary_rate must be finite and between 0.0 and 1.0")
+
+        # Invariant: Setting ACTIVE or CANARY requires an active artifact to exist
+        if mode in ("ACTIVE", "CANARY"):
+            active = self.get_active_artifact(site_version)
+            if active is None:
+                raise ValueError(
+                    f"Cannot set mode to {mode}: site {site_version} has no qualified ACTIVE artifact"
+                )
+
+        now = time.time()
+        with self.transaction() as db:
+            db.execute(
+                """CREATE TABLE IF NOT EXISTS site_serving_policies(
+                   site_version TEXT PRIMARY KEY,
+                   mode TEXT NOT NULL DEFAULT 'ACTIVE',
+                   canary_rate REAL NOT NULL DEFAULT 1.0,
+                   updated_at REAL NOT NULL)"""
+            )
+            db.execute(
+                """INSERT INTO site_serving_policies(site_version, mode, canary_rate, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(site_version) DO UPDATE SET
+                   mode=excluded.mode, canary_rate=excluded.canary_rate, updated_at=excluded.updated_at""",
+                (site_version, mode, canary_rate, now),
+            )
+        return {
+            "site_version": site_version,
+            "mode": mode,
+            "canary_rate": canary_rate,
+            "updated_at": now,
+        }
+
     def get_site_contracts(self, site_name: str) -> list[dict]:
-        return self.rows("SELECT contract FROM sites WHERE name=? ORDER BY created DESC", (site_name,))
+        return self.rows(
+            "SELECT contract FROM sites WHERE name=? ORDER BY created DESC", (site_name,)
+        )
 
     def get_state_coverage(self, site_version: str) -> list[dict]:
         return self.rows(
@@ -1209,7 +1388,9 @@ class DecisionStore:
             ).fetchone()
             if previous:
                 if not replace_existing:
-                    raise ValueError("Site already has a candidate; explicitly replace to recompile")
+                    raise ValueError(
+                        "Site already has a candidate; explicitly replace to recompile"
+                    )
                 db.execute("UPDATE artifacts SET status='RETIRED' WHERE id=?", (previous["id"],))
                 self.record_event(
                     previous["id"],
@@ -1236,7 +1417,9 @@ class DecisionStore:
                     "INSERT OR IGNORE INTO artifact_links VALUES (?,?,?)",
                     (previous["id"], artifact_id, now),
                 )
-            self.record_event(artifact_id, "OBSERVE", "CANDIDATE", json.dumps({"engine": engine_key}), db=db)
+            self.record_event(
+                artifact_id, "OBSERVE", "CANDIDATE", json.dumps({"engine": engine_key}), db=db
+            )
             db.execute("UPDATE artifacts SET status='SHADOW' WHERE id=?", (artifact_id,))
             self.record_event(artifact_id, "CANDIDATE", "SHADOW", "{}", db=db)
 
@@ -1291,7 +1474,9 @@ class DecisionStore:
     ) -> list[dict]:
         suffix = " AND verified_outcome IS NOT NULL" if verified_only else ""
         rows = self.rows(
-            "SELECT * FROM policy_observations WHERE site=?" + suffix + " ORDER BY created,decision",
+            "SELECT * FROM policy_observations WHERE site=?"
+            + suffix
+            + " ORDER BY created,decision",
             (site_version,),
         )
         for row in rows:
@@ -1320,8 +1505,18 @@ class DecisionStore:
                 previous_status,new_status,support_n,quality,lower_bound,coverage,reason,created)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
                 (
-                    step, site, engine, artifact_id, previous_status, new_status,
-                    support_n, quality, lower_bound, coverage, reason, time.time(),
+                    step,
+                    site,
+                    engine,
+                    artifact_id,
+                    previous_status,
+                    new_status,
+                    support_n,
+                    quality,
+                    lower_bound,
+                    coverage,
+                    reason,
+                    time.time(),
                 ),
             )
 
@@ -1331,13 +1526,25 @@ class DecisionStore:
         )
 
     def record_non_promotion(
-        self, *, step: int, site: str, engine: str, artifact_id: str,
-        reason: str, detail: dict | None = None
+        self,
+        *,
+        step: int,
+        site: str,
+        engine: str,
+        artifact_id: str,
+        reason: str,
+        detail: dict | None = None,
     ) -> None:
         allowed = {
-            "insufficient support", "quality bound failed", "degradation bound failed",
-            "region purity failed", "ambiguity", "OOD", "insufficient comparisons",
-            "QUALITY_FAIL", "INSUFFICIENT_EVIDENCE",
+            "insufficient support",
+            "quality bound failed",
+            "degradation bound failed",
+            "region purity failed",
+            "ambiguity",
+            "OOD",
+            "insufficient comparisons",
+            "QUALITY_FAIL",
+            "INSUFFICIENT_EVIDENCE",
         }
         if reason not in allowed:
             raise ValueError(f"Unknown non-promotion reason: {reason}")
@@ -1374,9 +1581,7 @@ class DecisionStore:
             ).fetchone()
             if not current or current["status"] != "SHADOW" or current["epoch"] != expected_epoch:
                 raise ValueError("Candidate changed during evaluation")
-            db.execute(
-                "UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id)
-            )
+            db.execute("UPDATE artifacts SET evidence=? WHERE id=?", (evidence_json, artifact_id))
             db.execute(
                 "INSERT OR REPLACE INTO promotion_records VALUES (?,?,?,?,?,?,?,?)",
                 promotion_record,
@@ -1385,7 +1590,11 @@ class DecisionStore:
                 self.record_event(artifact_id, "SHADOW", "VERIFIED", evidence_json, db=db)
                 if auto_promote:
                     self.record_event(
-                        artifact_id, "VERIFIED", "ACTIVE", json.dumps({"profile": profile_id}), db=db
+                        artifact_id,
+                        "VERIFIED",
+                        "ACTIVE",
+                        json.dumps({"profile": profile_id}),
+                        db=db,
                     )
                     db.execute(
                         "UPDATE artifacts SET status='ACTIVE',epoch=? WHERE id=?",
@@ -1514,19 +1723,25 @@ class DecisionStore:
         protected_ids = set()
         for art in ([active] if active else []) + (shadows or []):
             try:
-                p_load = json.loads(art["payload"]) if isinstance(art["payload"], str) else art["payload"]
+                p_load = (
+                    json.loads(art["payload"])
+                    if isinstance(art["payload"], str)
+                    else art["payload"]
+                )
                 for part_ids in p_load.get("partitions", {}).values():
                     protected_ids.update(part_ids)
             except (json.JSONDecodeError, TypeError, KeyError):
                 pass
 
         min_epoch = active["epoch"] if active else None
-        for s in (shadows or []):
+        for s in shadows or []:
             if min_epoch is None or s["epoch"] < min_epoch:
                 min_epoch = s["epoch"]
 
         cutoff = before_timestamp if before_timestamp is not None else (min_epoch or time.time())
-        pruned_count, remaining = self.compact_decisions(site_version, keep_recent, cutoff, protected_ids)
+        pruned_count, remaining = self.compact_decisions(
+            site_version, keep_recent, cutoff, protected_ids
+        )
         if active:
             self.record_event(
                 active["id"],

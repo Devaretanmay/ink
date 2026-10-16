@@ -212,9 +212,18 @@ class QualificationOrchestrator:
             r["task"] for r in history if r["id"] in set(sum(payload["partitions"].values(), []))
         }
         shadow = [r for r in shadow if r["task"] not in used_tasks]
-        if any(
-            r["outcome"] is None for r in shadow if canonical(r["state"]) in profile["coverage"]
-        ):
+        def _is_covered(r):
+            st = r["state"]
+            if canonical(st) in profile.get("coverage", {}):
+                return True
+            if profile.get("coverage_engine"):
+                ce = CoverageEngine.from_dict(profile["coverage_engine"])
+                lvl, reg, _ = ce.route(st)
+                if lvl in ("exact", "semantic", "shadow") and reg is not None:
+                    return True
+            return False
+
+        if any(r["outcome"] is None for r in shadow if _is_covered(r)):
             raise ValueError("Missing fresh shadow outcomes; qualification would be biased")
         if len({r["task"] for r in shadow}) < requirements.min_samples:
             raise ValueError("Insufficient fresh shadow tasks with outcomes")
@@ -233,10 +242,12 @@ class QualificationOrchestrator:
         expected_verifiers = {
             (r["candidate"]["verifier"], r["candidate"]["verifier_version"])
             for r in profile["calibration_evidence"]
+            if r.get("candidate") is not None
         }
         current_verifiers = {
             (r["candidate"]["verifier"], r["candidate"]["verifier_version"])
             for r in held_records + shadow_records
+            if r.get("candidate") is not None
         }
         if expected_verifiers != current_verifiers:
             raise ValueError("Verifier changed since calibration")
